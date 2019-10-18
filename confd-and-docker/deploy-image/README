@@ -1,0 +1,64 @@
+A minimal ConfD image
+=====================
+
+Build a ConfD docker containr based on Alpine Linux.
+
+Prerequisites
+-------------
+
+A tar-ball containing the files for a minimal ConfD target
+installation as described in section 31.3 Installing ConfD
+on a target system from the ConfD User Guide.  Note that for older
+ConfD releases target installation is described in section 29.3 in the
+UG.  Also note that the exact list files required for target
+installation sometimes change between releases, this package includes
+target package file lists for ConfD 6.7.5, ConfD 7.1 and ConfD 7.2.0.1.
+
+Dockerfile and instructions for creating the target installation
+tar-ball can be found in the ../target-package-builder directory.
+
+Steps
+-----
+1. Drop the target installation package into the resources directory.
+2. Create the ConfD image
+
+$ docker build --tag confd:v<version> .
+
+3. Run the docker image and expose the NETCONF, CLI and internal IPC ports.
+
+$ docker run -it --rm -p 2022:2022 -p 4565:4565 --init confd:v<version>
+confd[7]: - Starting ConfD vsn: 7.2.0.1
+confd[7]: - Loading file confd.fxs
+confd[7]: - Loading file ietf-yang-types.fxs
+confd[7]: - Loading file ietf-inet-types.fxs
+confd[7]: - Loading file confd_cfg.fxs
+confd[7]: - Loading file config.fxs
+confd[7]: - Loading file netconf.fxs
+
+...
+
+confd[7]: - Loading file /confd/etc/confd/tailf-webui.fxs
+confd[7]: - Loading file /confd/etc/confd/tailf-rollback.fxs
+confd[7]: - Loading file /confd/etc/confd/tailf-kicker.fxs
+confd[7]: - Loading file /confd/etc/confd/tailf-aaa.fxs
+confd[7]: - Loading file /confd/etc/confd/confd.ccl
+confd[7]: - Starting to listen for Internal IPC on 0.0.0.0:4565
+
+4. Test the NETCONF interface
+
+$ netconf-console --hello
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <capabilities>
+    <capability>urn:ietf:params:netconf:base:1.0</capability>
+    <capability>urn:ietf:params:netconf:base:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:writable-running:1.0</capability>
+
+    ...
+
+    <capability>urn:ietf:params:xml:ns:yang:ietf-yang-types?module=ietf-yang-types&amp;revision=2013-07-15</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:base:1.0?module=ietf-netconf&amp;revision=2011-06-01</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults?module=ietf-netconf-with-defaults&amp;revision=2011-06-01</capability>
+  </capabilities>
+  <session-id>12</session-id>
+</hello>

@@ -1,0 +1,141 @@
+Demo of how to integrate postgresql with ConfD
+----------------------------------------------
+
+This demo is and extension of the user_guide_examples/simple_trans
+example with the flat file replaced by a postgresql database.
+
+Setup and start the database (on Debian/Ubuntu):
+------------------------------------------------
+
+$ sudo apt-get install postgresql libpq-dev
+
+Create a user for the database. If you use your own username will be
+able to access the db without making any changes to postgres
+configuration.  files.
+
+$ sudo -u postgres createuser <username>
+
+$ sudo -u postgres psql postgres
+psql (9.5.10)
+Type "help" for help.
+
+postgres=# ALTER USER <username> WITH password '<password>';
+ALTER ROLE
+postgres=# \q
+
+Make sure postgresql is running (Debian/Ubuntu start the server during
+installation but IIRC that is not true on Redhat based distros).
+
+$ systemctl status postgresql
+● postgresql.service - PostgreSQL RDBMS
+   Loaded: loaded (/lib/systemd/system/postgresql.service; enabled; vendor preset: enabled)
+      Active: active (exited) since Mon 2018-02-12 02:23:02 UTC; 1h 41min ago
+        Process: 769 ExecStart=/bin/true (code=exited, status=0/SUCCESS)
+         Main PID: 769 (code=exited, status=0/SUCCESS)
+            CGroup: /system.slice/postgresql.service
+
+Feb 12 02:23:02 lab systemd[1]: Starting PostgreSQL RDBMS...
+Feb 12 02:23:02 lab systemd[1]: Started PostgreSQL RDBMS.
+
+Updates to the demo code
+------------------------
+
+Add the username you just created for the database to the
+PQconnectdb() call in servers.c and the create-db rule in Makefile.
+
+Build and start ConfD
+---------------------
+
+make create-db creates an empty database, only use this the first time
+or when doing a fresh restart.
+
+$ make clean all create-db start
+...
+
+
+Add and remove servers using the CLI
+------------------------------------
+$ make cli
+make: Warning: File 'Makefile' has modification time 29348 s in the future
+/home/jojohans/confd-6.5.4/bin/confd_cli --user=admin --groups=admin \
+    --interactive || echo Exit
+
+admin connected from 10.0.2.2 using ssh on lab
+admin@lab> configure
+Entering configuration mode private
+[ok][2018-02-12 03:51:20]
+
+[edit]
+admin@lab% set servers server ssh ip 10.10.10.10 port 22
+[ok][2018-02-12 03:51:23]
+
+[edit]
+admin@lab% commit
+Commit complete.
+[ok][2018-02-12 03:51:25]
+
+[edit]
+admin@lab% set servers server https ip 10.10.10.11 port 443
+[ok][2018-02-12 03:51:30]
+
+[edit]
+admin@lab% set servers server tftp ip 10.10.10.10 port 25
+[ok][2018-02-12 03:51:33]
+
+[edit]
+admin@lab% commit
+Commit complete.
+[ok][2018-02-12 03:51:36]
+
+[edit]
+admin@lab% set servers server ftp ip 10.10.10.12 port 21
+[ok][2018-02-12 03:51:41]
+
+[edit]
+admin@lab% commit
+Commit complete.
+[ok][2018-02-12 03:51:44]
+
+[edit]
+admin@lab% delete servers server ftp
+[ok][2018-02-12 03:51:49]
+
+[edit]
+admin@lab% commit
+Commit complete.
+[ok][2018-02-12 03:51:53]
+
+[edit]
+admin@lab% exit
+admin@lab> show configuration servers
+server https {
+    ip   10.10.10.11;
+    port 443;
+}
+server ssh {
+    ip   10.10.10.10;
+    port 22;
+}
+server tftp {
+    ip   10.10.10.10;
+    port 25;
+ }
+ [ok][2018-02-12 03:52:09]
+ admin@lab>
+
+See what postgresql looks like
+------------------------------
+$ psql servers
+psql (9.5.10)
+Type "help" for help.
+
+servers=> SELECT * FROM SERVERS;
+ name  |     ip      | port
+-------+-------------+------
+ ssh   | 10.10.10.10 |   22
+ https | 10.10.10.11 |  443
+ tftp  | 10.10.10.10 |   25
+(3 rows)
+
+servers=> \q
+$

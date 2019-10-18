@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <servers xmlns="http://tail-f.com/ns/example/servers">
+    <server>
+      <name>smtp</name>
+      <ip>192.168.128.1</ip>
+      <port>25</port>
+    </server>
+    <server>
+      <name>ssh</name>
+      <ip>192.168.128.1</ip>
+      <port>22</port>
+    </server>
+    <server>
+      <name>www</name>
+      <ip>192.168.128.11</ip>
+      <port>80</port>
+    </server>
+  </servers>
+</config>
