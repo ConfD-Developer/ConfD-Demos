@@ -1,0 +1,45 @@
+An image for creating a ConfD target package
+============================================
+
+Summary
+-------
+
+The result of running this container is a tar-ball with all files
+required for a minimal target installation including support for all
+northbound interfaces, as described in section 31.3 Installing ConfD
+on a target system from the ConfD User Guide.  Note that for older
+ConfD releases target installation is described in section 29.3 in the
+UG.  Also note that the exact list files required for target
+installation sometimes change between releases and might need
+updating.  This package includes target package file lists for ConfD
+6.7.5, ConfD 7.1, ConfD 7.2.0.1.
+
+Prerequisites
+-------------
+
+o The files included in this package.  o ConfD Linux installer located
+in a sub directory named resources/confd/<confd version>.  Examples
+and documentation tar-ball are not needed since they aren't used in
+the target installation.
+
+Steps
+-----
+
+1. Create the image for the specified ConfD version (default ConfD
+   7.2.0.1, the latest version at time of writing).  Pass the flag
+   --build-arg ver=<confd version> to build for another ConfD version.
+
+$ docker build --tag target-package-builder:v7.2.0.1 [--build-arg ver=<other-confd-version>] .
+
+2. Generate confd target package (send the build result to stdout)
+
+$ docker run --rm --env STDOUT=1 --env VER=7.2.0.1 target-package-builder:v7.2.0.1 > confd-target.tgz
+
+3. It's also possible to keep the container around and copy the
+   resulting tar-ball using the docker cp command from the container
+   to the host.  The environment variable STDOUT=1 should not be set
+   in this case:
+
+$ docker run --name target-builder target-package-builder:v7.2.0.1
+$ docker cp target-builder:/confd-target.tgz .
+$ docker rm target-builder

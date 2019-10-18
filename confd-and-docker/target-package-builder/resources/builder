@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# -*-  Mode: Shell-script -*-
+# builder --- ConfD target installation package builder
+
+set -eo pipefail; [ "$TRACE" ] && set -x
+
+# builder ends here
+main() {
+    {
+        :
+        sed -i 's:<loadPath>:\n  <!-- Allow IPC connections from non-localhost clinets -->\n  <confdIpcAddress>\n    <ip>0.0.0.0</ip>\n  </confdIpcAddress>\n\n  <loadPath>:' /confd/etc/confd/confd.conf
+        tar czf /tmp/confd-target.tgz -T /confd-target-files-$VER.txt -C /confd
+    } >&2
+
+    [ $STDOUT ] && cat /tmp/confd-target.tgz
+}
+
+main "$@"
