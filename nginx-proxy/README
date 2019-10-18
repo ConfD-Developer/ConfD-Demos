@@ -1,0 +1,18 @@
+Nginx proxy example
+~~~~~~~~~~~~~~~~~~~~
+
+This example contains a basic configuration for setting up Nginx as a
+reverse proxy.
+
+Please go to the folder of any other example that enables the webserver
+(webui/rest), and run it, via
+
+# make clean all start
+
+Afterwards, from this folder, you can run
+
+# make nginx
+
+You should now be able to open your browser at "http://localhost:8090",
+and interact with the running example, although traffic will be routed
+via the nginx proxy.
