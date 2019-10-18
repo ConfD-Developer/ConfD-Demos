@@ -1,0 +1,35 @@
+module servers {
+  namespace "http://tail-f.com/ns/example/servers";
+  prefix s;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import tailf-common {
+    prefix tailf;
+  }
+
+  container servers {
+    tailf:callpoint scp;
+
+    list server {
+      key name;
+      max-elements 64;
+      leaf name {
+        type string;
+      }
+      leaf ip {
+        type inet:ip-address;
+        mandatory true;
+      }
+      leaf port {
+        type inet:port-number;
+        mandatory true;
+      }
+      //leaf max-num {
+      //  type int8;
+      //  default 8;
+      //}
+    }
+  }
+}
