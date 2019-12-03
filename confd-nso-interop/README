@@ -1,0 +1,666 @@
+ConfD NSO Interoperability Reference Demo
+=========================================
+
+Quickly build a NSO NETCONF NED using NSO's NETCONF NED Builder from a ConfD
+enabled NETCONF YANG server and test your new NED with transaction tests using
+the DrNED Examiner NSO tools package.
+
+ConfD Basic:
+http://www.tail-f.com/confd-basic/
+
+NSO eval:
+https://developer.cisco.com/docs/nso/#!getting-nso/downloads
+
+DrNED Examiner (downloaded by the Dockerfile)
+https://github.com/NSO-developer/drned-xmnr
+
+Quick start:
+------------
+With Docker running on your laptop, just run through the demo one time while you
+have network access using:
+$ ./setup.sh
+
+Then you can run the demo offline using:
+$ ./run-demo.sh
+
+The files with a (*) in front of it below need to be placed in the directory
+where you unpacked the tar-ball. Adjust the versions you use in the setup.sh
+script
+
+$ find . -type f
+(*) ./confd-7.3.linux.x86_64.installer.bin
+./setup.sh # <-- Set the ConfD and NSO versions and adjust your device setup.
+./Dockerfile # <-- Adjust to your device setup
+./router_nso/Makefile
+./router_nso/my-netconf-device-states/sys.xml # <- - Add your own sample config
+                                              # states
+./router_nso/my-netconf-device-states/sys2.xml
+./router_nso/my-netconf-device-states/sys3.xml
+./router_nso/run.sh <- - Adjust to your device setup
+./router_nso/my-netconf-device_init.xml # <- - Change the config in this XML
+                                        # file to point to another device.
+(*) ./nso-5.2.1.linux.x86_64.installer.bin
+(*) ./confd-7.2.1.libconfd.tar.gz
+./router_confd/confd.conf # <-- Sample ConfD node setup below here, replace with
+                          # your ConfD enabled system
+./router_confd/yang/router.yang
+./router_confd/Makefile
+
+A quick demo run running the included “setup.sh” script:
+--------------------------------------------------------
+$ ./setup.sh
+/Users/tailf/misc/confd-drned-xmnr-router
+/Users/tailf/misc/confd-drned-xmnr-router
+Stop any existing confd-drned-xmnr container, then build & run
+confd-drned-xmnr
+Sending build context to Docker daemon  205.9MB
+Step 1/22 : FROM python:3
+ ---> 02d2bb146b3b
+Step 2/22 : ARG CONFD_VERSION
+ ---> Using cache
+ ---> ad1d2b88ee2a
+Step 3/22 : ARG NSO_VERSION
+ ---> Using cache
+ ---> b80d93a2dc56
+Step 4/22 : ENV DEBIAN_FRONTEND=noninteractive
+ ---> Using cache
+ ---> 93e878aa406c
+Step 5/22 : ENV CONFD_DIR=/confd NCS_DIR=/nso
+ ---> Using cache
+ ---> b01fa20d8122
+Step 6/22 : ENV LD_LIBRARY_PATH=/nso/lib:/confd/lib PYTHONPATH=/nso/src/ncs/pyapi
+ ---> Using cache
+ ---> a9d733ccdd79
+Step 7/22 : ENV PATH=/confd/bin:/nso/bin:$PATH
+ ---> Using cache
+ ---> f1bb99f55362
+Step 8/22 : COPY nso-${NSO_VERSION}.linux.x86_64.installer.bin /tmp
+ ---> Using cache
+ ---> 8c2a2e3cabb9
+Step 9/22 : WORKDIR /nso
+ ---> Using cache
+ ---> b44371f4e1d6
+Step 10/22 : RUN pip install --no-cache-dir paramiko lxml pexpect pytest
+          && apt-get update
+          && apt-get install -y --no-install-recommends libxml2-utils xsltproc
+          && /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin /nso
+          && rm -rf examples.ncs doc
+ ---> Using cache
+ ---> c3eb0b35346b
+Step 11/22 : COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
+ ---> Using cache
+ ---> 153d9f380453
+Step 12/22 : WORKDIR ${CONFD_DIR}
+ ---> Using cache
+ ---> 230d4ffa8240
+Step 13/22 : RUN ln -s libcrypto.so /usr/lib/x86_64-linux-gnu/libcrypto.so.1.0.0
+          && /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
+          && rm -rf examples.confd doc
+ ---> Using cache
+ ---> 37605f2deca5
+Step 14/22 : ADD confd-${CONFD_VERSION}.libconfd.tar.gz /tmp
+ ---> Using cache
+ ---> 01f3974a5247
+Step 15/22 : WORKDIR /tmp/confd-${CONFD_VERSION}/libconfd
+ ---> Using cache
+ ---> 8e745f88eda0
+Step 16/22 : RUN make install_crypto  && rm -rf /tmp/* /var/tmp/*
+          && apt-get autoremove -y  && apt-get clean
+ ---> Using cache
+ ---> f6d80d525915
+Step 17/22 : ADD router-confd.tar.gz /router_confd
+ ---> beebd941b521
+Step 18/22 : ADD router-nso.tar.gz /router_nso
+ ---> 53414f520998
+Step 19/22 : ADD drned-xmnr-py3-191008.tar.gz /router_nso/packages
+ ---> 21a21b570f0f
+Step 20/22 : WORKDIR /router_nso
+ ---> Running in e5e855c8a1c4
+Removing intermediate container e5e855c8a1c4
+ ---> 9fde50cc3998
+Step 21/22 : EXPOSE 22 2022 12022 4565 4569 8080
+ ---> Running in 1a4971052872
+Removing intermediate container 1a4971052872
+ ---> f7d15b00b68b
+Step 22/22 : CMD [ "./run.sh" ]
+ ---> Running in d1addf25ca7d
+Removing intermediate container d1addf25ca7d
+ ---> 76542c575440
+Successfully built 76542c575440
+Successfully tagged confd-drned-xmnr:latest
+CID: a72af0eb8a99
+/confd/bin/confdc -c --yangpath yang --yangpath /confd/src/confd/aaa \
+--yangpath /confd/src/confd/dyncfg \
+--yangpath /confd/src/confd/snmp/yang -o fxs/router.fxs -- yang/router.yang
+mkdir -p ./confd-cdb
+cp /confd/var/confd/cdb/aaa_init.xml ./confd-cdb
+ln -s /confd/etc/confd/ssh ssh-keydir
+Build complete
+Starting CONFD-7.2.0.1...
+...
+NSO version > 5.2 - using the built-in NETCONF NED builder
+Starting NSO-5.2.1...
+
+admin connected from 127.0.0.1 using console on a72af0eb8a99
+admin@ncs# devtools true
+admin@ncs# config
+Entering configuration mode terminal
+admin@ncs(config)# python-vm logging level level-debug vm-levels drned-xmnr \
+level level-debug
+admin@ncs(config-vm-levels-drned-xmnr)# commit
+Commit complete.
+admin@ncs(config-vm-levels-drned-xmnr)# top
+admin@ncs(config)# devices device my-netconf-device ssh fetch-host-keys
+result updated
+fingerprint {
+    algorithm ssh-rsa
+    value f8:73:f5:b6:d7:30:cf:eb:53:0c:8f:92:a2:88:76:31
+}
+admin@ncs(config)# netconf-ned-builder project my-netconf-device 1.0 device \
+my-netconf-device local-user admin vendor tailf
+admin@ncs(config-project-my-netconf-device/1.0)# commit
+Commit complete.
+admin@ncs(config-project-my-netconf-device/1.0)# top
+admin@ncs(config)# exit
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 fetch-module-list \
+overwrite
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 module * * deselect 
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 module router* * \
+select
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 module tailf* * \
+deselect
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 module ietf* * \
+deselect
+admin@ncs# show netconf-ned-builder project my-netconf-device 1.0 module | \
+nomore
+module iana-crypt-hash 2014-08-06
+ namespace urn:ietf:params:xml:ns:yang:iana-crypt-hash
+ feature   [ crypt-hash-md5 crypt-hash-sha-256 crypt-hash-sha-512 ]
+ location  [ NETCONF ]
+ status    deselected
+module ietf-inet-types 2013-07-15
+ namespace urn:ietf:params:xml:ns:yang:ietf-inet-types
+ location  [ NETCONF ]
+ status    deselected,downloaded
+module ietf-netconf 2011-06-01
+ namespace urn:ietf:params:xml:ns:netconf:base:1.0
+ feature   [ candidate confirmed-commit rollback-on-error validate xpath ]
+ location  [ NETCONF ]
+ status    deselected
+module ietf-netconf-acm 2018-02-14
+ namespace urn:ietf:params:xml:ns:yang:ietf-netconf-acm
+ location  [ NETCONF ]
+ status    deselected
+module ietf-netconf-monitoring 2010-10-04
+ namespace urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring
+ location  [ NETCONF ]
+ status    deselected
+module ietf-netconf-notifications 2012-02-06
+ namespace urn:ietf:params:xml:ns:yang:ietf-netconf-notifications
+ location  [ NETCONF ]
+ status    deselected
+module ietf-netconf-partial-lock 2009-10-19
+ namespace urn:ietf:params:xml:ns:netconf:partial-lock:1.0
+ location  [ NETCONF ]
+ status    deselected
+module ietf-netconf-with-defaults 2011-06-01
+ namespace urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults
+ location  [ NETCONF ]
+ status    deselected
+module ietf-restconf-monitoring 2017-01-26
+ namespace urn:ietf:params:xml:ns:yang:ietf-restconf-monitoring
+ location  [ NETCONF ]
+ status    deselected
+module ietf-x509-cert-to-name 2014-12-10
+ namespace urn:ietf:params:xml:ns:yang:ietf-x509-cert-to-name
+ location  [ NETCONF ]
+ status    deselected
+module ietf-yang-library 2016-06-21
+ namespace urn:ietf:params:xml:ns:yang:ietf-yang-library
+ location  [ NETCONF ]
+ status    deselected
+module ietf-yang-types 2013-07-15
+ namespace urn:ietf:params:xml:ns:yang:ietf-yang-types
+ location  [ NETCONF ]
+ status    deselected,downloaded
+module router 2008-11-04
+ namespace http://example.com/router
+ import ietf-inet-types
+ import ietf-yang-types
+ import tailf-common
+ location  [ NETCONF ]
+ status    selected,downloaded
+module tailf-aaa 2018-09-12
+ namespace http://tail-f.com/ns/aaa/1.1
+ location  [ NETCONF ]
+ status    deselected
+module tailf-acm 2013-03-07
+ namespace http://tail-f.com/yang/acm
+ location  [ NETCONF ]
+ status    deselected
+module tailf-common 2019-05-16
+ namespace http://tail-f.com/yang/common
+ location  [ NETCONF ]
+ submodule tailf-cli-extensions 2019-05-16
+  location [ NETCONF ]
+ submodule tailf-meta-extensions 2017-03-08
+  location [ NETCONF ]
+ status    deselected,downloaded
+module tailf-common-monitoring 2019-04-09
+ namespace http://tail-f.com/yang/common-monitoring
+ location  [ NETCONF ]
+ status    deselected
+module tailf-common-query 2017-12-15
+ namespace http://tail-f.com/ns/common/query
+ location  [ NETCONF ]
+ status    deselected
+module tailf-confd-monitoring 2019-04-09
+ namespace http://tail-f.com/yang/confd-monitoring
+ location  [ NETCONF ]
+ status    deselected
+module tailf-kicker 2017-09-28
+ namespace http://tail-f.com/ns/kicker
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-extensions 2019-04-09
+ namespace http://tail-f.com/ns/netconf/extensions
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-forward ""
+ namespace http://tail-f.com/ns/netconf/forward/1.0
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-inactive ""
+ namespace http://tail-f.com/ns/netconf/inactive/1.0
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-monitoring 2019-03-28
+ namespace http://tail-f.com/yang/netconf-monitoring
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-query 2017-01-06
+ namespace http://tail-f.com/ns/netconf/query
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-rollback 2018-01-12
+ namespace http://tail-f.com/ns/netconf/rollback
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-transactions ""
+ namespace http://tail-f.com/ns/netconf/transactions/1.0
+ location  [ NETCONF ]
+ status    deselected
+module tailf-netconf-with-transaction-id 2018-11-23
+ namespace http://tail-f.com/ns/netconf/with-transaction-id
+ location  [ NETCONF ]
+ status    deselected
+module tailf-progress 2018-06-14
+ namespace http://tail-f.com/ns/progress
+ location  [ NETCONF ]
+ status    deselected
+module tailf-rollback 2018-01-12
+ namespace http://tail-f.com/ns/rollback
+ location  [ NETCONF ]
+ status    deselected
+module tailf-tls 2019-06-13
+ namespace http://tail-f.com/ns/tls
+ location  [ NETCONF ]
+ status    deselected
+module tailf-webui 2013-03-07
+ namespace http://tail-f.com/ns/webui
+ location  [ NETCONF ]
+ status    deselected
+module tailf-xsd-types 2017-11-20
+ namespace http://tail-f.com/yang/xsd-types
+ location  [ NETCONF ]
+ status    deselected
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 build-ned
+admin@ncs# netconf-ned-builder project my-netconf-device 1.0 export-ned \
+to-directory /router_nso/packages
+tar-file /router_nso/packages/ncs-5.2.0.3-my-netconf-device-nc-1.0.tar.gz
+admin@ncs# exit
+Untar the NED package to use the YANG models for coverage metrics
+
+admin connected from 127.0.0.1 using console on a72af0eb8a99
+admin@ncs# packages reload
+
+>>> System upgrade is starting.
+>>> Sessions in configure mode must exit to operational mode.
+>>> No configuration changes can be performed until upgrade has completed.
+>>> System upgrade has completed successfully.
+reload-result {
+    package drned-xmnr
+    result true
+}
+reload-result {
+    package my-netconf-device-nc-1.0
+    result true
+}
+admin@ncs# config
+Entering configuration mode terminal
+admin@ncs(config)# devices device my-netconf-device device-type netconf ned-id \
+my-netconf-device-nc-1.0
+admin@ncs(config-device-my-netconf-device)# commit
+Commit complete.
+admin@ncs(config-device-my-netconf-device)# exit
+admin@ncs(config)# devices device my-netconf-device sync-from
+result true
+admin@ncs(config)# devices device my-netconf-device drned-xmnr setup \
+setup-xmnr overwrite true
+rm -f conftest.py && ln -s \
+/tmp/xmnr/my-netconf-device/test/drned/adm/conftest.py conftest.py
+rm -f setup.cfg && ln -s /tmp/xmnr/my-netconf-device/test/drned/adm/setup.cfg \
+setup.cfg
+rm -f src/test_builtin.py \
+    &&  ln -s /tmp/xmnr/my-netconf-device/test/drned/adm/test_builtin.py \
+        src/test_builtin.py
+success XMNR set up for device my-netconf-device
+admin@ncs(config)# devices device my-netconf-device drned-xmnr state \
+record-state state-name base
+success Recorded states ['base']
+admin@ncs(config)# devices device my-netconf-device drned-xmnr state \
+import-state-files merge true format xml file-path-pattern \
+"my-netconf-device-states/*.xml" 
+success Imported states: sys3, sys2, sys
+admin@ncs(config)# devices device my-netconf-device drned-xmnr transitions \
+transition-to-state state-name base
+   prepare the device
+       succeeded
+       (no modifications)
+       succeeded
+       succeeded
+   load base
+   commit
+       (no modifications)
+       (no modifications)
+   compare config
+success Done
+admin@ncs(config)# devices device my-netconf-device drned-xmnr coverage reset
+
+System message at 2019-10-09 20:29:54...
+Commit performed by admin via console using cli.
+admin@ncs(config)# rm -rf drned-work/coverage
+mkdir -p drned-work/coverage
+success Completed successfully
+admin@ncs(config)# devices device my-netconf-device drned-xmnr transitions \
+explore-transitions
+Found 4 states recorded for device my-netconf-device which gives a total of 12 \
+transitions.
+Starting with state base
+   prepare the device
+   load base
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 1/12: base ==> sys3
+   prepare the device
+   load sys3
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 2/12: base ==> sys
+   prepare the device
+   load sys
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 3/12: base ==> sys2
+   prepare the device
+   load sys2
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Starting with state sys3
+   prepare the device
+   load sys3
+   commit
+       succeeded
+   compare config
+       succeeded
+Transition 4/12: sys3 ==> base
+   prepare the device
+   load base
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 5/12: sys3 ==> sys
+   prepare the device
+   load sys
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 6/12: sys3 ==> sys2
+   prepare the device
+   load sys2
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Starting with state sys
+   prepare the device
+   load sys
+   commit
+       succeeded
+   compare config
+       succeeded
+Transition 7/12: sys ==> base
+   prepare the device
+   load base
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 8/12: sys ==> sys3
+   prepare the device
+   load sys3
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 9/12: sys ==> sys2
+   prepare the device
+   load sys2
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Starting with state sys2
+   prepare the device
+   load sys2
+   commit
+       succeeded
+   compare config
+       succeeded
+Transition 10/12: sys2 ==> base
+   prepare the device
+   load base
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 11/12: sys2 ==> sys3
+   prepare the device
+   load sys3
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+Transition 12/12: sys2 ==> sys
+   prepare the device
+   load sys
+   commit
+       succeeded
+   compare config
+       succeeded
+   rollback
+   commit
+       succeeded
+   compare config
+       succeeded
+Device cleanup
+   load before-session
+   commit
+       (no modifications)
+   compare config
+       succeeded
+success Completed successfully
+admin@ncs(config)# devices device my-netconf-device drned-xmnr coverage \
+collect yang-patterns [ /router_nso/packages/my-netconf-device/src/yang/*.yang ]
+
+System message at 2019-10-09 20:31:32...
+Commit performed by admin via console using cli.
+admin@ncs(config)# =========== test session starts ===========
+platform linux -- Python 3.7.4, pytest-5.2.1, py-1.8.0, pluggy-0.13.0
+rootdir: /tmp/xmnr/my-netconf-device/test/drned-skeleton, inifile: setup.cfg
+collected 23 items / 22 deselected / 1 selected
+
+src/test_builtin.py
+Use YANG file(s):
+/router_nso/packages/my-netconf-device/src/yang/router@2008-11-04.yang
+
+
+Found a total of 72 nodes (5 of type empty) and 16 lists,
+    38 ( 52%) nodes read or set
+    12 ( 75%) lists read or set
+    12 ( 75%) lists deleted
+    10 ( 62%) lists with multiple entries read or set
+    38 ( 52%) nodes set
+    38 ( 52%) nodes deleted
+     0 (  0%) nodes set when already set (disregarding 5 empty leaves)
+     7 (  9%) nodes deleted separately
+    38 ( 52%) grouping nodes read or set
+    38 ( 52%) grouping nodes set
+    38 ( 52%) grouping nodes deleted
+     0 (  0%) grouping nodes set when already set (disregarding 5 empty leaves)
+     7 (  9%) grouping nodes deleted separately
+.
+
+======================= 1 passed, 22 deselected in 0.34s =======================
+success Completed successfully
