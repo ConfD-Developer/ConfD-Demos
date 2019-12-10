@@ -1,0 +1,83 @@
+module user-folders {
+
+  namespace "https://tail-f.com/ns/example/user-folders";
+  prefix "folders";
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  organization "Tail-f Systems (a Cisco company)";
+
+  contact "info@tail-f.com";
+
+  description
+    "YANG datamodel for cdb_get_modifications example
+     (C) 2005-2018 Tail-f Systems
+
+     Permission to use this code as a starting point hereby granted
+     This is ConfD Sample Code.
+
+     See the README file for more information";
+
+  revision 2018-11-28 {
+    description "YANG header information updated";
+  }
+
+  revision 2018-01-09 {
+    description "Initial revision.";
+  }
+
+  list folder-user {
+    key "username";
+
+    leaf username {
+      type string;
+    }
+
+    choice authentication {
+      mandatory true;
+
+      case none {
+        leaf auth-none {
+          type empty;
+        }
+      }
+
+      case password {
+        leaf auth-password {
+          type tailf:aes-cfb-128-encrypted-string;
+        }
+      }
+
+      case key {
+        leaf auth-key {
+          type yang:hex-string {
+            tailf:value-length "4 .. 4096";
+          }
+        }
+      }
+    }
+
+    list managed-folder {
+      key folder-id;
+
+      leaf folder-id {
+        type string;
+      }
+
+      leaf-list content-type {
+        type enumeration {
+          enum media;
+          enum document;
+          enum archive;
+        }
+      }
+    }
+  }
+
+}
