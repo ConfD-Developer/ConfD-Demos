@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <folder-user xmlns="https://tail-f.com/ns/example/user-folders">
+    <username>test</username>
+    <auth-password>$8$7iqE/mO/g9C65scJKH1pI8B5y0cjkKatK4IjnSs1ctQ=</auth-password>
+    <managed-folder>
+      <folder-id>test</folder-id>
+      <content-type>document</content-type>
+    </managed-folder>
+  </folder-user>
+  <folder-user xmlns="https://tail-f.com/ns/example/user-folders">
+    <username>test2</username>
+    <auth-none/>
+    <managed-folder>
+      <folder-id>test2</folder-id>
+      <content-type>archive</content-type>
+    </managed-folder>
+  </folder-user>
+  <folder-user xmlns="https://tail-f.com/ns/example/user-folders">
+    <username>test3</username>
+    <auth-none/>
+    <managed-folder>
+      <folder-id>test3</folder-id>
+      <content-type>archive</content-type>
+    </managed-folder>
+  </folder-user>
+</config>

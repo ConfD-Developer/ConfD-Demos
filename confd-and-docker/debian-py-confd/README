@@ -1,0 +1,19 @@
+A Python ConfD application
+==========================
+
+Build a ConfD Docker container based on the Python / Debian 10 Docker
+image and run the modifications_python ConfD example
+
+Prerequisites
+-------------
+
+confd-7.x.linux.x86_64.installer.bin 
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into this directory.
+2. Run the setup.sh script.
+3. Examine the setup.sh -> Dockerfile -> app/run.sh -> 
+   modif-subscriber.py files in that order. 
