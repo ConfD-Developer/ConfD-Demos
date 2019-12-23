@@ -1,0 +1,42 @@
+<clispec xmlns="http://tail-f.com/ns/clispec/1.0" style="c">
+  <operationalMode>
+    <cmd name="ping">
+      <info>Ping a host</info>
+      <help>Verify IP (ICMP) connectivity to a host.</help>
+      <callback>
+        <exec>
+          <osCommand>ping</osCommand>
+          <options>
+            <uid>confd</uid>
+          </options>
+        </exec>
+      </callback>
+      <params>
+        <any>
+          <info>&lt;hostname&gt;</info>
+          <help>Hostname or IP address of host to check connectivity to.</help>
+        </any>
+      </params>
+    </cmd>
+    <cmd name="ssh">
+      <info>Open a secure shell on another host</info>
+      <help>Open a secure shell on another host</help>
+      <callback>
+        <exec>
+          <osCommand>ssh</osCommand>
+          <options>
+            <uid>user</uid>
+          </options>
+        </exec>
+      </callback>
+      <params>
+        <param>
+          <info>&lt;host&gt; or &lt;user@host&gt;</info>
+          <help>Host name or IP address; optionally user@hostname</help>
+          <!--name>host</name-->
+        </param>
+      </params>
+    </cmd>
+  </operationalMode>
+  <configureMode/>
+</clispec>
