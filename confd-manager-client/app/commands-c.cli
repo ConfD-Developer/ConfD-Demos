@@ -1,0 +1,39 @@
+<clispec xmlns="http://tail-f.com/ns/clispec/1.0" style="c">
+  <operationalMode/>
+  <configureMode>
+    <cmd name="save">
+      <info>Save configuration to an ASCII file</info>
+        <help>Save configuration to an ASCII file</help>
+        <callback>
+          <exec>
+            <osCommand>./save.sh</osCommand>
+            <args>$(user) $(groups)</args>
+            <options>
+              <uid>user</uid>
+            </options>
+          </exec>
+        </callback>
+        <params>
+          <param>
+            <type>
+              <file/>
+            </type>
+            <info>&amp;lt;filename&amp;gt;</info>
+          </param>
+          <param>
+            <type>
+              <enums>xml</enums>
+            </type>
+            <optional/>
+            <info>XML</info>
+          </param>
+          <param>
+            <type>
+              <pattern>config</pattern>
+            </type>
+            <optional/>
+          </param>
+        </params>
+      </cmd>
+  </configureMode>
+</clispec>
