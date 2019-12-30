@@ -1,0 +1,112 @@
+A Manager Operations Demo
+=========================
+
+Build a ConfD docker container based on Debian and run various manager
+operations over the ConfD NETCONF, RESTCONF, CLI and SNMP nortbound
+manager interaces with and without configuration subscriber applications
+southbound of ConfD.
+
+Prerequisites
+-------------
+
+confd-X.linux.x86_64.installer.bin 
+confd-X.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into this directory.
+2. Examine the routing.yang -> setup.sh -> Dockerfile -> app/run.sh -> 
+   MGR-TC-A.sh / MGR-TC-B.sh / MGR-TC-C.sh / MGR-TC-D.sh files in that
+   order. Tweak them to you liking.
+3. Run the setup.sh script.
+4. The default setup will run through ~140 manager operations.
+
+
+The Manager Operation Test Cases
+--------------------------------
+
+The output of the tests:
+                             ID,NUM,TIME,RSS,HWM,TC
+                              |  |   |    |   |  |
+           Identifier number -   |   |    |   |   - Test case
+     # Routes in the route list -    |    |    - RAM high water mark
+               Wall clock time used -      - ConfD's current RAM use
+
+The above CSV or comma separated value format makes it easy to import the
+output to for example your favourite spreadsheet program.
+
+The test cases in more detail:
+
+Group A: NETCONF, RESTCONF, CLI, and SNMP Manager Operations
+------------------------------------------------------------
+A1  Create NUM static routes in the candidate datastore using NETCONF
+A2  Verify the empty running datastore configuration using the CLI
+A3  Commit the candidate to running
+A4a Get the running configuration using NETCONF
+A4b Get the running configuration using the CLI
+A4c Get the running configuration using RESTCONF
+A4d Get the running configuration using SNMP
+A5  Delete 1 route in the running configuration using the CLI
+A6  Get the running configuration using NETCONF
+A7  Delete the running configuration using NETCONF
+A8a Get the (empty) running configuration using NETCONF
+A8b Get the (empty) running configuration using CLI
+A8c Get the (empty) running configuration using RESTCONF
+A8d Get the (empty) running configuration using SNMP
+
+Difference between A*-0 and A*-10 subscriber setup:
+The above test cases first run without any configuration subscribers
+and then with 10 configuration subscribers that in order of subscriber
+priority 1-10 read the configuration changes using cdb_get_modifications()
+
+Group B1: NETCONF Operations
+----------------------------
+B1-1  Create NUM static routes in the candidate datastore
+B1-2a Get the candidate configuration
+B1-2b Commit to running and get the running configuration
+B1-3  Delete the running configuration through the candidate
+B1-4a Repeat B1-1, B1-2a, B1-3 steps 10 and 100 times
+B1-4b Repeat B1-1, B1-2b, B1-3 steps 10 and 100 times
+
+Group B2: CLI Operations
+------------------------
+B2-1 Create NUM static routes in the running datastore
+B2-2 Get the running configuration
+B2-3 Delete the running configuration
+B2-4 Repeat B2-1, B2-2, B2-3 steps 10 and 100 times
+
+Group B3: RESTCONF Operations
+-----------------------------
+B3-1 Create NUM static routes in the running datastore
+B3-2 Get the running configuration
+B3-3 Delete the running configuration
+B3-4 Repeat B3-1, B3-2, B3-3 steps 10 and 100 times
+
+Group C: Parallel NETCONF, CLI, and RESTCONF access
+---------------------------------------------------
+C1 Create NUM static routes in the running datastore using NETCONF
+C2 Get the running configuration using NETCONF, CLI, and RESTCONF in
+   paralell. First 1 manager client/interface, then 10 clients each
+C3 Repeat C2 10 times
+
+Group D: NETCONF, CLI and MAAPI Operations
+------------------------------------------
+D0  Create NUM static routes in the candidate datastore, commit to running
+    and get the running configuration using NETCONF
+D1 Get the running configuration using NETCONF
+D2a Save the routes configuraiton using the CLI
+D2b Show and pipe to save the routes configuration using the CLI
+D3a Save the routes configuration as XML using the CLI
+D3b Show and pipe to save teh routes configuration in XML using the CLI
+D4a Restart ConfD without deleting the configuration and save the routes
+    configuration using a script that override the built-in CLI command 
+D4b Save the routes configuration as XML using a script that override
+    the built-in CLI command
+D5a Save the routes configuration in CLI format using MAAPI
+D5b Save the routes configuration as XML using MAAPI
+
+Difference between D*-0 and D*-10 subscriber setup:
+The above test cases first run without any configuration subscribers
+and then with 10 configuration subscribers that in order of subscriber
+priority 1-10 read the configuration changes using cdb_get_modifications()

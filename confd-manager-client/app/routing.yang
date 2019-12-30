@@ -1,0 +1,59 @@
+module routing {
+  namespace "http://tail-f.com/ns/example/routing";
+  prefix routing;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  typedef iface-ipv4-address-allow-zero-t {
+    type string {
+      pattern "(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])";
+    }
+    description
+      "IPv4 (A.B.C.D)";
+  }
+
+  typedef iface-ipv4-prefix-allow-zero-t {
+    type string {
+      pattern "(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])/(([0-9])|([1-2][0-9])|(3[0-2]))";
+    }
+    description
+      "IPv4 (A.B.C.D/N)";
+  }
+
+  container router {
+    container static {
+      description
+        "Configuration for static routing";
+      container address-family {
+        description
+          "Configuration static routing for address-family";
+        container ipv4 {
+          description
+            "IPv4 static routing";
+          container unicast {
+            description
+              "Configure IPv4 unicast static routing";
+            list destination {
+              description
+                "Static route";
+              key "prefix nexthop";
+              leaf prefix {
+                type iface-ipv4-prefix-allow-zero-t;
+                description
+                  "Destination internetwork prefix or subnet prefix.";
+              }
+              leaf nexthop {
+                type iface-ipv4-address-allow-zero-t;
+              }
+	      leaf macaddr {
+		type yang:mac-address;
+	      }
+            }
+          }
+        }
+      }
+    }
+  }
+}

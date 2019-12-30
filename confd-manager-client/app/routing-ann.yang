@@ -1,0 +1,63 @@
+module routing-ann {
+  namespace "urn:dummy";
+  prefix "dummy";
+
+  import tailf-common {
+    prefix "tailf";
+  }
+  import routing {
+    prefix "x";
+  }
+
+tailf:annotate-module routing {
+    tailf:snmp-mib-module-name TAIL-F-ROUTING-MIB;
+    tailf:snmp-oid "enterprises.24961";
+  }
+
+  tailf:annotate /x:router {
+    tailf:snmp-name router;
+    tailf:snmp-oid ".1";
+  }
+
+  tailf:annotate /x:router/x:static {
+    tailf:snmp-name routerStatic;
+    tailf:snmp-oid ".2";
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family {
+    tailf:snmp-name routerStaticAddressFamily;
+    tailf:snmp-oid ".3";
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family/x:ipv4 {
+    tailf:snmp-name routerStaticAddressFamilyIpv4;
+    tailf:snmp-oid ".4";
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family/x:ipv4/x:unicast {
+    tailf:snmp-name routerStaticAddressFamilyIpv4Unicast;
+    tailf:snmp-oid ".5";
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family/x:ipv4/x:unicast/x:destination {
+    tailf:snmp-name routerStaticAddressFamilyIpv4UnicastDestinationTable;
+    tailf:sort-order snmp;
+    tailf:snmp-oid ".6";
+    tailf:snmp-row-status-column 4;
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family/x:ipv4/x:unicast/x:destination/x:prefix {
+    tailf:snmp-name routerStaticAddressFamilyIpv4UnicastDestinationPrefix;
+    tailf:snmp-oid ".1";
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family/x:ipv4/x:unicast/x:destination/x:nexthop {
+    tailf:snmp-name routerStaticAddressFamilyIpv4UnicastDestinationNexthop;
+    tailf:snmp-oid ".2";
+  }
+
+  tailf:annotate /x:router/x:static/x:address-family/x:ipv4/x:unicast/x:destination/x:macaddr {
+    tailf:snmp-name routerStaticAddressFamilyIpv4UnicastDestinationMacaddr;
+    tailf:snmp-oid ".3";
+  }
+}
