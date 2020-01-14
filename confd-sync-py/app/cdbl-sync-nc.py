@@ -276,7 +276,7 @@ def handle_sub_prepare(css, sids, sub_flags):
     for process in processes:
         process.join()
     if not q.empty():
-        cdb.sub_abort_trans(css, confd.ERRCODE_APPLICATION, 0, 0, str(list(q.queue)))
+        cdb.sub_abort_trans(css, confd.ERRCODE_APPLICATION, 0, 0, ', '.join(list(q.queue)))
         # TODO USE lxml to get the error string from the NETCONF error reply
         # TODO sub_abort_trans_info(...)
         return
@@ -289,7 +289,7 @@ def handle_sub_prepare(css, sids, sub_flags):
     for process in processes:
         process.join()
     if not q.empty():
-        cdb.sub_abort_trans(css, confd.ERRCODE_APPLICATION, 0, 0, str(list(q.queue)))
+        cdb.sub_abort_trans(css, confd.ERRCODE_APPLICATION, 0, 0, ', '.join(list(q.queue)))
         # TODO USE lxml to get the error string from the NETCONF error reply
         # TODO sub_abort_trans_info(...)
         return
@@ -308,7 +308,7 @@ def handle_sub_abort(css, sids):
     for process in processes:
         process.join()
     if not q.empty():
-        sys.stderr.write("Cancel commit failed:\n{}\n".format(list(q.queue)))
+        sys.stderr.write("Cancel commit failed:\n{}\n".format('\n'.join(list(q.queue))))
     cdb.sync_subscription_socket(css, cdb.DONE_PRIORITY)
 
 
@@ -324,7 +324,7 @@ def handle_sub_commit(css, sids, sub_flags):
     for process in processes:
         process.join()
     if not q.empty():
-        sys.stderr.write("Confirm commit failed:\n{}\n".format(list(q.queue)))
+        sys.stderr.write("Confirm commit failed:\n{}\n".format('\n'.join(list(q.queue))))
     cdb.sync_subscription_socket(css, cdb.DONE_PRIORITY)
 
 
@@ -366,7 +366,7 @@ class SyncToAction(Action):
                 sub_points.append(sub_point)
             cdb.end_session(cds)
             cdb.trigger_subscriptions(cds, sub_points)
-            result = "Synchronized the configuration with all NETCONF servers"
+            output.result = "Synchronized the configuration with all NETCONF servers"
         else:
             server_names = input.server
             for server_name in server_names:
@@ -374,7 +374,7 @@ class SyncToAction(Action):
                 sub_points.append(sub_point)
             cdb.end_session(cds)
             cdb.trigger_subscriptions(cds, sub_points)
-            result = "Synchronized the configuration with {} NETCONF servers".format(server_names)
+            output.result = "Synchronized the configuration with {} NETCONF servers".format(', '.join(server_names))
         cds.close()
 
 
