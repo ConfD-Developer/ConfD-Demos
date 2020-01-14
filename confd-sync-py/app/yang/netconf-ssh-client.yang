@@ -1,0 +1,144 @@
+module netconf-ssh-client {
+  yang-version 1.1;
+  namespace "http://example.com/netconf-ssh-client";
+  prefix nsc;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+    reference
+      "RFC 6991: Common YANG Data Types";
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+    reference
+      "RFC 6991: Common YANG Data Types";
+  }
+
+  description
+    "This module contains the  YANG definitions for configuring
+     NETCONF clients.";
+
+  revision 2020-01-08 {
+    description
+      "Initial version";
+  }
+
+  container netconf-client {
+    description
+      "Configures client initiating underlying TCP connections.";
+     leaf server-priority {
+        type int32 {
+          range 0..max;
+        }
+        default 1;
+        description
+          "Control priority of changes to the netconf-server list.
+           If there are changes in the netconf-server list and the
+           netconf-server config in the same transaction, the
+           netconf-server list changes must always be done after
+           the synchronization of changes from the netconf-client to
+           the servers.";
+     }
+     action sync-to {
+       tailf:actionpoint "sync-to";
+       input {
+         choice servers {
+           case server-list {
+             leaf-list server {
+               type leafref {
+                 path "/nsc:netconf-client/netconf-server/name";
+               }
+             }
+           }
+           case all-servers {
+             leaf all {
+               type empty;
+             }
+           }
+         }
+       }
+       output {
+         leaf result {
+           type string;
+         }
+       }
+     }
+
+     list netconf-server {
+      key "name";
+      unique "subscription-id";
+      description
+        "A user-ordered list of NETCONF servers the NETCONF client
+         will attempt to connect to in the specified sequence.";
+      leaf name {
+        type string;
+        description
+          "An arbitrary name for the NETCONF server.";
+      }
+      leaf subscription-path {
+        type string;
+        mandatory true;
+        description
+          "Path to the configuration to sync with the NETCONF
+           server";
+      }
+      leaf subscription-priority {
+        type int32 {
+          range 0..max;
+        }
+        must ". < ../../server-priority";
+        default 0;
+        description
+          "Control sync order from the netconf-client to the
+           netconf-servers. Lowest priority first. Same priorities
+           will be handled in parallel (more efficient). Changes to
+           this server list must be done after sending changes to
+           the netconf-servers it the changes are done in the same
+           transaction";
+      }
+      leaf subscription-id {
+        config false;
+        type int32;
+        description
+          "Identifier for the configuration to sync with the NETCONF
+           server. Filled in by the synchronizer application after
+           registering the netconf-server with ConfD. May change at
+           run-time if the list of clients is reconfigured";
+      }
+      leaf remote-address {
+        type inet:host;
+        mandatory true;
+        description
+          "The IP address or hostname of the remote peer to
+           establish a connection with.  If a domain name is
+           configured, then the DNS resolution should happen on
+           each connection attempt.";
+      }
+      leaf remote-port {
+        type inet:port-number;
+        default "830";
+        description
+          "The IP port number for the remote peer to establish a
+           connection with.";
+      }
+      leaf username {
+        type string;
+        mandatory true;
+        description
+          "The username of this user. This will be the username
+           used, for instance, to log into an SSH server.";
+      }
+      leaf password {
+        type string;
+        mandatory true;
+        description
+          "A password to be used for client authentication.";
+      }
+    } // netconf-server
+  } // netconf-client
+}
