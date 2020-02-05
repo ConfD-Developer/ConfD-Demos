@@ -1,0 +1,27 @@
+A Python ConfD to ConfD NETCONF synchronizer application
+=======================================================
+
+Build a ConfD Docker container based on Debian 10 Linux Docker image
+and run the examples.confd/linuxcfg ConfD example.
+
+- IETF standard YANG models are used to edit interface, routing, and 
+  system configuration. 
+- See examples.confd/linuxcfg/README for details.
+- A mk_linuxcfg_init script was added to get the initial config from 
+  the Debian 10 Linux distribution at ConfD startup. 
+
+Prerequisites
+-------------
+
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.examples.tar.gz
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+
+1. Drop the confd-7.x* installation packages into this directory.
+2. Run the setup.sh script.
+3. Examine the setup.sh -> Dockerfile -> run.sh -> mk_linuxcfg_init 
+   files in that order.

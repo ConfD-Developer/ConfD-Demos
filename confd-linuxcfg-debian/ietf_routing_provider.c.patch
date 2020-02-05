@@ -1,0 +1,8 @@
+15a16
+> #include "ipmibs.h"
+578c579,581
+< 
+---
+>         case rt_interfaces:
+>             ret_code = if_status_get_next_name(tctx, kp, next);
+>             break;
