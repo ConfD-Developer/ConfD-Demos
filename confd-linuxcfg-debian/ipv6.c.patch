@@ -1,0 +1,4 @@
+356c356
+<     char buf[64], addr_buf[64];
+---
+>     char buf[76], addr_buf[64];
