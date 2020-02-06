@@ -37,11 +37,19 @@ def mk_ietf_interfaces():
         elif link_type == 'loopback':
             type = 'ianaift:softwareLoopback'
         elif link_type == 'ipip':
-            type = 'tunnel'
+            type = 'ianaift:tunnel'
         elif link_type == 'tunnel6':
-            type = 'tunnel'
+            type = 'ianaift:tunnel'
+        elif link_type == 'bridge':
+            type = 'ianaift:bridge'
+        elif link_type == 'vlan':
+            type = 'ianaift:l2vlan'
+        elif link_type == 'ipvlan':
+            type = 'ianaift:l3ipvlan'
+        elif link_type == 'macsec':
+            type = 'ianaift:macSecControlledIF'
         else:
-            type = "other"
+            type = "ianaift:other"
 
         operstate = iface['operstate']
         if operstate == 'UP':
