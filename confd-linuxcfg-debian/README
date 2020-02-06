@@ -1,5 +1,5 @@
-A Python ConfD to ConfD NETCONF synchronizer application
-=======================================================
+ConfD's examples.confd/linuxcfg in a Debian 10 Docker Container
+===============================================================
 
 Build a ConfD Docker container based on Debian 10 Linux Docker image
 and run the examples.confd/linuxcfg ConfD example.
