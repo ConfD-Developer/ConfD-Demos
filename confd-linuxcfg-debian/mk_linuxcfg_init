@@ -10,6 +10,7 @@ import sys
 import subprocess
 import json
 import os
+from hashlib import sha224
 
 def print_config(if_str, r_str, sys_str):
     print("""<?xml version="1.0" encoding="UTF-8"?>
@@ -21,6 +22,7 @@ def print_config(if_str, r_str, sys_str):
   <system xmlns="urn:ietf:params:xml:ns:yang:ietf-system">{2}
   </system>
 </config>""".format(if_str, r_str, sys_str))
+
 
 def mk_ietf_interfaces():
     if_str = ""
@@ -145,6 +147,9 @@ def mk_ietf_system():
     <hostname>{}</hostname>'''.format(h[0])
 
     tzn = '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
+    tzn2 = tzn.split('/')[-1]
+    if tzn2 == "UTC":
+        tzn = tzn2
     sys_str += '''
     <clock>
       <timezone-name>{}</timezone-name>
@@ -184,6 +189,7 @@ def mk_ietf_system():
       </options>
     </dns-resolver>'''.format(timeout, attempts)
     return sys_str
+
 
 def run():
     if_str = mk_ietf_interfaces()
