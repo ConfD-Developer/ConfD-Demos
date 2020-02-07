@@ -147,9 +147,9 @@ def mk_ietf_system():
     <hostname>{}</hostname>'''.format(h[0])
 
     tzn = '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
-    tzn2 = tzn.split('/')[-1]
-    if tzn2 == "UTC":
-        tzn = tzn2
+    tzpath = tzn.split('/')[-2]
+    if tzpath == "zoneinfo":
+        tzn = tzn.split('/')[-1]
     sys_str += '''
     <clock>
       <timezone-name>{}</timezone-name>
