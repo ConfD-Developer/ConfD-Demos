@@ -1,0 +1,107 @@
+ConfD's examples.confd/linuxcfg in a Docker Container
+=====================================================
+
+Build a ConfD Docker container based on a Linux Docker image 
+and run the examples.confd/linuxcfg ConfD example.
+
+- IETF standard YANG models are used to edit interface, routing,
+  and system configuration. 
+- See examples.confd/linuxcfg/README for details on the example 
+  itelf.
+- A mk_linuxcfg_init script was added to get the initial config
+  from the Linux system at ConfD startup. Without this script,
+  the linuxcfg application would erase the existing Linux
+  config.
+- The default Dockerfile is based on Debian 10. Dockerfiles
+  with a few modifications for Ubuntu 20.04 and Centos 8 are 
+  also available.
+
+Prerequisites
+-------------
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.examples.tar.gz
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into this directory.
+2. Run the setup.sh script.
+3. Examine the setup.sh -> Dockerfile -> run.sh -> mk_linuxcfg_init 
+   files in that order.
+4. The container NETCONF 2022 and CLI 2024 ports are setup,
+   and you may also get a shell using Docker, e.g. 
+   % docker exec -it confd-linuxcfg bash
+   # ip -json -pretty link show eth0
+   [ {
+           "ifindex": 8,
+           "link_index": 9,
+           "ifname": "eth0",
+           "flags": [ "BROADCAST","MULTICAST","UP","LOWER_UP" ],
+           "mtu": 1500,
+           "qdisc": "noqueue",
+           "operstate": "UP",
+           "linkmode": "DEFAULT",
+           "group": "default",
+           "link_type": "ether",
+           "address": "03:42:ac:11:00:03",
+           "broadcast": "ff:ff:ff:ff:ff:ff",
+           "link_netnsid": 0
+       } ]
+   $ confd_cli -u admin -C
+   # show running-config interfaces
+   interfaces interface eth0
+    type    ethernetCsmacd
+    enabled
+   !
+   interfaces interface ip6tnl0
+    type    tunnel
+    enabled
+   !
+   interfaces interface lo
+    type softwareLoopback
+   !
+   interfaces interface tunl0
+    type    tunnel
+    enabled
+   !
+   # show interfaces-state interface eth0
+   interfaces-state interface eth0
+    type            ethernetCsmacd
+    admin-status    up
+    oper-status     up
+    if-index        8
+    phys-address    03:42:ac:11:00:03
+    higher-layer-if [ lo tunl0 ip6tnl0 eth0 ]
+    lower-layer-if  [ lo tunl0 ip6tnl0 eth0 ]
+    speed           4294967295
+    statistics in-octets 2346
+    statistics in-unicast-pkts 33
+    statistics in-broadcast-pkts 0
+    statistics in-multicast-pkts 0
+    statistics in-discards 0
+    statistics in-errors 0
+    statistics in-unknown-protos 0
+    statistics out-octets 330
+    statistics out-unicast-pkts 7
+    statistics out-broadcast-pkts 0
+    statistics out-multicast-pkts 0
+    statistics out-discards 0
+    statistics out-errors 0
+    ipv4 forwarding true
+    ipv4 mtu   1500
+               PREFIX          
+   IP          LENGTH  ORIGIN  
+   ----------------------------
+   172.17.0.2  16      static  
+   
+               LINK LAYER                  
+   IP          ADDRESS            ORIGIN   
+   ----------------------------------------
+   172.17.0.1  03:42:92:b6:cd:59  dynamic  
+   
+    ipv6 forwarding false
+    ipv6 mtu   1500
+   
+5. The examples.confd/linuxcfg/README describe the linuxcfg
+   example in detail.

@@ -1,0 +1,201 @@
+#!/usr/bin/env python
+#
+# Create a CDB init file representing the existing network config:
+# $ ./mk_linuxcfg_init > $MY_CDB_DIR/linuxcfg_init.xml
+#
+# Note: This script is a starting point and need to be customized
+# for your Linux setup.
+
+import sys
+import subprocess
+import json
+import os
+from hashlib import sha224
+
+def print_config(if_str, r_str, sys_str):
+    print("""<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">{0}
+  </interfaces>
+  <routing xmlns="urn:ietf:params:xml:ns:yang:ietf-routing">{1}
+  </routing>
+  <system xmlns="urn:ietf:params:xml:ns:yang:ietf-system">{2}
+  </system>
+</config>""".format(if_str, r_str, sys_str))
+
+
+def mk_ietf_interfaces():
+    if_str = ""
+    proc = subprocess.Popen("ip -j addr", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, errors = proc.communicate()
+    proc.stdout.close()
+    proc.stderr.close()
+    reply = output.decode()
+    if_dict = json.loads(reply)
+    for iface in if_dict:
+        link_type = iface['link_type']
+        if link_type == 'ether':
+            type = 'ianaift:ethernetCsmacd'
+        elif link_type == 'loopback':
+            type = 'ianaift:softwareLoopback'
+        elif link_type == 'ipip':
+            type = 'ianaift:tunnel'
+        elif link_type == 'tunnel6':
+            type = 'ianaift:tunnel'
+        elif link_type == 'bridge':
+            type = 'ianaift:bridge'
+        elif link_type == 'vlan':
+            type = 'ianaift:l2vlan'
+        elif link_type == 'ipvlan':
+            type = 'ianaift:l3ipvlan'
+        elif link_type == 'macsec':
+            type = 'ianaift:macSecControlledIF'
+        else:
+            type = "ianaift:other"
+
+        operstate = iface['operstate']
+        if operstate == 'UP':
+            enabled = '''
+      <enabled>true</enabled>'''
+        elif operstate == "DOWN":
+            enabled = '''
+      <enabled>true</enabled>'''
+        else:
+            enabled = ''
+
+        if_str += '''
+    <interface>
+      <name>{0}</name>
+      <type>{1}</type>{2}
+    </interface>'''.format(iface['ifname'], type, enabled)
+
+    return if_str
+
+
+def mk_ietf_routing():
+    r_str = '''
+    <control-plane-protocols>'''
+    i = 0
+    protos = [ 'boot', 'static' ]
+    for proto in protos:
+        ipvs = [ 4, 6 ]
+        for ipv in ipvs:
+            proc = subprocess.Popen("ip -j -{} route show proto {}".format(ipv, proto), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, errors = proc.communicate()
+            proc.stdout.close()
+            proc.stderr.close()
+            reply = output.decode()
+            r_dict = json.loads(reply)
+            for route in r_dict:
+                i += 1
+                r_str += '''
+      <control-plane-protocol>
+        <type>static</type>
+        <name>{}</name>
+        <static-routes>'''.format('r{}'.format(i))
+                if ipv == 4:
+                    dst = route['dst']
+                    if dst == 'default':
+                        dst = '0.0.0.0/0'
+                    r_str += '''
+          <ipv4 xmlns="urn:ietf:params:xml:ns:yang:ietf-ipv4-unicast-routing">
+            <route>
+              <destination-prefix>{}</destination-prefix>
+              <next-hop>'''.format(dst)
+                    if route['dev'] != "":
+                        r_str += '''
+                <outgoing-interface>{}</outgoing-interface>'''.format(route['dev'])
+                    r_str += '''
+                <next-hop-address>{}</next-hop-address>
+              </next-hop>
+            </route>
+          </ipv4>'''.format(route['gateway'])
+                if ipv == 6:
+                    dst = route['dst']
+                    if dst == 'default':
+                        dst = '::/0'
+                    r_str += '''
+          <ipv6 xmlns="urn:ietf:params:xml:ns:yang:ietf-ipv6-unicast-routing">
+            <route>
+              <destination-prefix>{0}</destination-prefix>
+              <next-hop>>'''.format(dst)
+                    dev = route['dev']
+                    if dev != "":
+                        r_str += '''
+                <outgoing-interface>{}</outgoing-interface>'''.format(dev)
+                    r_str += '''
+                <next-hop-address>{}</next-hop-address>
+              </next-hop>
+            </route>
+          </ipv6>'''.format(route['gateway'])
+                r_str += '''
+        </static-routes>
+      </control-plane-protocol>
+    </control-plane-protocols>'''
+
+    return r_str
+
+
+def mk_ietf_system():
+    proc = subprocess.Popen("hostname -f", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, errors = proc.communicate()
+    proc.stdout.close()
+    proc.stderr.close()
+    reply = output.decode()
+    h = reply.splitlines()
+    sys_str = '''
+    <hostname>{}</hostname>'''.format(h[0])
+
+    tzn = '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
+    tzpath = tzn.split('/')[-2]
+    if tzpath == "zoneinfo":
+        tzn = tzn.split('/')[-1]
+    sys_str += '''
+    <clock>
+      <timezone-name>{}</timezone-name>
+    </clock>'''.format(tzn)
+
+    timeout = "5"
+    attempts = "2"
+    data = open("/etc/resolv.conf").read().split()
+    nameservers = []
+    for item in data:
+        if item.find("timeout:") != -1:
+            timeout = item.split(":")
+
+        if item.find("attempts:") != -1:
+            attempts = item.split(":")
+
+        if len(item.split(".")) == 4:
+            nameservers.append(item)
+
+    sys_str += '''
+    <dns-resolver>'''
+    i = 0
+    for ns in nameservers:
+        sys_str += '''
+      <server>
+        <name>{0}</name>
+        <udp-and-tcp>
+          <address>{1}</address>
+        </udp-and-tcp>
+      </server>'''.format("ns{}".format(i), ns)
+        i+=1
+
+    sys_str += '''
+      <options>
+        <timeout>{0}</timeout>
+        <attempts>{1}</attempts>
+      </options>
+    </dns-resolver>'''.format(timeout, attempts)
+    return sys_str
+
+
+def run():
+    if_str = mk_ietf_interfaces()
+    r_str = mk_ietf_routing()
+    sys_str = mk_ietf_system()
+    print_config(if_str, r_str, sys_str)
+
+if __name__ == "__main__":
+    run()
