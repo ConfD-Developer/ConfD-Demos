@@ -1,15 +1,20 @@
-ConfD's examples.confd/linuxcfg in a Debian 10 Docker Container
-===============================================================
+ConfD's examples.confd/linuxcfg in a Docker Container
+=====================================================
 
-Build a ConfD Docker container based on a Debian 10 Linux Docker
-image and run the examples.confd/linuxcfg ConfD example.
+Build a ConfD Docker container based on a Linux Docker image 
+and run the examples.confd/linuxcfg ConfD example.
 
-- IETF standard YANG models are used to edit interface, routing, and 
-  system configuration. 
-- See examples.confd/linuxcfg/README for details.
-- A mk_linuxcfg_init script was added to get the initial config from 
-  the Debian 10 Linux system at ConfD startup. Without this script,
-  the linuxcfg application would erase the existing Linux config.
+- IETF standard YANG models are used to edit interface, routing,
+  and system configuration. 
+- See examples.confd/linuxcfg/README for details on the example 
+  itelf.
+- A mk_linuxcfg_init script was added to get the initial config
+  from the Linux system at ConfD startup. Without this script,
+  the linuxcfg application would erase the existing Linux
+  config.
+- The default Dockerfile is based on Debian 10. Dockerfiles
+  with a few modifications for Ubuntu 20.04 and Centos 8 are 
+  also available.
 
 Prerequisites
 -------------
@@ -98,4 +103,5 @@ Steps
     ipv6 forwarding false
     ipv6 mtu   1500
    
-5. The examples.confd/linuxcfg/README describe the example in detail.
+5. The examples.confd/linuxcfg/README describe the linuxcfg
+   example in detail.
