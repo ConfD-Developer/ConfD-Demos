@@ -39,8 +39,8 @@ $ find . -type f
 ./router_nso/run.sh <- - Adjust to your device setup
 ./router_nso/my-netconf-device_init.xml # <- - Change the config in this XML
                                         # file to point to another device.
-(*) ./nso-5.2.1.linux.x86_64.installer.bin
-(*) ./confd-7.2.1.libconfd.tar.gz
+(*) ./nso-5.3.linux.x86_64.installer.bin
+(*) ./confd-7.3.libconfd.tar.gz
 ./router_confd/confd.conf # <-- Sample ConfD node setup below here, replace with
                           # your ConfD enabled system
 ./router_confd/yang/router.yang
