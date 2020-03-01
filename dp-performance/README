@@ -1,0 +1,121 @@
+A Generic Data Provider Setup Targeting Optimal Wall-Clock Time Performance
+===========================================================================
+
+Build a ConfD Docker container based on a Debian 10 Docker image and
+run a generic ConfD Data Provider (DP API) example. The demo also show the
+difference in performance when reading the operatonal YANG "config false" data
+from various NETCONF, RESTCONF, and MAAPI clients. In addition, the DP
+application use the ConfD CDB operational data store to provide data from by
+efficiently reading the requeted data from the CDB operational data store using
+the CDB API.
+
+- For optimal performance for the general use case we only implement the
+  following four Data Provider application callbacks:
+  - num_instances()
+  - get_object()
+  - find_next()
+  - find_next_object()
+  - See app/src/cdboper_dp.c for the implementation of the above
+- The example assume that your root node is a container or a list. I.e. not a
+  leaf. We can then set the CONFD_DAEMON_FLAG_BULK_GET_CONTAINER flag using
+  confd_set_daemon_flags() and skp implementing the get_elem() data provider
+  callback. To have a container or list at the YANG root and not put any leafs
+  there is the recommened YANG best practices.
+
+              YANG root
+                  |
+ Top level YANG Container or List node
+                  |
+      ---------------------...-----
+     |            |                |
+ YANG Node x   YANG Node y ... YANG Node z
+
+- The Data Provider application read the data it provides from the CDB
+  operational data store.
+
+
+    MAAPI / NETCONF / RESTCONF Client(s)
+          |  ^
+  Request v  | Response
+  --------------------------------
+ | ConfD  |  ^       _.------._   |
+ | Core   |  |     .´          `. |
+ |        |  |     |-_        _-| |
+ |        |  |     |  `------´  | |
+ |        |  |     |  CDB-OPER  | |
+ |        |  |      `.        .´  |
+ |        |  |        `------´    |
+ |        v  |          |  |      |
+  --------------------------------
+          DP API      CDB API
+          |   ^         |  ^
+          |   |         v  |
+          |  Data Provider |
+           -> Application -
+
+- To achieve the above, we create a copy of the original YANG models, add
+  "-state" to their YANG module name, namespace and prefix, and make all data in
+  them "config false".
+- The implementation of the data provider callbacks in the cdboper_dp.c data
+  provider application use the schema generated from the YANG models and the
+  following CDB API calls to provide the requested data:
+  - num_instances() DP callback:
+    - cdb_num_instances()
+  - get_object() DP callback:
+    - cdb_index()
+    - cdb_get_values()
+  - find_next() DP callback:
+    - cdb_index()
+    - cdb_next_index()
+    - cdb_get_values()
+  - find_next_object() DP callback:
+    - cdb_index()
+    - cdb_next_index()
+    - cdb_num_instances()
+    - cdb_get_values()
+- The north bound NETCONF / RESTCONF / MAAPI interface clients requesting data:
+    - NETCONF <get-data>, an RFC 8526 NETCONF NMDA extension that allow us to
+      use a config-filter to get "config false" data only.
+    - NETCONF <get>, legacy way before <get-data> was available.
+    - RESTCONF GET in JSON format.
+    - maapi_save_config() of oper data in XML format.
+    - maapi_save_config() of oper data in JSON format.
+    - maapi_iterate() to get the oper data in ConfD keypath + value format to
+      for example transform it into any format that maapi_save_config() does not
+      support.
+    - maapi_get_objects() of list items to get the list content in ConfD value
+      array format. Works best for non-nested lists.
+    - See run.sh and maapi_iter.c + maapi_save.c for details.
+- The wall clock time take is measured for each of the above north bound clients
+  for a configurable size of the data read.
+- Two test types are used:
+  1. Data in the list of routes (nested list) only.
+  2. All data
+- Again, the purpose of the example is to show an example implementation of a
+  high performance data provider, but the example also give some guidance in how
+  to use the CDB API, MAAPI and other northbound clients.
+
+Prerequisites
+-------------
+
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into the directory of this README.
+2. Run the setup.sh script.
+2b. Wait for the comma separated value (CSV) style test result output.
+2c. Run
+   $ docker exec -it oper-data bash
+   from the command line to for example access and read logs etc.
+3. Examine the setup.sh -> Dockerfile -> app/run.sh -> app/maapi*.c and
+   app/src/cdboper_dp.c files in that order.
+4. The app/run.sh script by default define the number of entries read using the
+   "START_NUM" "STEP_NUM" and "STOP_NUM" variables. You may change those numbers
+   to better represent your system setup.
+5. You can also switch out the YANG models for your own setup. Please report if
+   issues occur with your YANG model setup. If you want to use the cdbgen.py
+   script to generate the operational data to provide from you need to modify
+   that Python script too.
