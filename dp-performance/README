@@ -83,9 +83,10 @@ the CDB API.
     - maapi_iterate() to get the oper data in ConfD keypath + value format to
       for example transform it into any format that maapi_save_config() does not
       support.
-    - maapi_get_objects() of list items to get the list content in ConfD value
-      array format. Works best for non-nested lists.
-    - See run.sh and maapi_iter.c + maapi_save.c for details.
+    - maapi_get_objects() / object() of oper data in ConfD tag + value format to
+      transform into any format that maapi_save_config() does not support.
+    - See run.sh and maapi_save.c + maapi_iterate.c + maapi_get_objects.c for 
+      details.
 - The wall clock time take is measured for each of the above north bound clients
   for a configurable size of the data read.
 - Two test types are used:
