@@ -97,7 +97,6 @@ module example-serial {
       }
       container status {
         config false;
-        tailf:callpoint "oper-cp";
         container receive {
           uses r:commonPacketsCounters;
         }
