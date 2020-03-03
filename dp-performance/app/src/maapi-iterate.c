@@ -35,7 +35,7 @@ static enum maapi_iter_ret iter(confd_hkeypath_t *kp,
     } else {
       confd_val2str(cs_node->info.type, v, &value[0], BUFSIZ);
     }
-    fprintf(stderr, "%s %s\n", path, value);
+    printf("%s %s\n", path, value);
   }
   return ITER_RECURSE;
 }

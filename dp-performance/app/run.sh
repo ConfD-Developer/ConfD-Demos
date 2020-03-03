@@ -1,9 +1,6 @@
 #!/bin/bash
-START_NUM=10000
-STEP_NUM=10000
-END_NUM=50000
-
 ID=0
+TC_NUMS=( 1000 5000 10000 15000 20000 )
 TC_NAME=( "NCGETD" "NCGETA" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" )
 TC_TYPE=( "ROUTES" "ALL" )
 
@@ -15,7 +12,7 @@ else
     DATE=date
 fi
 
-for ((NUM=START_NUM; NUM<=END_NUM; NUM+=STEP_NUM))
+for NUM in "${TC_NUMS[@]}"
 do
     for TYPE in "${TC_TYPE[@]}"
     do
@@ -26,7 +23,7 @@ do
             ${CONFD} --start-phase1
             ./cdboper_dp -s -p '/r-state:sys' -c 'oper-cp' &> /dev/null &
             ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
-            if [ $TYPE == "ALL" ] && [ $TC != "MGOBJS" ]; then
+            if [ $TYPE == "ALL" ]; then
                 ./cdbgen.py gen-cfg $NUM > init_cfg.xml
                 ./cdbgen.py gen-state $NUM > init_state.xml
                 confd_load -m -l init_cfg.xml
@@ -43,6 +40,8 @@ do
                     ./maapi-save -s -x -p "/r:sys" &> /dev/null
                 elif [ $TC == "MSAVEJ" ]; then
                     ./maapi-save -s -j -p "/r:sys" &> /dev/null
+                elif [ $TC == "MGOBJS" ]; then
+                    ./maapi-get-objects -s -e 100 -p "/r:sys" &> /dev/null
                 elif [ $TC == "MITERA" ]; then
                     ./maapi-iterate -s -p "/r:sys" &> /dev/null
                 fi
