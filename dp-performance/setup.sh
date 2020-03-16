@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFD_VERSION="7.3"
+CONFD_VERSION="7.3.1"
 IMG_NAME="oper-data"
 
 if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] \
