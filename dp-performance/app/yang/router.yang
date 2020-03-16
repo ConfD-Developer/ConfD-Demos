@@ -241,7 +241,6 @@ module router {
       }
       container status {
         config false;
-        tailf:callpoint "oper-cp";
         leaf link {
           type enumeration {
             enum "up";
@@ -291,7 +290,6 @@ module router {
 
         container status {
           config false;
-          tailf:callpoint "oper-cp";
           container receive {
             uses commonPacketsCounters;
           }
@@ -531,7 +529,6 @@ module router {
       }
       container status {
         config false;
-        tailf:callpoint "oper-cp";
         uses ntpStatus;
       }
     }
@@ -546,7 +543,6 @@ module router {
       }
       container status {
         config false;
-        tailf:callpoint "oper-cp";
         uses ntpStatus;
       }
     }
@@ -623,12 +619,14 @@ module router {
   }
 
   container sys {
+    tailf:callpoint "oper-cp" {
+      tailf:config false;
+    }
     container interfaces {
       uses interfaces;
     }
     container routes {
       config false;
-      tailf:callpoint "oper-cp";
       uses routes;
     }
     container syslog {

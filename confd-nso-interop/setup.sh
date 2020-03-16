@@ -1,7 +1,7 @@
 #!/bin/bash
 
-CONFD_VERSION="7.2.1"
-NSO_VERSION="5.2.1"
+CONFD_VERSION="7.3"
+NSO_VERSION="5.3"
 APP_NAME="router"
 
 if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ] && [ -f nso-$NSO_VERSION.linux.x86_64.installer.bin ]
