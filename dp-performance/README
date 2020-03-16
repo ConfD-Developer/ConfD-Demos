@@ -117,8 +117,8 @@ Steps
 3. Examine the setup.sh -> Dockerfile -> app/run.sh -> app/maapi*.c and
    app/src/cdboper_dp.c files in that order.
 4. The app/run.sh script by default define the number of entries read using the
-   "START_NUM" "STEP_NUM" and "STOP_NUM" variables. You may change those numbers
-   to better represent your system setup.
+   "TC_NUM" variable. You may change those numbers to better represent your 
+   system setup.
 5. You can also switch out the YANG models for your own setup. Please report if
    issues occur with your YANG model setup. If you want to use the cdbgen.py
    script to generate the operational data to provide from you need to modify
