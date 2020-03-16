@@ -12,6 +12,7 @@ the CDB API.
 - For optimal general use-case performance we only implement the
   following four Data Provider application callbacks:
   - num_instances()
+  - get_case()
   - get_object()
   - find_next()
   - find_next_object()
