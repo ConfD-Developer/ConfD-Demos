@@ -62,6 +62,8 @@ the CDB API.
   following CDB API calls to provide the requested data:
   - num_instances() DP callback:
     - cdb_num_instances()
+  - get_case() DP callback:
+    - cdb_get_case()
   - get_object() DP callback:
     - cdb_index()
     - cdb_get_values()
