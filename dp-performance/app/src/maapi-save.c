@@ -1,7 +1,3 @@
-/*
- * Copyright 2019 Tail-F Systems AB
- */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -28,8 +24,9 @@ int main(int argc, char *argv[])
   int confd_port = CONFD_PORT;
   int debuglevel = CONFD_DEBUG;
   char buf[BUFSIZ];
+  int datastore = CONFD_RUNNING;
 
-  while ((c = getopt(argc, argv, "a:p:u:g:c:jxh:drts")) != EOF) {
+  while ((c = getopt(argc, argv, "a:p:u:g:c:jxh:CROdrts")) != EOF) {
     switch(c) {
     case 'a':
       confd_ip = optarg;
@@ -54,6 +51,15 @@ int main(int argc, char *argv[])
       break;
     case 'p':
       path = optarg;
+      break;
+    case 'C':
+      datastore = CONFD_CANDIDATE;
+      break;
+    case 'R':
+      datastore = CONFD_RUNNING;
+      break;
+    case 'O':
+      datastore = CONFD_OPERATIONAL;
       break;
     case 'd':
       debuglevel = CONFD_DEBUG;
@@ -96,7 +102,7 @@ int main(int argc, char *argv[])
     confd_fatal("Failed to start user session");
   }
 
-  if ((thandle = maapi_start_trans(maapisock,CONFD_OPERATIONAL,
+  if ((thandle = maapi_start_trans(maapisock, datastore,
                                    CONFD_READ)) < 0) {
     confd_fatal("Failed to start trans");
   }
