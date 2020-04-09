@@ -11,8 +11,8 @@ between the OpenSSH daemon and the ConfD NETCONF server. Just as with OpenSSH,
 one can instead relay between a TLS implementation, e.g. GnuTLS, and the
 ConfD NETCONF server.  TLS 1.2 NETCONF server example
 
-To illustrate, below is a simple TLS 1.2 NETCONF server example using X.509
-authentication according to RFC 7589.
+To illustrate, a simple TLS 1.2 NETCONF server setup example using X.509
+authentication according to RFC 7589 can be found in the app/run.sh script.
 
 About the example:
 o The example use the GnuTLS library for TLS with X.509 authentication.
