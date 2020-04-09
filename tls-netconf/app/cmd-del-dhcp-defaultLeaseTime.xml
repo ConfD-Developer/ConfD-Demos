@@ -15,7 +15,12 @@
 </rpc>
 ]]>]]>
 <?xml version="1.0" encoding="UTF-8"?>
-<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">
+<rpc message-id="2" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <discard-changes/>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="3">
   <edit-config>
     <target>
       <candidate/>
@@ -30,12 +35,12 @@
 </rpc>
 ]]>]]>
 <?xml version="1.0" encoding="UTF-8"?>
-<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="3">
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="4">
   <commit/>
 </rpc>
 ]]>]]>
 <?xml version="1.0" encoding="UTF-8"?>
-<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="4">
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="5">
   <unlock>
     <target>
       <candidate/>
@@ -44,7 +49,7 @@
 </rpc>
 ]]>]]>
 <?xml version="1.0" encoding="UTF-8"?>
-<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="5">
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="6">
   <close-session/>
 </rpc>
 ]]>]]>
