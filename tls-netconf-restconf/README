@@ -16,7 +16,7 @@ authentication according to RFC 7589.
 
 About the example:
 o The example use the GnuTLS library for TLS with X.509 authentication.
-o The example is a merge of the "Echo Server with X.509 Authentication”
+o The example is a merge of the "Echo Server with X.509 Authentication"
   example from the GnuTLS manual and the
   $CONFD_DIR/src/confd/netconf/netconf-subsys.c ConfD program which is
   modified to support TLS instead of OpenSSH.
