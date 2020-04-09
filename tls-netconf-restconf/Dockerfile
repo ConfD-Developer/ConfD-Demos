@@ -14,7 +14,7 @@ ENV CONFD=${CONFD_DIR}/bin/confd
 
 WORKDIR /
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gnutls-bin libgnutls28-dev build-essential libssl-dev openssh-client
+    && apt-get install -y --no-install-recommends gnutls-bin libgnutls28-dev build-essential openssl libssl-dev openssh-client curl
 
 WORKDIR /tmp
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp

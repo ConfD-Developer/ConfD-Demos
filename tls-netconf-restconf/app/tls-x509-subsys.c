@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <gnutls/gnutls.h>
+#include <assert.h>
 
 #include <netinet/tcp.h>
 #include <sys/poll.h>
@@ -42,70 +43,52 @@ gnutls_certificate_credentials_t x509_cred;
 gnutls_priority_t priority_cache;
 
 #define NETCONF_TCP_PORT 2023
+#define CHECK(x) assert((x)>=0)
 
 static gnutls_session_t
 initialize_tls_session (void)
 {
   gnutls_session_t session;
 
-  gnutls_init (&session, GNUTLS_SERVER);
+  CHECK(gnutls_init (&session, GNUTLS_SERVER));
 
-  gnutls_priority_set (session, priority_cache);
+  CHECK(gnutls_priority_set (session, priority_cache));
 
-  gnutls_credentials_set (session, GNUTLS_CRD_CERTIFICATE, x509_cred);
+  CHECK(gnutls_credentials_set (session, GNUTLS_CRD_CERTIFICATE, x509_cred));
 
   /* request client certificate if any.
    */
   gnutls_certificate_server_set_request (session, GNUTLS_CERT_REQUEST);
-
+  gnutls_handshake_set_timeout(session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
   /* Set maximum compatibility mode. This is only suggested on public webservers
    * that need to trade security for compatibility
    */
-  gnutls_session_enable_compatibility_mode (session);
+  //gnutls_session_enable_compatibility_mode (session);
 
   return session;
 }
 
-static gnutls_dh_params_t dh_params;
-
-static int
-generate_dh_params (void)
-{
-
-  /* Generate Diffie-Hellman parameters - for use with DHE
-   * kx algorithms. When short bit length is used, it might
-   * be wise to regenerate parameters.
-   *
-   * Check the ex-serv-export.c example for using static
-   * parameters.
-   */
-  gnutls_dh_params_init (&dh_params);
-  gnutls_dh_params_generate2 (dh_params, DH_BITS);
-
-  return 0;
-}
-
 int write_fill(int fd, unsigned char *buf, int len)
 {
-    int i;
-    unsigned int done = 0;
+  int i;
+  unsigned int done = 0;
 
-    do {
-        if ((i = write(fd, (char *)(buf+done), len-done)) < 0) {
-            if (errno != EINTR)
-                return (i);
-            i = 0;
-        }
-        done += i;
-    } while (done < len);
-    return (len);
+  do {
+    if ((i = write(fd, (char *)(buf+done), len-done)) < 0) {
+      if (errno != EINTR)
+        return (i);
+      i = 0;
+    }
+    done += i;
+  } while (done < len);
+  return (len);
 }
 
 int
 main (void)
 {
-  int err, listen_sd;
-  int sd, ret;
+  int err, listen_sd, ret;
+  long sd;
   struct sockaddr_in sa_serv;
   struct sockaddr_in sa_cli;
   unsigned int client_len;
@@ -119,27 +102,21 @@ main (void)
   struct pollfd fds[2];
   int nfds = 2;
   int one = 1;
-  
+
   /* this must be called once in the program
    */
-  gnutls_global_init ();
+  CHECK(gnutls_global_init ());
 
-  /* Set server credentials */ 
-  gnutls_certificate_allocate_credentials (&x509_cred);
-  gnutls_certificate_set_x509_trust_file (x509_cred, CAFILE,
-                                          GNUTLS_X509_FMT_PEM);
-
-  gnutls_certificate_set_x509_crl_file (x509_cred, CRLFILE,
-                                        GNUTLS_X509_FMT_PEM);
-
-  gnutls_certificate_set_x509_key_file (x509_cred, CERTFILE, KEYFILE,
-                                        GNUTLS_X509_FMT_PEM);
-
-  generate_dh_params ();
-
-  gnutls_priority_init (&priority_cache, "NORMAL", NULL);
-
-  gnutls_certificate_set_dh_params (x509_cred, dh_params);
+  /* Set server credentials */
+  CHECK(gnutls_certificate_allocate_credentials (&x509_cred));
+  CHECK(gnutls_certificate_set_x509_trust_file (x509_cred, CAFILE,
+                                                GNUTLS_X509_FMT_PEM));
+  CHECK(gnutls_certificate_set_x509_crl_file (x509_cred, CRLFILE,
+                                              GNUTLS_X509_FMT_PEM));
+  CHECK(gnutls_certificate_set_x509_key_file (x509_cred, CERTFILE, KEYFILE,
+                                              GNUTLS_X509_FMT_PEM));
+  CHECK(gnutls_priority_init (&priority_cache, "NORMAL", NULL));
+  gnutls_certificate_set_known_dh_params(x509_cred, GNUTLS_SEC_PARAM_MEDIUM);
 
   /* Socket operations
    */
@@ -161,27 +138,27 @@ main (void)
 
   printf ("Server ready. Listening to port '%d'.\n\n", PORT);
   daemon(1,1);
-  
+
   client_len = sizeof (sa_cli);
   for (;;) {
     session = initialize_tls_session ();
 
-    sd = accept (listen_sd, (SA *) & sa_cli, &client_len);
+    sd = accept(listen_sd, (SA *) & sa_cli, &client_len);
 
     printf ("- connection from %s, port %d\n",
-	    inet_ntop (AF_INET, &sa_cli.sin_addr, topbuf,
-		       sizeof (topbuf)), ntohs (sa_cli.sin_port));
+            inet_ntop (AF_INET, &sa_cli.sin_addr, topbuf,
+                       sizeof (topbuf)), ntohs (sa_cli.sin_port));
 
-    gnutls_transport_set_ptr (session, (gnutls_transport_ptr_t ) sd);
+    gnutls_transport_set_ptr (session, (gnutls_transport_ptr_t) sd);
     ret = gnutls_handshake (session);
     if (ret < 0)
-      {
-	close (sd);
-	gnutls_deinit (session);
-	fprintf (stderr, "*** Handshake has failed (%s)\n\n",
-		 gnutls_strerror (ret));
-	continue;
-      }
+    {
+      close (sd);
+      gnutls_deinit (session);
+      fprintf (stderr, "*** Handshake has failed (%s)\n\n",
+               gnutls_strerror (ret));
+      continue;
+    }
     printf ("- Handshake was completed\n");
 
     if ((confd_sd = socket(PF_INET, SOCK_STREAM, 0)) < 0 ) {
@@ -207,13 +184,13 @@ main (void)
        need to verify the client identity according to section 7 of RFC7589 */
 
     sprintf(buffer, "[%s;%s/%d;ssh;%d;%d;%s;%s;;]\n",
-	    "admin", topbuf, ntohs (sa_cli.sin_port),
-	    9000, 100,
-	    "", "/var/confd/homes/admin");
-      
+            "admin", topbuf, ntohs (sa_cli.sin_port),
+            9000, 100,
+            "", "/var/confd/homes/admin");
+
     write(confd_sd, buffer, strlen(buffer));
-     
-    /* Setup poll */ 
+
+    /* Setup poll */
     fds[0].fd = confd_sd;
     fds[0].events = POLLIN;
     fds[1].fd = sd;
@@ -223,50 +200,50 @@ main (void)
       fds[0].revents = 0;
       fds[1].revents = 0;
       memset (buffer, 0, MAX_BUF + 1);
-	
+
       if (poll(&fds[0], nfds, -1) < 0) {
-	perror("Poll failed:");
-	continue;
+        perror("Poll failed:");
+        continue;
       }
-	
+
       /* Check for I/O */
       if (fds[1].revents & (POLLIN | POLLHUP)) {
-	ret = gnutls_record_recv (session, buffer, MAX_BUF);
-	if (ret == 0) {
-	  printf ("\n- Peer has closed the GnuTLS connection\n");
-	  break;
-	}
-	else if (ret < 0) {
-	  fprintf (stderr, "\n*** Received corrupted "
-		   "data(%d). Closing the connection.\n\n", ret);
-	  break;
-	}
-	else if (ret > 0) {
-	  /* forward data to the NETCONF server */
-	  if (write_fill(confd_sd, buffer, ret) != ret) {
-	    fprintf(stderr, "Failed to write to the ConfD NETCONF server on fd %d: %d\n", confd_sd, errno);
-	    break;
-	  }
-	}
+        ret = gnutls_record_recv (session, buffer, MAX_BUF);
+        if (ret == 0) {
+          printf ("\n- Peer has closed the GnuTLS connection\n");
+          break;
+        }
+        else if (ret < 0) {
+          fprintf (stderr, "\n*** Received corrupted "
+                   "data(%d). Closing the connection.\n\n", ret);
+          break;
+        }
+        else if (ret > 0) {
+          /* forward data to the NETCONF server */
+          if (write_fill(confd_sd, (unsigned char *)buffer, ret) != ret) {
+            fprintf(stderr, "Failed to write to the ConfD NETCONF server on fd %d: %d\n", confd_sd, errno);
+            break;
+          }
+        }
       }
       else if (fds[1].revents) {
-	fprintf(stderr, "Poll error from TLS client\n");
-	break;
+        fprintf(stderr, "Poll error from TLS client\n");
+        break;
       }
       else if (fds[0].revents & (POLLIN | POLLHUP)) {
-	if ((ret = read(confd_sd, buffer, MAX_BUF)) == 0) {
-	  /* eof from NETCONF server - we're done */
-	  break;
-	}
-	if (ret < 0) {
-	  fprintf(stderr, "Failed to read on fd %d: %d\n", confd_sd, errno);
-	  break;
-	}
-	gnutls_record_send (session, buffer, strlen (buffer));
+        if ((ret = read(confd_sd, buffer, MAX_BUF)) == 0) {
+          /* eof from NETCONF server - we're done */
+          break;
+        }
+        if (ret < 0) {
+          fprintf(stderr, "Failed to read on fd %d: %d\n", confd_sd, errno);
+          break;
+        }
+        gnutls_record_send (session, buffer, strlen (buffer));
       }
       else if (fds[0].revents) {
-	fprintf(stderr, "Poll error from server\n");
-	break;
+        fprintf(stderr, "Poll error from server\n");
+        break;
       }
     }
     printf ("\n");
