@@ -9,7 +9,7 @@ Secure Shell (SSH)2.  While ConfD natively support the well established RFC
 netconf-subsys which is an OpenSSH subsystem program that functions as a relay
 between the OpenSSH daemon and the ConfD NETCONF server. Just as with OpenSSH,
 one can instead relay between a TLS implementation, e.g. GnuTLS, and the
-ConfD NETCONF server.  TLS 1.2 NETCONF server example
+ConfD NETCONF server.  
 
 To illustrate, a simple TLS 1.2 NETCONF server setup example using X.509
 authentication according to RFC 7589 can be found in the app/run.sh script.
