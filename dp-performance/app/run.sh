@@ -1,8 +1,8 @@
 #!/bin/bash
 ID=0
 TC_NUMS=( 5 1000 5000 10000 15000 20000 )
-TC_NAME=( "NCGETD" "NCGETO" "NCGETA" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" )
-TC_TYPE=( "OPER" "RUN" "CAND" )
+TC_NAME=( "NCGETD" "NCGETO" "NCGETA" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
+TC_TYPE=( "OPER" ) #"RUN" "CAND" )
 MAAPI_DS="-O"
 NETCONF_DS="operational"
 
@@ -57,6 +57,8 @@ do
                 ./maapi-get-objects -s $MAAPI_DS -e 100 -p "/r:sys" &> /dev/null
             elif [ $TC == "MITERA" ]; then
                 ./maapi-iterate -s $MAAPI_DS -p "/r:sys" &> /dev/null
+            elif [ $TC == "CLISH" ]; then
+                ./cli-show-sys.sh &> /dev/null
             fi
             END=$($DATE +%s)
             TIME=$(($END-$START))
