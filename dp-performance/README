@@ -10,7 +10,7 @@ efficiently reading the requested data from the CDB operational data store using
 the CDB API.
 
 - For optimal general use-case performance we only implement the
-  following five Data Provider application callbacks:
+  following Data Provider application callbacks:
   - exists_optional()
   - get_case()
   - num_instances()
