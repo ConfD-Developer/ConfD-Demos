@@ -36,7 +36,7 @@ the CDB API.
   operational data store.
 
 
-    MAAPI / NETCONF / RESTCONF Client(s)
+    MAAPI/NETCONF/RESTCONF/CLI Client(s)
           |  ^
   Request v  | Response
   --------------------------------
