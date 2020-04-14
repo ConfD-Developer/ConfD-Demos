@@ -4,15 +4,16 @@ A Generic Data Provider Setup Targeting Optimal Wall-Clock Time Performance
 Build a ConfD Docker container based on a Debian 10 Docker image and
 run a generic ConfD Data Provider (DP API) example. The demo also shows the
 difference in performance when reading the operational YANG "config false" data
-from various NETCONF, RESTCONF, and MAAPI clients. In addition, the DP
+from various NETCONF, RESTCONF, MAAPI, and CLI clients. In addition, the DP
 application uses the ConfD CDB operational data store to provide data from by
 efficiently reading the requested data from the CDB operational data store using
 the CDB API.
 
 - For optimal general use-case performance we only implement the
   following five Data Provider application callbacks:
-  - num_instances()
+  - exists_optional()
   - get_case()
+  - num_instances()
   - get_object()
   - find_next()
   - find_next_object()
@@ -60,10 +61,12 @@ the CDB API.
 - The implementation of the data provider callbacks in the cdboper_dp.c data
   provider application use the schema generated from the YANG models and the
   following CDB API calls to provide the requested data:
-  - num_instances() DP callback:
-    - cdb_num_instances()
+  - exists_optional() DP callback:
+    - cdb_exists()
   - get_case() DP callback:
     - cdb_get_case()
+  - num_instances() DP callback:
+    - cdb_num_instances()
   - get_object() DP callback:
     - cdb_index()
     - cdb_get_values()
@@ -76,7 +79,7 @@ the CDB API.
     - cdb_next_index()
     - cdb_num_instances()
     - cdb_get_values()
-- The northbound NETCONF / RESTCONF / MAAPI interface clients requesting data:
+- The northbound NETCONF/RESTCONF/MAAPI/CLI interface clients requesting data:
     - NETCONF <get-data>, an RFC 8526 NETCONF NMDA extension that allow us to
       use a config-filter to get "config false" data only.
     - NETCONF <get>, legacy way before <get-data> was available.
@@ -88,8 +91,9 @@ the CDB API.
       support.
     - maapi_get_objects() / object() of oper data in ConfD tag + value format to
       transform into any format that maapi_save_config() does not support.
-    - See run.sh and maapi_save.c + maapi_iterate.c + maapi_get_objects.c for 
-      details.
+    - CLI show of oper data in C-style format.
+    - See run.sh and maapi_save.c + maapi_iterate.c + maapi_get_objects.c + 
+      cli-show-sys.sh for details.
 - Wall clock time is measured for each of the above northbound clients
   for a configurable size of the data read.
 - Two test types are used:
