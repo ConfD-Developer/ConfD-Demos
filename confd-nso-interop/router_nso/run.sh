@@ -109,8 +109,6 @@ exit
 exit
 EOF
 
-printf "(add-to-list \'auto-mode-alist \'(\"\\\\\.trace\\\\\\\\\\'\" . nxml-mode))\n(add-hook \'nxml-mode-hook \\'auto-revert-tail-mode)\n(add-hook \'auto-revert-tail-mode-hook \'end-of-buffer)\n(add-hook 'find-file-hook (lambda () (highlight-regexp \"/router_confd/progress.trace\")))\n(add-hook 'find-file-hook (lambda () (highlight-regexp \"/router_confd/progress.trace\")))\n(add-hook 'find-file-hook (lambda () (highlight-regexp \"device router\")))\n(add-hook 'find-file-hook (lambda () (highlight-regexp \"Initialization done\")))\n" > ~/.emacs
-
 tail -F "/"$APP_NAME"_nso"/logs/netconf-$APP_NAME.trace \
      -F "/"$APP_NAME"_nso"/logs/progress.trace \
      > netconf-$APP_NAME.trace &
