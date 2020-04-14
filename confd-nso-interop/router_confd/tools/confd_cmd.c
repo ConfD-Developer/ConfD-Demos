@@ -499,45 +499,6 @@ static enum cdb_iter_ret subwait_iter_m(confd_hkeypath_t *kp,
     return ITER_RECURSE;
 }
 
-static enum cdb_iter_ret subwait_citer(confd_hkeypath_t *kp,
-                                       enum cdb_iter_op op,
-                                       confd_value_t *oldv,
-                                       confd_value_t *newv,
-                                       char *clistr,
-                                       int tc,
-                                       struct confd_cli_token *tokens,
-                                       void *state)
-{
-    int i;
-    iter_common(kp, op, oldv, newv, state);
-    printf("CLI COMMANDS:\n%s\n", clistr);
-    for (i=0; i<tc; i++) {
-        char b[255];
-        confd_pp_value(b, 255, &tokens[i].val);
-        printf("token[%d] = \"%s\" \"%s\"\n", i, b, tokens[i].string);
-    }
-    return ITER_RECURSE;
-}
-
-static enum cdb_iter_ret subwait_citer2(confd_hkeypath_t *kp,
-                                       enum cdb_iter_op op,
-                                       confd_value_t *oldv,
-                                       confd_value_t *newv,
-                                       char *clistr,
-                                       int tc,
-                                       struct confd_cli_token *tokens,
-                                       void *state)
-{
-    int i;
-    printf("%s", clistr);
-    for (i=0; i<tc; i++) {
-        char b[255];
-        confd_pp_value(b, 255, &tokens[i].val);
-        printf("token[%d] = \"%s\" \"%s\"\n", i, b, tokens[i].string);
-    }
-    return ITER_RECURSE;
-}
-
 static void do_subwait_mods(char *argv[])
                       /* <path> [prio] [loop] [modpath] ['suppress_defaults'] */
 {
@@ -781,70 +742,6 @@ static void do_subwait_abort2p(char *argv[]) /* <path> [prio] [loop] */
 }
 
 /* Wait for a path to change */
-static void do_subwait_citer(char *argv[]) /* <path> [prio] [loop] */
-{
-    int id, n, i, prio, loop, subids[1];
-    if (argv[1]) {
-        prio = atoi(argv[1]);
-    } else {
-        prio = 10;
-    }
-    if (argv[1] && argv[2]) {
-        loop = atoi(argv[2]);
-        if (loop == 0) loop = 1;
-    } else {
-        loop = 1;
-    }
-    OK(common_subscribe(cs, prio, 0, &id, argv[0]));
-    OK(cdb_subscribe_done(cs));
-    printf("SUBSCRIBED TO %s\n", argv[0]);
-    for (i=0; i<loop; i++) {
-        OK(cdb_read_subscription_socket(cs, subids, &n));
-        printf("COMMIT\n");
-        common_sub_progress(cs, "going into diff_iterate on id %d", id);
-        cdb_cli_diff_iterate(cs, id, subwait_citer,
-                             leaf_iter|ITER_WANT_PREV|ITER_WANT_ANCESTOR_DELETE,
-                             argv[0]);
-        common_sub_progress(cs, "cdb_diff_iterate(%d) done.", id);
-        common_sync_subscription_socket(cs, CDB_DONE_PRIORITY);
-        printf("DONE\n");
-        fflush(stdout);
-    }
-}
-
-/* Wait for a path to change */
-static void do_subwait_citer2(char *argv[]) /* <path> [prio] [loop] */
-{
-    int id, n, i, prio, loop, subids[1];
-    if (argv[1]) {
-        prio = atoi(argv[1]);
-    } else {
-        prio = 10;
-    }
-    if (argv[1] && argv[2]) {
-        loop = atoi(argv[2]);
-        if (loop == 0) loop = 1;
-    } else {
-        loop = 1;
-    }
-    OK(common_subscribe(cs, prio, 0, &id, argv[0]));
-    OK(cdb_subscribe_done(cs));
-    printf("SUBSCRIBED TO %s\n", argv[0]);
-    for (i=0; i<loop; i++) {
-        OK(cdb_read_subscription_socket(cs, subids, &n));
-        printf("COMMIT\n");
-        common_sub_progress(cs, "going into diff_iterate on id %d", id);
-        cdb_cli_diff_iterate(cs, id, subwait_citer2,
-                             leaf_iter|ITER_WANT_PREV|ITER_WANT_ANCESTOR_DELETE,
-                             argv[0]);
-        common_sub_progress(cs, "cdb_diff_iterate(%d) done.", id);
-        common_sync_subscription_socket(cs, CDB_DONE_PRIORITY);
-        printf("DONE\n");
-        fflush(stdout);
-    }
-}
-
-/* Wait for a path to change */
 static void do_subwait(char *argv[]) /* <path> [prio] */
 {
     int id, n, prio, subids[1];
@@ -943,16 +840,6 @@ static struct cmd_t {
         "<path> [priority] [loop]",
         "subscribe to <path> using a two phase subscription "
         "and abort the transaction when notified"
-    },
-    {
-        "subwait_cli_iter", {NULL}, do_subwait_citer, -1,
-        CMD_CDB|CMD_CDB_SUB|CMD_WANT_SCHEMA,
-        "<path> [priority] [loop]", NULL
-    },
-    {
-        "cli_sub", {NULL}, do_subwait_citer2, -1,
-        CMD_CDB|CMD_CDB_SUB|CMD_WANT_SCHEMA,
-        "<path> [priority] [loop]", NULL
     },
     {
         "subwait", {"w",NULL}, do_subwait, -1, CMD_CDB|CMD_CDB_SUB,
