@@ -96,17 +96,22 @@ static void mk_kp_str(char *kp_str, int bufsiz, char *ns, confd_hkeypath_t *keyp
   int i, j, k, kp_strlen = 0; //nkeys
   char tmpbuf[confd_maxkeylen][BUFSIZ];
   struct confd_cs_node *cs_node;
+  struct confd_type *type;
 
-  confd_pp_kpath(kp_str, bufsiz, keypath);
   for(i = kp_len; i >= 0; i--) {
     v = &(keypath->v[i][0]);
     if(v->type == C_XMLTAG) {
       confd_format_keypath(&kp_str[kp_strlen], bufsiz - kp_strlen, "/%s%s:%x", confd_ns2prefix(v->val.xmltag.ns), "-state", v);
     } else {
       cs_node = confd_cs_node_cd(NULL, &kp_str[0]);
-      cs_node = cs_node->children;
+      if(cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
+        type = confd_get_leaf_list_type(cs_node);
+      } else {
+        cs_node = cs_node->children;
+        type = cs_node->info.type;
+      }
       for(j = 0; keypath->v[i][j].type != C_NOEXISTS; j++) {
-        confd_val2str(cs_node->info.type, &(keypath->v[i][j]), tmpbuf[j], sizeof(tmpbuf[j]));
+        confd_val2str(type, &(keypath->v[i][j]), tmpbuf[j], sizeof(tmpbuf[j]));
         cs_node = cs_node->next;
       }
       strcpy(&kp_str[kp_strlen], "{"); kp_strlen++;
@@ -126,27 +131,28 @@ static int s_init(struct confd_trans_ctx *tctx)
   return CONFD_OK;
 }
 
-static int num_instances(struct confd_trans_ctx *tctx,
-                         confd_hkeypath_t *keypath)
+static int exists_optional(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath)
 {
-  confd_value_t v;
   char kp_str[BUFSIZ];
+  int ret;
 
   mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), keypath);
-  CONFD_SET_INT32(&v, cdb_num_instances(cdbsock, "%s", kp_str));
-  confd_data_reply_value(tctx, &v);
-
+  if ((ret = cdb_exists(cdbsock, &kp_str[0])) == 1) {
+    confd_data_reply_found(tctx);
+  } else {
+    confd_data_reply_not_found(tctx);
+  }
   return CONFD_OK;
 }
 
 static int get_case(struct confd_trans_ctx *tctx,
-                    confd_hkeypath_t *kp, confd_value_t *choice)
+                    confd_hkeypath_t *keypath, confd_value_t *choice)
 {
   confd_value_t rcase;
   char kp_str[BUFSIZ];
   int ret; //,i;
 
-  mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), kp);
+  mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), keypath);
 
   /*
   // TODO: NESTED CHOICES
@@ -156,11 +162,25 @@ static int get_case(struct confd_trans_ctx *tctx,
   */
 
   if ((ret = cdb_get_case(cdbsock, confd_hash2str(CONFD_GET_XMLTAG(choice)),
-                          &rcase, &kp_str[0])) == CONFD_ERR_NOEXISTS) {
+                          &rcase, &kp_str[0])) != CONFD_OK) {
     confd_data_reply_not_found(tctx);
+  } else {
+    rcase.val.xmltag.ns = choice->val.xmltag.ns;
+    confd_data_reply_value(tctx, &rcase);
   }
-  rcase.val.xmltag.ns = choice->val.xmltag.ns;
-  confd_data_reply_value(tctx, &rcase);
+  return CONFD_OK;
+}
+
+static int num_instances(struct confd_trans_ctx *tctx,
+                         confd_hkeypath_t *keypath)
+{
+  confd_value_t v;
+  char kp_str[BUFSIZ];
+
+  mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), keypath);
+  CONFD_SET_INT32(&v, cdb_num_instances(cdbsock, kp_str));
+  confd_data_reply_value(tctx, &v);
+
   return CONFD_OK;
 }
 
@@ -192,10 +212,10 @@ static int get_object(struct confd_trans_ctx *tctx,
   char kp_str[BUFSIZ], *lastslash;
 
   mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), keypath);
-  cs_node = confd_cs_node_cd(NULL, "%s", kp_str);
+  cs_node = confd_cs_node_cd(NULL, kp_str);
   itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
   if (cs_node->info.flags & CS_NODE_IS_LIST) { /* list */
-    pos = cdb_index(cdbsock, "%s", kp_str);
+    pos = cdb_index(cdbsock, kp_str);
     if (pos < 0) {
       /* No list entry with a maching key */
       confd_data_reply_not_found(tctx);
@@ -212,7 +232,7 @@ static int get_object(struct confd_trans_ctx *tctx,
       *lastslash = 0;
     }
   }
-  if (cdb_get_values(cdbsock, itv, j, "%s", kp_str) != CONFD_OK) {
+  if (cdb_get_values(cdbsock, itv, j, kp_str) != CONFD_OK) {
     confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
   }
 
@@ -242,7 +262,7 @@ static int find_next(struct confd_trans_ctx *tctx,
 
   mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), keypath);
 
-  cs_node = confd_cs_node_cd(NULL, "%s", kp_str);
+  cs_node = confd_cs_node_cd(NULL, kp_str);
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
     confd_data_reply_next_key(tctx, NULL, -1, -1);
     return CONFD_OK;
@@ -285,7 +305,7 @@ static int find_next(struct confd_trans_ctx *tctx,
       *lastslash = 0;
     }
   }
-  if (cdb_get_values(cdbsock, tv, j, "%s", kp_str) != CONFD_OK) {
+  if (cdb_get_values(cdbsock, tv, j, kp_str) != CONFD_OK) {
     /* key not found in the unlikely event that it was deleted after our
        cdb_index() check */
     confd_data_reply_next_key(tctx, NULL, -1, -1);
@@ -314,7 +334,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
 
   mk_kp_str(&kp_str[0], BUFSIZ, confd_ns2prefix(provide_from_root_node->ns), keypath);
 
-  cs_node = confd_cs_node_cd(NULL, "%s", kp_str);
+  cs_node = confd_cs_node_cd(NULL, kp_str);
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
     confd_data_reply_next_key(tctx, NULL, -1, -1);
     return CONFD_OK;
@@ -344,7 +364,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     }
   }
 
-  if (pos == -1 || (n_list_entries = cdb_num_instances(cdbsock, "%s", kp_str)) <= pos) {
+  if (pos == -1 || (n_list_entries = cdb_num_instances(cdbsock, kp_str)) <= pos) {
     /* we have reached the end of the list */
     confd_data_reply_next_key(tctx, NULL, -1, -1);
     return CONFD_OK;
@@ -370,7 +390,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
       *lastslash = 0;
     }
   }
-  if (cdb_get_values(cdbsock, &itv[0], j, "%s", kp_str) != CONFD_OK) {
+  if (cdb_get_values(cdbsock, &itv[0], j, kp_str) != CONFD_OK) {
     confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
   }
 
@@ -492,8 +512,9 @@ int main(int argc, char *argv[])
   memset(&data, 0, sizeof (struct confd_data_cbs));
   /* assuming large lists and not the content of
      individual leafs are typically requested */
-  data.num_instances = num_instances;
+  data.exists_optional = exists_optional;
   data.get_case = get_case;
+  data.num_instances = num_instances;
   data.get_object = get_object;
   data.find_next = find_next;
   data.find_next_object = find_next_object;
