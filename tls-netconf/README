@@ -19,7 +19,9 @@ o The example use the GnuTLS library for TLS with X.509 authentication.
 o The example is a merge of the "Echo Server with X.509 Authentication”
   example from the GnuTLS manual and the
   $CONFD_DIR/src/confd/netconf/netconf-subsys.c ConfD program which is
-  modified to support TLS instead of OpenSSH.
+  modified to support TLS instead of OpenSSH. The exception vs. the echo
+  server example is that we require the client to authenticate using a 
+  certificate too (to make the authentication mutual).
 o We modify the $CONFD_DIR/examples.confd/intro/1-2-3-start-query-model for
   NETCONF over TLS instead of over the ConfD built-in SSH server.
 o Note that the example example contain little or no error checking and that
