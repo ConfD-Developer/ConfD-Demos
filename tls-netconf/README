@@ -30,13 +30,6 @@ o Note that the example example contain little or no error checking and that
 o Also note that we only serve one client at the time. Real implementations
   will likely want to serve several in parallel.
 
-RESTCONF with X.509 Authentication storing TLS data in ConfD's CDB
-==================================================================
-
-In this demo we setup ConfD for storing the TLS data in CDB to enable ConfD's
-web server to fetch TLS data from the CDB for authenticating RESTCONF clients
-See ConfD UG Chapter "Storing TLS data in database" for more details.
-
 Prerequisites
 -------------
 confd-7.x.linux.x86_64.installer.bin

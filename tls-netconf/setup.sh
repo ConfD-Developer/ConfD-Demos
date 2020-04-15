@@ -1,6 +1,6 @@
 #!/bin/bash
 CONFD_VERSION="7.3.1"
-IMG_NAME="confd-tls-x509"
+IMG_NAME="nc-tls-x509"
 APP_NAME="app"
 
 if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ]

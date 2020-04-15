@@ -56,14 +56,10 @@ initialize_tls_session (void)
 
   CHECK(gnutls_credentials_set (session, GNUTLS_CRD_CERTIFICATE, x509_cred));
 
-  /* request client certificate if any.
+  /* We require a client certificate to authenticate the client.
    */
-  gnutls_certificate_server_set_request (session, GNUTLS_CERT_REQUEST);
+  gnutls_certificate_server_set_request (session, GNUTLS_CERT_REQUIRE);
   gnutls_handshake_set_timeout(session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
-  /* Set maximum compatibility mode. This is only suggested on public webservers
-   * that need to trade security for compatibility
-   */
-  //gnutls_session_enable_compatibility_mode (session);
 
   return session;
 }
