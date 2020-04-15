@@ -1,0 +1,33 @@
+RESTCONF over TLS w Mutual X.509 Authentication storing TLS data in ConfD's CDB
+===============================================================================
+
+In this demo we setup ConfD for storing the TLS data in CDB to enable ConfD's
+built in web server to fetch TLS data from the CDB for authenticating RESTCONF
+clients. See ConfD UG Chapter "Storing TLS data in database" for more details.
+
+Also note the additional confd.conf settings to force a "mutual" authentication:
+
+<webui>
+...
+  <transport>
+    <ssl>
+...
+      <readFromDb>true</readFromDb>
+      <protocols>tlsv1.2</protocols>
+      <verify>3</verify>
+    </ssl>
+ </transport>
+...
+</webui>
+
+Prerequisites
+-------------
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into the directory of this README.
+2. Run the setup.sh script.
+3. See the app/run.sh script and confd.conf for details.
