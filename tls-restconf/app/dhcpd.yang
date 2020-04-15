@@ -1,0 +1,89 @@
+module dhcpd {
+
+  namespace "http://tail-f.com/ns/example/dhcpd";
+  prefix dhcpd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import tailf-xsd-types {
+    prefix xs;
+  }
+
+  typedef loglevel {
+    type enumeration {
+        enum kern;
+        enum mail;
+        enum local7;
+    }
+  }
+
+  grouping subNet {
+    list subNet {
+      key "net mask";
+      leaf net {
+        type inet:ipv4-address;
+      }
+      leaf mask {
+        type inet:ipv4-address;
+      }
+      container range {
+        presence "";
+        leaf dynamicBootP {
+          type boolean;
+          default false;
+          description "Enable BOOTP for this instance.";
+        }
+        leaf lowAddr {
+          type inet:ipv4-address;
+          mandatory true;
+          description "Enable BOOTP for this instance.";
+        }
+        leaf hiAddr {
+          type inet:ipv4-address;
+          description "Enable BOOTP for this instance.";
+        }
+      }
+      leaf routers {
+        type string;
+      }
+      leaf maxLeaseTime {
+        type xs:duration;
+        default PT7200S;
+      }
+    }
+  }
+
+
+
+  container dhcp {
+    leaf defaultLeaseTime {
+      type xs:duration;
+      default PT600S;
+    }
+    leaf maxLeaseTime {
+      type xs:duration;
+      default PT7200S;
+    }
+    leaf logFacility {
+      type loglevel;
+      default local7;
+    }
+    container SubNets {
+      uses subNet;
+    }
+    container SharedNetworks {
+      list sharedNetwork {
+        key name;
+        max-elements 1024;
+        leaf name {
+          type string;
+        }
+        container SubNets {
+          uses subNet ;
+        }
+      }
+    }
+  }
+}
