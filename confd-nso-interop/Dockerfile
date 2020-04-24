@@ -8,7 +8,8 @@ ENV CONFD_VERSION=${CONFD_VERSION}
 ENV NSO_VERSION=${NSO_VERSION}
 ENV APP_NAME=${APP_NAME}
 ENV DEBIAN_FRONTEND=noninteractive
-ENV CONFD_DIR=/confd NCS_DIR=/nso
+ENV CONFD_DIR=/confd
+ENV NCS_DIR=/nso
 ENV LD_LIBRARY_PATH=/nso/lib:/confd/lib PYTHONPATH=/nso/src/ncs/pyapi
 ENV PATH=/confd/bin:/nso/bin:$PATH
 
@@ -20,8 +21,7 @@ RUN pip install --upgrade pip \
     && apt-get install -y --no-install-recommends libxml2-utils xsltproc git default-jre \
     && /tmp/nso-${NSO_VERSION}.linux.x86_64.signed.bin --skip-verification \
     && chmod +x /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin \
-    && /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin ${NCS_DIR} \
-    && ls -la /tmp \ 
+    && /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin ${NCS_DIR} \ 
     && rm -rf ${NCS_DIR}/examples.ncs ${NCS_DIR}/doc
 
 RUN apt-get install -y --no-install-recommends default-jre
