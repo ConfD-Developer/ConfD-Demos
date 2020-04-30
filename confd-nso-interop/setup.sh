@@ -16,7 +16,7 @@ else
     echo >&2 "E.g.:"
     echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
     echo >&2 "confd-$CONFD_VERSION.libconfd.tar.gz"
-    echo >&2 "nso-$NSO_VERSION.linux.x86_64.installer.bin"
+    echo >&2 "nso-$NSO_VERSION.linux.x86_64.signed.bin"
     echo >&2 "Aborting..."
     exit 1
 fi
