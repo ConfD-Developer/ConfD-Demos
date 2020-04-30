@@ -1,8 +1,9 @@
 #!/bin/bash
 
-CONFD_VERSION="7.3"
+CONFD_VERSION="basic-7.3"
 NSO_VERSION="5.3"
 APP_NAME="router"
+IMG_NAME="$APP_NAME-drned-demo"
 
 if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ] && [ -f nso-$NSO_VERSION.linux.x86_64.signed.bin ]
 then
@@ -42,16 +43,16 @@ else
     exit 1
 fi
 
-DOCKERPS=$(docker ps -q -n 1 -f name=drned-xmnr-demo)
+DOCKERPS=$(docker ps -q -n 1 -f name=$IMG_NAME)
 if [ -z "$DOCKERPS" ] ;
 then
     echo "Build & run"
 else
-    echo "Stop any existing drned-xmnr-demo container, then build & run"
-    docker stop drned-xmnr-demo
+    echo "Stop any existing $IMG_NAME container, then build & run"
+    docker stop $IMG_NAME
 fi
-docker build -t drned-xmnr-demo --build-arg CONFD_VERSION=$CONFD_VERSION --build-arg NSO_VERSION=$NSO_VERSION --build-arg APP_NAME=$APP_NAME -f Dockerfile .
-CID="$(docker run --name drned-xmnr-demo -d --rm -p 2022:2022 -p 12022:12022 -p 4565:4565 -p 4569:4569 -p 8080:8080 drned-xmnr-demo | cut -c1-12)"
+docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION --build-arg NSO_VERSION=$NSO_VERSION --build-arg APP_NAME=$APP_NAME -f Dockerfile .
+CID="$(docker run --name $IMG_NAME -d --rm -p 18080:18080 $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
     echo "waiting..."
@@ -59,4 +60,4 @@ while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
 done
 
 echo "CID: $CID"
-docker logs drned-xmnr-demo --follow
+docker logs $IMG_NAME --follow
