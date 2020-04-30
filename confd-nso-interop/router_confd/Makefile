@@ -1,14 +1,4 @@
 ######################################################################
-
-usage:
-	@echo "make all     Build all example files"
-	@echo "make clean   Remove all built and intermediary files"
-	@echo "make start   Start CONFD daemon"
-	@echo "make stop    Stop any CONFD daemon"
-	@echo "make cli     Start the CONFD Command Line Interface, J-style"
-	@echo "make cli-c   Start the CONFD Command Line Interface, C-style"
-
-######################################################################
 # Where is ConfD installed? Make sure CONFD_DIR points it out
 CONFD_DIR ?= ../..
 
@@ -26,14 +16,43 @@ $(CONFD_DIR)/src/confd/build/include.mk:
 CONFD_FLAGS = --addloadpath $(CONFD_DIR)/etc/confd --addloadpath fxs
 START_FLAGS ?=
 
-all:	router.fxs \
+CONFDC=$(CONFD_DIR)/bin/confdc
+
+YANG_SOURCES        = $(wildcard yang/*.yang)
+SUBMODULES          = $(shell grep -l belongs-to yang/*.yang)
+ANNOTATION_MODULES  = $(wildcard yang/*-ann*.yang)
+TAILF_MODULES       = $(wildcard yang/tailf-*.yang)
+
+BUILTIN_MODULES     += ietf-yang-types.yang
+BUILTIN_MODULES     += ietf-inet-types.yang
+BUILTIN_MODULES     += ietf-yang-library.yang
+
+BUILTIN_MODULES     += ietf-netconf.yang
+BUILTIN_MODULES     += ietf-netconf-acm.yang
+BUILTIN_MODULES     += ietf-netconf-with-defaults.yang
+
+BUILTIN_MODULES     += ietf-restconf.yang
+BUILTIN_MODULES     += ietf-yang-patch.yang
+BUILTIN_MODULES     += tailf-rest-error.yang
+BUILTIN_MODULES     += tailf-rest-query.yang
+
+YANG_MODULES = $(filter-out $(SUBMODULES) $(ANNOTATION_MODULES) \
+		$(BUILTIN_MODULES) $(TAILF_MODULES) ,$(YANG_SOURCES))
+
+ALL_FXS_FILES = $(YANG_MODULES:yang/%.yang=fxs/%.fxs)
+
+fxs/%.fxs: yang/%.yang yang/%-ann.yang
+	$(CONFDC) -c --yangpath yang --yangpath $(CONFD_DIR)/src/confd/aaa \
+	-o $@  -a yang/$*-ann.yang -- $<
+
+fxs/%.fxs: yang/%.yang
+	$(CONFDC) -c --yangpath yang --yangpath $(CONFD_DIR)/src/confd/aaa \
+	-o $@ -- $<
+
+######################################################################
+all:	$(ALL_FXS_FILES) \
 	$(CDB_DIR) ssh-keydir
 	@echo "Build complete"
-
-%.fxs:  yang/%.yang
-	$(CONFDC) -c --yangpath yang --yangpath $(CONFD_DIR)/src/confd/aaa \
-	--yangpath $(CONFD_DIR)/src/confd/dyncfg \
-	--yangpath $(CONFD_DIR)/src/confd/snmp/yang -o fxs/$@ -- $<
 
 ######################################################################
 clean:	iclean
@@ -51,13 +70,10 @@ stop:
 ######################################################################
 cli:
 	$(CONFD_DIR)/bin/confd_cli --user=admin --groups=admin \
-		--interactive || echo Exit
+	--interactive || echo Exit
 
 cli-c:
 	$(CONFD_DIR)/bin/confd_cli -C --user=admin --groups=admin \
-		--interactive  || echo Exit
+	--interactive  || echo Exit
 
-######################################################################
-$(CDB_DIR)/%.xml: %.xml
-	rm -f $@ ; cp $< $@
 ######################################################################
