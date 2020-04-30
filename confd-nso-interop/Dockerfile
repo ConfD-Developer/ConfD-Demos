@@ -1,4 +1,4 @@
-FROM python:3
+FROM debian:10-slim
 
 ARG CONFD_VERSION
 ARG NSO_VERSION
@@ -15,16 +15,19 @@ ENV PATH=/confd/bin:/nso/bin:$PATH
 
 COPY nso-${NSO_VERSION}.linux.x86_64.signed.bin /tmp
 WORKDIR /tmp
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir paramiko lxml pexpect pytest \
+
+RUN mkdir -p /usr/share/man/man1 \
     && apt-get update \
-    && apt-get install -y --no-install-recommends libxml2-utils xsltproc git default-jre \
+    && apt-get install -y --no-install-recommends ant libxml2-utils xsltproc \
+       default-jre python3-pip python3-setuptools build-essential libssl-dev \
+       openssh-client libfontconfig1 git \
+    && ln -s /usr/bin/python3 /usr/bin/python \
+    && python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir paramiko lxml pexpect pytest \
     && /tmp/nso-${NSO_VERSION}.linux.x86_64.signed.bin --skip-verification \
     && chmod +x /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin \
-    && /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin ${NCS_DIR} \ 
+    && /tmp/nso-${NSO_VERSION}.linux.x86_64.installer.bin ${NCS_DIR} \
     && rm -rf ${NCS_DIR}/examples.ncs ${NCS_DIR}/doc
-
-RUN apt-get install -y --no-install-recommends default-jre
 
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
 WORKDIR ${CONFD_DIR}
@@ -41,15 +44,13 @@ RUN make install_crypto \
     && apt-get autoremove -y \
     && apt-get clean
 
-#${NCS_DIR}
-
 ADD ${APP_NAME}-confd.tar.gz /${APP_NAME}_confd
 ADD ${APP_NAME}-nso.tar.gz /${APP_NAME}_nso
 
 WORKDIR /${APP_NAME}_nso/packages
 RUN git clone https://github.com/NSO-developer/drned-xmnr
 
+EXPOSE 18080
 WORKDIR /${APP_NAME}_nso
 
-EXPOSE 22 2022 12022 4565 4569 8080 8888
 CMD [ "./run.sh" ]
