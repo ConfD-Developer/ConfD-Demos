@@ -28,7 +28,7 @@ else
 fi
 
 docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION -f Dockerfile .
-CID="$(docker run --name $IMG_NAME -d --rm -p 2022:2022 -p 2024:2024 $IMG_NAME | cut -c1-12)"
+CID="$(docker run --privileged --name $IMG_NAME -d --rm -p 2022:2022 -p 2024:2024 $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
     echo "waiting..."
