@@ -7,7 +7,7 @@ APP_NAME=${APP_NAME}
 function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
 cd "/"$APP_NAME"_confd"
 make all
-echo "Starting CONFD-$CONFD_VERSION..."
+echo "Starting ConfD-$CONFD_VERSION..."
 make start
 cd tools && make all && cd -
 cd "/"$APP_NAME"_nso"
