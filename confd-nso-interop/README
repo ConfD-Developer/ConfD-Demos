@@ -43,7 +43,8 @@ $ find . -type f
 (*) ./confd-7.3.libconfd.tar.gz
 ./router_confd/confd.conf # <-- Sample ConfD node setup below here, replace with
                           # your ConfD enabled system
-./router_confd/yang/router.yang
+./router_confd/yang/router.yang # <-- Replace this YANG model with your own YANG
+                                # models or set of YANG models
 ./router_confd/Makefile
 
 A quick demo run running the included “setup.sh” script:
