@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <capabilities>
+    <capability>urn:ietf:params:netconf:base:1.0</capability>
+  </capabilities>
+</hello>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1">
+  <lock>
+    <target>
+      <candidate/>
+    </target>
+  </lock>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">
+  <discard-changes/>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"  message-id="3">
+ <edit-config>
+    <target>
+      <candidate/>
+    </target>
+    <config>
+      <dhcp xmlns="http://tail-f.com/ns/example/dhcpd"
+            xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <subnets>
+          <subnet nc:operation="create">
+            <net>172.17.0.0</net>
+            <mask>255.255.255.0</mask>
+            <range>
+              <low-addr>172.17.0.3</low-addr>
+              <high-addr>172.17.0.89</high-addr>
+            </range>
+          </subnet>
+        </subnets>
+      </dhcp>
+    </config>
+  </edit-config>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="4"  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <validate>
+    <source>
+      <candidate/>
+    </source>
+  </validate>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="5">
+  <commit/>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="6">
+  <unlock>
+    <target>
+      <candidate/>
+    </target>
+  </unlock>
+</rpc>
+]]>]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="7">
+  <close-session/>
+</rpc>
+]]>]]>

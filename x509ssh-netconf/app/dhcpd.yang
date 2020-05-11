@@ -1,0 +1,112 @@
+module dhcpd {
+
+  namespace "http://tail-f.com/ns/example/dhcpd";
+  prefix dhcpd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import tailf-xsd-types {
+    prefix xs;
+  }
+
+  organization "Tail-f Systems (a Cisco company)";
+
+  contact "info@tail-f.com";
+
+  description
+    "YANG datamodel for ConfD Subscriber intro example
+     (C) 2005-2018 Tail-f Systems
+
+     Permission to use this code as a starting point hereby granted
+     This is ConfD Sample Code.
+
+     See the README file for more information";
+
+  revision 2019-02-14 {
+    description "Normalized YANG identifier names.";
+  }
+
+  revision 2018-11-20 {
+    description "YANG header information updated";
+  }
+
+  revision 2009-05-19 {
+    description "Initial revision.";
+  }
+
+  typedef loglevel {
+    type enumeration {
+        enum kern;
+        enum mail;
+        enum local7;
+    }
+  }
+
+  grouping subnet {
+    list subnet {
+      key "net mask";
+      leaf net {
+        type inet:ipv4-address;
+      }
+      leaf mask {
+        type inet:ipv4-address;
+      }
+      container range {
+        presence "";
+        leaf dynamic-bootp {
+          type boolean;
+          default false;
+          description "Enable BOOTP for this instance.";
+        }
+        leaf low-addr {
+          type inet:ipv4-address;
+          mandatory true;
+          description "Enable BOOTP for this instance.";
+        }
+        leaf high-addr {
+          type inet:ipv4-address;
+          description "Enable BOOTP for this instance.";
+        }
+      }
+      leaf routers {
+        type string;
+      }
+      leaf max-lease-time {
+        type xs:duration;
+        default PT7200S;
+      }
+    }
+  }
+
+  container dhcp {
+    leaf default-lease-time {
+      type xs:duration;
+      default PT600S;
+    }
+    leaf max-lease-time {
+      type xs:duration;
+      default PT7200S;
+    }
+    leaf log-facility {
+      type loglevel;
+      default local7;
+    }
+    container subnets {
+      uses subnet;
+    }
+    container shared-networks {
+      list shared-network {
+        key name;
+        max-elements 1024;
+        leaf name {
+          type string;
+        }
+        container subnets {
+          uses subnet;
+        }
+      }
+    }
+  }
+}
