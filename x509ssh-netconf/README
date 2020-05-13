@@ -42,6 +42,11 @@ o The part of the app/run.sh script that setup the PKIX-SSH client and server
   with X.509 certificates is further explained by a very helpful HOWTO blog
   post that can be found here:
   http://tech.ciges.net/blog/openssh-with-x509-certificates-how-to
+o Note that we greatly simplify the client identity in the example by assuming
+  that only the admin user from the ConfD 1-2-3 intro example hold a valid
+  client certificate. Real implementations will need to verify the client
+  identity for NETCONF over SSH similar to what is described for NETCONF over
+  TLS in section 7 of RFC 7589.
 
 Prerequisites
 -------------
