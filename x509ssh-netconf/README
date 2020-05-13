@@ -1,25 +1,47 @@
 NETCONF over SSH with X.509 Certificates for Mutual Authentication
 ==================================================================
 
-RFC 6187 describe using X.509 certificates for Secure Shell authentication
-that can be used to mutually authenticate the NETCONF client and server.
+NETCONF over SSH RFC 6242 point the SSH transport layer RFC 4253
+where the server is authenticated and to the user authentication protocol
+described in RFC 4252 that require support of a digital signature to
+authenticate the client to the server ("publickey" authentication).
+While optional, "password" authentication is often supported too.
 
-While ConfD natively support the well established RFC 6242 with a built in SSH
-server, ConfD is delivered with a program called netconf-subsys which is an
-OpenSSH subsystem program that functions as a relay between the OpenSSH daemon
-and the ConfD NETCONF server. The same mechanism can be used with PKIX-SSH, a
-fork of OpenSSH that add for example X.509 certificate support according to
-RFC 6187.
+For digital signature validity the authentication depends upon the
+strength of the linkage between the public signing key and the identity
+of the signer. But without mechanisms for ensuring integrity and 
+authenticity a relying party is vulnerable to masquerading attacks through
+public key substitution.
 
-To illustrate, this demo implements a simple NETCONF SSH server example using
-X.509 mutual authentication according to RFC 6187.
+Digital certificates, such as those in X.509 certificates, RFC 5280, are 
+used in many corporate and government environments to provide identity
+management. They use a chain of signatures by a trusted root certification
+authority and its intermediate certificate authorities to bind a given public
+signing key to a given digital identity. RFC 6187 describe using X.509
+certificates for SSH which is used here to mutually authenticate a NETCONF
+client and server.
+
+While ConfD natively support the RFC 6242 secure shell authentication protocol
+with its built in SSH server, ConfD is delivered with a program called 
+netconf-subsys which is an OpenSSH subsystem program that functions as a relay
+between the OpenSSH daemon and the ConfD NETCONF server. The same 
+netconf-subsys can be used with PKIX-SSH, a fork of OpenSSH that add for
+example X.509 certificate support according to RFC 6187.
+
+To illustrate, this demo implements a simple NETCONF SSH client and server 
+example using X.509 mutual authentication according to RFC 6187.
 
 About the example:
 o The example use Roumen Petrov's PKIX-SSH implementation,
   https://gitlab.com/secsh/pkixssh, to setup the an X.509 certificate capable
   SSH server with ConfD's NETCONF server as a subsystem.
-o We modify the $CONFD_DIR/examples.confd/intro/1-2-3-start-query-model for
-  NETCONF over PKIX-SSH instead of over the ConfD built-in SSH server.
+o We modify the $CONFD_DIR/examples.confd/intro/1-2-3-start-query-model 
+  example for NETCONF over PKIX-SSH instead of using ConfD's built-in SSH
+  server and/or OpenSSH.
+o The part of the app/run.sh script that setup the PKIX-SSH client and server
+  with X.509 certificates is further explained by a very helpful HOWTO blog
+  post that can be found here:
+  http://tech.ciges.net/blog/openssh-with-x509-certificates-how-to
 
 Prerequisites
 -------------
