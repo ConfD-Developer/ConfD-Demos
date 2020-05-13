@@ -1,0 +1,45 @@
+NETCONF over TLS with Mutual X.509 Authentication as an Alternative to SSH
+==========================================================================
+
+RFC 7589 describes how to use the Transport Layer Security (TLS) protocol
+with mutual X.509 authentication to secure the exchange of NETCONF messages as
+an alternative to the widely used for RFC 6242 Using the NETCONF Protocol over
+Secure Shell (SSH)2.  While ConfD natively support the well established RFC
+6242 with a built in SSH server, ConfD is delivered with a program called
+netconf-subsys which is an OpenSSH subsystem program that functions as a relay
+between the OpenSSH daemon and the ConfD NETCONF server. Just as with OpenSSH,
+one can instead relay between a TLS implementation, e.g. GnuTLS, and the
+ConfD NETCONF server.
+
+To illustrate, below is a simple TLS 1.2 NETCONF server example using X.509
+authentication according to RFC 7589.
+
+About the example:
+o The example use the GnuTLS library for TLS with X.509 authentication.
+o The example is a merge of the "Echo Server with X.509 Authentication”
+  example from the GnuTLS manual and the
+  $CONFD_DIR/src/confd/netconf/netconf-subsys.c ConfD program which is
+  modified to support TLS instead of OpenSSH. The exception vs. the echo
+  server example is that we require the client to authenticate using a 
+  certificate too (to make the authentication mutual).
+o We modify the $CONFD_DIR/examples.confd/intro/1-2-3-start-query-model for
+  NETCONF over TLS instead of over the ConfD built-in SSH server.
+o Note that the example example contain little or no error checking and that
+  we greatly simplify the client identity in the example by assuming that only
+  the admin user from the ConfD 1-2-3 intro example hold a valid client
+  certificate. Real implementations will need to verify the client identity
+  according to section 7 of RFC 7589.
+o Also note that we only serve one client at the time. Real implementations
+  will likely want to serve several in parallel.
+
+Prerequisites
+-------------
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into the directory of this README.
+2. Run the setup.sh script.
+3. See the app/run.sh script for details.
