@@ -52,7 +52,7 @@ RUN git clone https://github.com/NSO-developer/drned-xmnr
 
 # Flatten any directory with YANG models if necessary
 WORKDIR /${APP_NAME}_confd/yang
-find . -name "*.yang" -exec cp {} . \; \
+RUN find . -name "*.yang" -exec cp {} . \; \
 
 EXPOSE 18080
 WORKDIR /${APP_NAME}_nso
