@@ -116,7 +116,7 @@ Steps
 2. Run the setup.sh script.
 2b. Wait for the comma-separated value (CSV) style test result output.
 2c. Run
-   $ docker exec -it oper-data bash
+   $ docker exec -it perf-dp bash
    from the command line to for example access and read logs etc.
 3. Examine the setup.sh -> Dockerfile -> app/run.sh -> app/maapi*.c and
    app/src/cdboper_dp.c files in that order.
