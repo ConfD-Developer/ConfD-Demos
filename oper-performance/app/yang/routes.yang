@@ -1,0 +1,26 @@
+module routes {
+  namespace "http://tail-f.com/ns/example/routes/1.0";
+  prefix r;
+
+  container routes {
+    config false;
+    list route {
+      key "id";
+      leaf id {
+        type string;
+      }
+      leaf leaf1 {
+        type int32;
+      }
+      leaf leaf2 {
+        type int32;
+      }
+      leaf leaf3 {
+        type int32;
+      }
+      leaf leaf4 {
+        type int32;
+      }
+    }
+  }
+}
