@@ -1,0 +1,53 @@
+Managing CDB Operational DS Targeting Optimal Wall-Clock Time Performance
+=========================================================================
+
+This demo target showing how to implement applications that
+- Write to the ConfD CDB operational datastore using the CDB API and MAAPI.
+- Trigger operational datastore subscribers after data has been written over the
+  CDB API using cdb_set_values() or MAAPI using maapi_load_config() of oper
+  data.
+- Trigger operational datastore subscribers using
+  cdb_trigger_oper_subscriptions().
+- Operational data subscriber that read the modifications using
+  cdb_get_modifications().
+- NETCONF <get-data> read.
+
+Wall clock time is measured for each of the above northbound clients for a
+configurable size of the data read (see run.sh).
+Six different test types are performed:
+  1. Write state data to the operational datastore using cdb_set_values().
+     Target low memory consumption while sacrificing negligible wall clock time
+     performance.
+  2. Same as (1) but trigger the CDB oper data subscriber that read the data
+     from CDB oper after each write using cdb_get_modifications().
+  3. Load data into CDB oper using maapi_load_config() and after the data has
+     been writen to CDB, trigger the CDB oper data subscriber using
+     cdb_trigger_oper_subscriptions() that read all CDB oper data it subscribes
+     to using cdb_get_modifications().
+  4. Load data into CDB oper using maapi_load_config().
+  5. Same as (4), but triggers as the oper data is applied to the CDB oper
+     datastore, the CDB oper subscriber is triggered and read the oper data
+     using cdb_get_modifications().
+  6. Get all CDB operational data using NETCONF <get-data>.
+
+Prerequisites
+-------------
+
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into the directory of this README.
+2. Run the setup.sh script.
+2b. Wait for the comma-separated value (CSV) style test result output.
+2c. Run
+   $ docker exec -it perf-oper bash
+   from the command line to for example access and read logs etc.
+3. Examine the setup.sh -> Dockerfile -> app/run.sh -> app/src/*.c and
+   files in that order.
+4. The app/run.sh script by default define the number of entries read using the
+   "TC_NUM" list. You may change those numbers to better represent your
+   system setup or change the "TC_NAME" list to for example run only a subset of
+   the tests.
