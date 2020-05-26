@@ -50,7 +50,7 @@ src/%.h:
 	$(CONFDC) --emit-h src/$*.h fxs/$*.fxs
 
 %: src/%.c
-	$(CC) -c -o $@.o $^ -Wall -g -I/confd/include
+	$(CC) -c -o $@.o $^ -Wall -g -I$(CONFD_DIR)/include
 	$(CC) -o $@ $@.o -Isrc $(CFLAGS) $(LIBS)
 
 fxs/%.fxs: yang/%.yang yang/%-ann.yang
