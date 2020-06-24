@@ -11,8 +11,11 @@ http://www.tail-f.com/confd-basic/
 NSO eval:
 https://developer.cisco.com/docs/nso/#!getting-nso/downloads
 
-DrNED Examiner (downloaded by the Dockerfile)
+DrNED Examiner (downloaded by the Dockerfile):
 https://github.com/NSO-developer/drned-xmnr
+
+The NETCONF and YANG Automation Testing Guide:
+https://info.tail-f.com/netconf_yang_automation_testing
 
 Quick start:
 ------------
