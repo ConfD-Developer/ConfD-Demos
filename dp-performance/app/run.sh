@@ -1,10 +1,12 @@
 #!/bin/bash
 ID=0
-TC_NUMS=( 5 1000 5000 10000 15000 20000 )
-TC_NAME=( "NCGETD" "NCGETO" "NCGETA" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
-TC_TYPE=( "OPER" ) #"RUN" "CAND" )
+TC_NUMS=( 5 1000 5000 10000 )
+TC_NAME=( "RCGETA" "NCGETD" "NCGETO" "NCGETA" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
+TC_TYPE=( "OPER" "RUN" "CAND" )
 MAAPI_DS="-O"
 NETCONF_DS="operational"
+CALLPOINT="oper-cp"
+LIBCONFD_LOG="./libconfd.log"
 
 echo "ID,NUM,TIME,HWM,RSS,TC"
 
@@ -33,7 +35,7 @@ do
             make stop clean all &> /dev/null
             ${CONFD} --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
             ${CONFD} --start-phase1
-            ./cdboper_dp -s -p '/r-state:sys' -c 'oper-cp' &> /dev/null &
+            ./cdboper_dp -l $LIBCONFD_LOG -t -c $CALLPOINT &
             ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
             ./cdbgen.py gen-nmda $NUM > init_nmda.xml
             confd_load -o -m -l init_nmda.xml
@@ -48,7 +50,7 @@ do
             elif [ $TC == "NCGETD" ]; then
                 netconf-console --rpc=-<<<'<get-data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda"><datastore>ds:'"$NETCONF_DS"'</datastore><subtree-filter><sys xmlns="http://example.com/router"/></subtree-filter></get-data>' &> /dev/null
             elif [ $TC == "RCGETA" ]; then
-                curl -s -u admin:admin http://locallshost:8008/restconf/data/router:sys -H "Accept: application/yang-data+json" &> /dev/null
+                curl -s -u admin:admin http://localhost:8008/restconf/data/router:sys -H "Accept: application/yang-data+json" &> /dev/null
             elif [ $TC == "MSAVEX" ]; then
                 ./maapi-save -s $MAAPI_DS -x -p "/r:sys" &> /dev/null
             elif [ $TC == "MSAVEJ" ]; then
@@ -74,4 +76,4 @@ do
     done
 done
 
-tail -F devel.log
+tail -F libconfd.log

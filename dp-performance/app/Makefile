@@ -40,6 +40,7 @@ YANG_MODULES = $(filter-out $(SUBMODULES) $(ANNOTATION_MODULES) \
 		$(BUILTIN_MODULES) $(TAILF_MODULES) ,$(YANG_SOURCES))
 
 ALL_FXS_FILES = $(YANG_MODULES:yang/%.yang=fxs/%.fxs)
+FXS_DIR = ./fxs
 
 CSRCS = $(wildcard src/*.c)
 CAPPS = $(patsubst src/%.c,%,$(CSRCS))
@@ -61,16 +62,20 @@ fxs/%.fxs: yang/%.yang
 	$(CONFDC) -c --yangpath yang --yangpath $(CONFD_DIR)/src/confd/aaa \
 	-o $@ -- $<
 
+$(FXS_DIR):
+	-mkdir -p $(FXS_DIR)
+
 ######################################################################
-all:	$(ALL_FXS_FILES) \
+all: $(FXS_DIR) \
+	$(ALL_FXS_FILES) \
 	$(HSS) $(CAPPS) \
 	$(CDB_DIR) ssh-keydir
 	@echo "Build complete"
 
 ######################################################################
 clean:	iclean
-	-rm -rf *.log *.trace obj/* output.json output.confvals cli-history \
-	$(CAPPS) fxs/*.fxs src/*.h 2> /dev/null || true
+	-rm -rf *.log *.trace obj fxs output.json output.confvals cli-history \
+	$(CAPPS) src/*.h 2> /dev/null || true
 
 ######################################################################
 start:  stop
