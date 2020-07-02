@@ -3,11 +3,11 @@ A Generic Data Provider Setup Targeting Optimal Wall-Clock Time Performance
 
 Build a ConfD Docker container based on a Debian 10 Docker image and
 run a generic ConfD Data Provider (DP API) example. The demo also shows the
-difference in performance when reading the operational YANG "config false" data
-from various NETCONF, RESTCONF, MAAPI, and CLI clients. In addition, the DP
-application uses the ConfD CDB operational data store to provide data from by
-efficiently reading the requested data from the CDB operational data store using
-the CDB API.
+difference in performance when reading the config and operational state YANG 
+"config true/false" data from various NETCONF, RESTCONF, MAAPI, and CLI clients.
+In addition, the DP application uses the ConfD CDB operational data store as an
+"external database" to provide data from by efficiently reading the requested 
+data from the CDB operational data store using the CDB API.
 
 - For optimal general use-case performance we only implement the
   following Data Provider application callbacks:
