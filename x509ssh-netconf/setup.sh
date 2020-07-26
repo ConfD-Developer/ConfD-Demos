@@ -1,5 +1,6 @@
 #!/bin/bash
-CONFD_VERSION="7.3.1"
+CONFD_VERSION="7.3.2"
+PKIXSSH_VERSION="12.5.1"
 IMG_NAME="nc-ssh-x509"
 APP_NAME="app"
 
@@ -42,7 +43,7 @@ else
     docker stop $IMG_NAME
 fi
 
-docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION --build-arg APP_NAME=$APP_NAME -f Dockerfile .
+docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION --build-arg PKIXSSH_VERSION=$PKIXSSH_VERSION --build-arg APP_NAME=$APP_NAME -f Dockerfile .
 CID="$(docker run --name $IMG_NAME -d --rm -p 2022:2022 -p 4565:4565 $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do

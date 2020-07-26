@@ -53,7 +53,7 @@ cd client \
     && echo "CACertificatePath /home/${USER}/client" >> ssh_config \
     && echo "UserCACertificatePath /home/${USER}/client" >> ssh_config \
     && echo "PasswordAuthentication no" >> ssh_config \
-    && ssh -v -p 2022 -F ssh_config localhost find . -type f \
+    && ssh -vv -p 2022 -F ssh_config localhost find . -type f \
     && cd ..
 
 echo "Compile YANG and Build the PKIX-SSH OpenSSH subsystem and subscriber example applications"

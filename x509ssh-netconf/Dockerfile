@@ -1,6 +1,7 @@
 FROM debian:10-slim
 
 ARG CONFD_VERSION
+ARG PKIXSSH_VERSION
 ARG APP_NAME
 ARG USER=admin
 ARG PASS=admin
@@ -22,9 +23,9 @@ RUN apt-get update \
 WORKDIR /tmp
 RUN echo "sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin" >> /etc/passwd \
     && echo "sshd:x:74:" >> /etc/group \
-    && wget https://roumenpetrov.info/secsh/src/pkixssh-12.4.3.tar.gz \
-    && tar xvfz pkixssh-12.4.3.tar.gz \
-    && cd pkixssh-12.4.3 \
+    && wget https://roumenpetrov.info/secsh/src/pkixssh-${PKIXSSH_VERSION}.tar.gz \
+    && tar xvfz pkixssh-${PKIXSSH_VERSION}.tar.gz \
+    && cd pkixssh-${PKIXSSH_VERSION} \
     && ./configure \
     && make \
     && make install
