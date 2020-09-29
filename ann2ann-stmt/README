@@ -1,5 +1,5 @@
-Convert tailf:annotate Statements to tailf:annotate-module/statments 
-====================================================================
+Convert tailf:annotate Statements to tailf:annotate-(module|statement)
+======================================================================
 
 tailf:annotate and tailf-annotate-module in combination with tailf:annotate-
 statement is often used to annotate an existing module or submodule statement
