@@ -81,7 +81,7 @@ def trim_yin(module_file_name, ann_file_name):
     with open("{}mod".format(ann_file_name), "w") as fp:
         fp.write(str(ann_soup))
         fp.close()
-    pattern_replace("{}".format(module_file_name), "yname=", "name=") # Change the bs4 workarount temp attribute names to their YIN variant
+    pattern_replace("{}".format(module_file_name), "yname=", "name=") # Change the bs4 workaround temp attribute names to their YIN variant
     pattern_replace("{}".format(ann_file_name), "yname=", "name=")
     pattern_replace("{}mod".format(ann_file_name), "yname=", "name=")
     pattern_replace("{}mod".format(ann_file_name), "statement_path", "statement-path")
