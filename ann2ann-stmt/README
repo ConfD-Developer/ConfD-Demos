@@ -26,11 +26,11 @@ grouping is used.
 Other reasons to use tailf:annotate-(module|statement) include using 
 annotation modules with the NSO ncsc --compile-bundle feature that does 
 transformations on the YANG models before compiling the final schema. 
-NSO compile-bundle doesn't therefore not support tailf:annotation, only 
+NSO compile-bundle therefore does not support tailf:annotation, only 
 tailf:annotate-(module|statement) is supported. NSO compile-bundle generate
 YANG modules and needs to adjust the path to match the new destination. 
 Using annotations from tailf:annotate that was intended for use with another 
-schema would therefor be error prone as ncsc would have to in many cases 
+schema would therefore be error prone as ncsc would have to in many cases 
 guess what the intention of the tailf:annotate was for the schema that the
 compile-bundle feature arrived at. 
 
