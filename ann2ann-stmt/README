@@ -4,9 +4,13 @@ Convert tailf:annotate Statements to tailf:annotate-module/statments
 tailf:annotate and tailf-annotate-module in combination with tailf:annotate-
 statement is often used to annotate an existing module or submodule statement
 with a 'tailf' statement. This is useful in order to add tailf statements to
-a module without touching the module source. Annotation statements can then 
-be put in a separate annotation module, and then passed to 'confdc' (or 
-'pyang') when the original module is compiled.
+a module without touching the module source, which also means that when the 
+YANG models are requested using NETCONF <get-schema> the annotations of tailf
+extensions that may not be understood by the NETCONF client, unless the 
+client is for example NSO, will not be included in the YANG model. The 
+annotation statements can then  be put in a separate annotation module, and
+then passed to 'confdc' (or 'pyang' or 'yanger') when the original module is
+compiled.
 
 tailf:annotate is used to annotate the resulting schema from the compiled 
 YANG model while tailf:annotate-(module|statement) is used to annotate the
