@@ -8,7 +8,7 @@ a module without touching the module source, which also means that when the
 YANG models are requested using NETCONF <get-schema> the annotations of tailf
 extensions that may not be understood by the NETCONF client, unless the 
 client is for example NSO, will not be included in the YANG model. The 
-annotation statements can then  be put in a separate annotation module, and
+annotation statements can then be placed in a separate annotation module, and
 then passed to 'confdc' (or 'pyang' or 'yanger') when the original module is
 compiled.
 
