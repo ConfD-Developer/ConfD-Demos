@@ -1,0 +1,102 @@
+module mtest {
+  namespace "http://tail-f.com/ns/example/mtest";
+  prefix mtest;
+
+  organization "Tail-f Systems (a Cisco company)";
+
+  contact "info@tail-f.com";
+
+  description
+     "See the README file for more information";
+
+  revision 2020-09-29 {
+    description "Initial revision.";
+  }
+
+  container mtest-container {
+    leaf a-number {
+      type int64;
+      default 42;
+    }
+    leaf b-number {
+      type int64;
+      default 7;
+    }
+    leaf c-number {
+      type string;
+    }
+    list group {
+      description
+        "Define a User Security Model group";
+      key "id";
+      leaf id {
+        type string;
+      }
+      choice security-model {
+        container v1;
+        container v2c;
+        container v3 {
+          list security-level-list {
+            key "security-level";
+            leaf security-level {
+              type enumeration {
+                enum "auth";
+                enum "noauth";
+                enum "priv";
+              }
+            }
+            container access-config {
+              description
+                "Specify an access-list associated with this group";
+              leaf ipv6-acl {
+                  description
+                    "Specify IPv6 Named Access-List";
+                  type string;
+              }
+              choice access-option {
+                description
+                  "Access-list associated with this group";
+                leaf acl-name {
+                  description
+                    "Access-list name";
+                  type string;
+                }
+                leaf ipv6 {
+                  description
+                    "Specify IPv6 Named Access-List";
+                  type string;
+                }
+              }
+            }
+          }
+          leaf context {
+            type string;
+          }
+          leaf match {
+            type enumeration {
+              enum "exact";
+              enum "prefix";
+            }
+          }
+          leaf read {
+            type string;
+          }
+          leaf write {
+            type string;
+          }
+          leaf notify {
+            type string;
+          }
+          leaf access {
+            type union {
+              type uint8 {
+                range "1..99";
+              }
+              type string;
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,91 @@
+module mtest-ann {
+  namespace "http://tail-f.com/ns/example/mtest-ann";
+  prefix mtest-ann;
+
+  import mtest {
+    prefix mtest;
+  }
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  organization "Tail-f Systems (a Cisco company)";
+
+  contact "info@tail-f.com";
+
+  description
+    "See the README file for more information";
+
+  revision 2020-09-29 {
+    description "Initial revision.";
+  }
+
+  tailf:annotate "/ios:native/mtest:mtest-container" {
+    tailf:annotate "mtest:a-number" {
+      tailf:validate vp1 {
+        tailf:dependency "../mtest:b-number";
+      }
+    }
+    tailf:annotate "mtest:b-number" {
+      tailf:info "This is a b-number";
+    }
+  }
+
+  tailf:annotate "/mtest:mtest-container/mtest:group/mtest:security-model/mtest:v3" {
+    tailf:annotate "mtest:v3/mtest:context" {
+      tailf:callpoint my_cp_deprecated {
+        tailf:transform true;
+      }
+      tailf:info "context";
+    }
+
+    tailf:annotate "mtest:v3/mtest:match" {
+      tailf:callpoint my_cp_deprecated {
+        tailf:transform true;
+      }
+      tailf:info "match";
+    }
+
+
+    tailf:annotate "mtest:v3/mtest:read" {
+      tailf:callpoint my_cp_deprecated {
+        tailf:transform true;
+      }
+      tailf:info "read";
+    }
+
+    tailf:annotate "mtest:v3/mtest:write" {
+      tailf:callpoint my_cp_deprecated {
+        tailf:transform true;
+      }
+      tailf:info "write";
+    }
+
+    tailf:annotate "mtest:v3/mtest:notify" {
+      tailf:callpoint my_cp_deprecated {
+        tailf:transform true;
+      }
+      tailf:info "notify";
+    }
+  }
+
+  tailf:annotate "/mtest:mtest-container/mtest:group/mtest:security-model/mtest:v3/mtest:v3/mtest:access" {
+    tailf:callpoint my_cp_access {
+      tailf:transform true;
+    }
+  }
+
+  tailf:annotate "/mtest:mtest-container/mtest:group/mtest:security-model/mtest:v3/mtest:v3/mtest:security-level-list/mtest:access-config/mtest:ipv6-acl" {
+    tailf:info "This is an ipv6-acl";
+  }
+
+  tailf:annotate "/mtest:mtest-container/mtest:group/mtest:security-model/mtest:v3/mtest:v3/mtest:security-level-list/mtest:access-config/mtest:access-option/mtest:ipv6/mtest:ipv6" {
+    tailf:callpoint my_cp_ipv6 {
+      tailf:transform true;
+    }
+  }
+  tailf:annotate "/mtest:mtest-container/mtest:group/mtest:security-model/mtest:v3/mtest:v3/mtest:security-level-list/mtest:access-config/mtest:access-option/mtest:acl-name/mtest:acl-name" {
+    tailf:info "This is an acl-name";
+  }
+}
