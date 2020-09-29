@@ -1,0 +1,177 @@
+<?xml version="1.0"?>
+<!--
+  This is an example of how to set initial values to confd.conf
+  parameters which now live in the confd_dyncfg namespace. Note the
+  use of the wrapping <config> tag which enables us to edit several
+  different parts of confd_dyncfg without following the order in
+  confd_dyncfg.
+-->
+<config xmlns="http://tail-f.com/ns/config/1.0">
+
+  <!-- Change the CLI prompt -->
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+    <cli>
+      <prompt1># </prompt1>
+      <prompt2>(config)# </prompt2>
+    </cli>
+  </confdConfig>
+
+  <!-- Configure AAA -->
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+    <aaa>
+      <pam><enabled>false</enabled></pam>
+      <localAuthentication><enabled>true</enabled></localAuthentication>
+    </aaa>
+  </confdConfig>
+
+  <!-- Setting the listen port of the snmpAgent to a non-standard port -->
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+    <snmpAgent>
+      <port>16100</port>
+    </snmpAgent>
+  </confdConfig>
+
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+    <netconf>
+      <transport>
+        <!-- NETCONF over TCP is not standardized, but it can be useful
+             during development in order to use e.g. netcat for scripting.
+        -->
+        <tcp>
+          <enabled>false</enabled>
+          <ip>127.0.0.1</ip>
+          <port>12023</port>
+        </tcp>
+        <ssh>
+          <enabled>true</enabled>
+          <ip>0.0.0.0</ip>
+          <port>12022</port>
+        </ssh>
+      </transport>
+    </netconf>
+  </confdConfig>
+
+  <!-- These keys are used to encrypt values adhering to the types
+       tailf:des3-cbc-encrypted-string and tailf:aes-cfb-128-encrypted-string
+       as defined in the tailf-common YANG module. These types are
+       described in confd_types(3).
+  -->
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+    <encryptedStrings>
+      <DES3CBC>
+        <key1>0123456789abcdef</key1>
+        <key2>0123456789abcdef</key2>
+        <key3>0123456789abcdef</key3>
+        <initVector>0123456789abcdef</initVector>
+      </DES3CBC>
+
+      <AESCFB128>
+        <key>0123456789abcdef0123456789abcdef</key>
+        <initVector>0123456789abcdef0123456789abcdef</initVector>
+      </AESCFB128>
+    </encryptedStrings>
+  </confdConfig>
+
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+    <logs>
+      <!-- Shared settings for how to log to syslog.
+           Each log can be configured to log to file and/or syslog.  If a
+           log is configured to log to syslog, the settings below are used.
+      -->
+      <syslogConfig>
+        <!-- facility can be 'daemon', 'local0' ... 'local7' or an integer -->
+        <facility>daemon</facility>
+        <!-- if udp is not enabled, messages will be sent to local syslog -->
+        <udp>
+          <enabled>false</enabled>
+          <host>syslogsrv.example.com</host>
+          <port>514</port>
+        </udp>
+      </syslogConfig>
+
+      <!-- 'confdlog' is a normal daemon log.  Check this log for
+           startup problems of confd itself.
+           By default, it logs directly to a local file, but it can be
+           configured to send to a local or remote syslog as well.
+      -->
+      <confdLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>./confd.log</name>
+        </file>
+        <syslog>
+          <enabled>true</enabled>
+        </syslog>
+      </confdLog>
+
+      <!-- The developer logs are supposed to be used as debug logs
+           for troubleshooting user-written javascript and c code.  Enable
+           and check these logs for problems with validation code etc.
+      -->
+      <developerLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>./devel.log</name>
+        </file>
+        <syslog>
+          <enabled>true</enabled>
+        </syslog>
+      </developerLog>
+      <developerLogLevel>trace</developerLogLevel>
+
+      <auditLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>./audit.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </auditLog>
+
+      <!-- The netconf log can be used to troubleshoot NETCONF operations,
+           such as checking why e.g. a filter operation didn't return the
+           data requested.
+      -->
+      <netconfLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>./netconf.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </netconfLog>
+
+      <webuiBrowserLog>
+        <enabled>false</enabled>
+        <filename>./browser.log</filename>
+      </webuiBrowserLog>
+
+      <webuiAccessLog>
+        <enabled>false</enabled>
+        <dir>./</dir>
+      </webuiAccessLog>
+
+      <netconfTraceLog>
+        <enabled>true</enabled>
+        <filename>./netconf.trace</filename>
+        <format>pretty</format>
+      </netconfTraceLog>
+
+      <errorLog>
+        <enabled>true</enabled>
+        <filename>./confderr.log</filename>
+        <maxSize>S100M</maxSize>
+      </errorLog>
+
+    <progressTrace><enabled>true</enabled><dir>.</dir></progressTrace>
+    </logs>
+    <hideGroup><name>debug</name></hideGroup>
+  </confdConfig>
+
+</config>
