@@ -13,6 +13,32 @@ module mtest {
     description "Initial revision.";
   }
 
+  grouping config-access-grouping {
+    container access-config {
+      description
+        "Specify an access-list associated with this group";
+      leaf ipv6-acl {
+          description
+            "Specify IPv6 Named Access-List";
+          type string;
+      }
+      choice access-option {
+        description
+          "Access-list associated with this group";
+        leaf acl-name {
+          description
+            "Access-list name";
+          type string;
+        }
+        leaf ipv6 {
+          description
+            "Specify IPv6 Named Access-List";
+          type string;
+        }
+      }
+    }
+  }
+
   container mtest-container {
     leaf a-number {
       type int64;
@@ -25,6 +51,9 @@ module mtest {
     leaf c-number {
       type string;
     }
+  }
+
+  augment "/mtest:mtest-container" {
     list group {
       description
         "Define a User Security Model group";
@@ -45,29 +74,7 @@ module mtest {
                 enum "priv";
               }
             }
-            container access-config {
-              description
-                "Specify an access-list associated with this group";
-              leaf ipv6-acl {
-                  description
-                    "Specify IPv6 Named Access-List";
-                  type string;
-              }
-              choice access-option {
-                description
-                  "Access-list associated with this group";
-                leaf acl-name {
-                  description
-                    "Access-list name";
-                  type string;
-                }
-                leaf ipv6 {
-                  description
-                    "Specify IPv6 Named Access-List";
-                  type string;
-                }
-              }
-            }
+            uses config-access-grouping;
           }
           leaf context {
             type string;

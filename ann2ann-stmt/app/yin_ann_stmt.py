@@ -38,10 +38,16 @@ def handle_annotate_node(annotate_node, module_soup, ann_soup, append_node, modu
         if path_tag_prefix == module_prefix:
             path_tag_name = path_tag[1]
             for module_node, ann_node in zip(list(module_nodes), list(ann_nodes)): # Compare module node tag name with path tag name to find the intended path
+                if module_node.name == 'augment' or module_node.name == 'grouping': # Handle groupings and augment
+                    path_tags.clear() # Done
+                    break;
                 if module_node.parent.name != "choice" or (path_tag_name != prev_tag_name and prev_tag_name != ''): # Handle choice
-                    if module_node.parent['yname'] == path_tag_name:
+                    if module_node.parent.name == 'grouping' or module_node.parent.name == 'augment' or module_node.parent['yname'] == path_tag_name:
                         module_nodes[module_nodes.index(module_node)] = module_node.parent
-                        annotate_statement = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(module_node.parent.name, module_node.parent['yname']))
+                        attribute_name = 'yname'
+                        if module_node.parent.name == 'augment': # Handle that augment nodes have a different attribute name than other nodes
+                            attribute_name = 'target_node'
+                        annotate_statement = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(module_node.parent.name, module_node.parent[attribute_name]))
                         index = ann_nodes.index(ann_node)
                         ann_soup.module.insert_after(ann_nodes[index])
                         annotate_statement.append(ann_nodes[index])
@@ -64,6 +70,7 @@ def trim_yin(module_file_name, ann_file_name):
     module_name_str = module_tmp_str.split('/')[-1]
     ann_name_str = ann_tmp_str.split('/')[-1]
     pattern_replace(module_file_name, 'name=', 'yname=') # Replace "name=" attribute tag with temp "yname=" to not confuse bs4
+    pattern_replace(module_file_name, "target-node=", "target_node=") # Replace augment attribute name for bs4 compliance
     pattern_replace(ann_file_name, 'name=', 'yname=')
     with open(module_file_name) as fp: # Create two soups
         module_soup = BeautifulSoup(fp, "xml") # A temp soup for the YANG model to be annotated
@@ -81,8 +88,9 @@ def trim_yin(module_file_name, ann_file_name):
     with open("{}mod".format(ann_file_name), "w") as fp:
         fp.write(str(ann_soup))
         fp.close()
-    pattern_replace("{}".format(module_file_name), "yname=", "name=") # Change the bs4 workaround temp attribute names to their YIN variant
-    pattern_replace("{}".format(ann_file_name), "yname=", "name=")
+    pattern_replace(module_file_name, "yname=", "name=") # Change the bs4 workaround temp attribute names to their YIN variant
+    pattern_replace(module_file_name, "target_node=", "target-node=")
+    pattern_replace(ann_file_name, "yname=", "name=")
     pattern_replace("{}mod".format(ann_file_name), "yname=", "name=")
     pattern_replace("{}mod".format(ann_file_name), "statement_path", "statement-path")
     pattern_replace("{}mod".format(ann_file_name), "module_name", "module-name")
