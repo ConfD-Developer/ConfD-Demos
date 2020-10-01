@@ -16,9 +16,24 @@ else
     DATE=date
 fi
 
-for TYPE in "${TC_TYPE[@]}"
+start() {
+    ${CONFD} --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
+    ${CONFD} --start-phase1
+    ./cdboper_dp -l $LIBCONFD_LOG -s -c $CALLPOINT &
+    ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
+    ${CONFD} --start-phase2
+}
+
+for NUM in "${TC_NUMS[@]}"
 do
-    for NUM in "${TC_NUMS[@]}"
+    make stop clean all &> /dev/null
+    start
+    ./cdbgen.py gen-nmda $NUM > init_nmda.xml
+    confd_load -o -m -l init_nmda.xml
+    ./cdbgen.py gen-nmda-state $NUM > init_nmda.xml
+    confd_load -O -m -l init_nmda.xml
+    make stop &> /dev/null
+    for TYPE in "${TC_TYPE[@]}"
     do
         for TC in "${TC_NAME[@]}"
         do
@@ -32,16 +47,7 @@ do
                 MAAPI_DS="-C"
                 NETCONF_DS="candidate"
             fi
-            make stop clean all &> /dev/null
-            ${CONFD} --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
-            ${CONFD} --start-phase1
-            ./cdboper_dp -l $LIBCONFD_LOG -t -c $CALLPOINT &
-            ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
-            ./cdbgen.py gen-nmda $NUM > init_nmda.xml
-            confd_load -o -m -l init_nmda.xml
-            ./cdbgen.py gen-nmda-state $NUM > init_nmda.xml
-            confd_load -O -m -l init_nmda.xml
-            ${CONFD} --start-phase2
+            start
             START=$($DATE +%s)
             if [ $TC == "NCGETA" ]; then
                 netconf-console --rpc=-<<<'<get><filter type="subtree"><sys xmlns="http://example.com/router"/></filter></get>' &> /dev/null
@@ -71,6 +77,7 @@ do
             HWM=$(echo ${arr[1]})
             RSS=$(echo ${arr[4]})
             echo "$ID,$NUM,$TIME,$HWM,$RSS,$TC-$TYPE"
+            make stop &> /dev/null
             let ID+=1
         done
     done
