@@ -12,20 +12,20 @@ annotation statements can then be placed in a separate annotation module, and
 then passed to 'confdc' (or 'pyang' or 'yanger') when the original module is
 compiled.
 
-tailf:annotate is used to annotate the resulting schema from the compiled 
+tailf:annotate is used to annotate the resulting schema from the compiled
 YANG model while tailf:annotate-(module|statement) is used to annotate the
 original YANG model.
 
 Sometimes a ConfD project start with creating annotations using
-tailf:annotate, while later realizing how powerful it is to annotate on a 
+tailf:annotate, while later realizing how powerful it is to annotate on a
 YANG model directly using tailf:annotate-(module|statement).
 
 For example, groupings are merged with the YANG models when compiling the
-schema from the original YANG models, so tailf:annotate cannot annotate 
-groupings that are used by various parts of the same or other YANG models. 
+schema from the original YANG models, so tailf:annotate cannot annotate
+groupings that are used by various parts of the same or other YANG models.
 tailf:annotate-(module|statement) annotate the YANG models and can thus
-annotate groupings with one time instead of in all the places where the 
-grouping is used. 
+annotate groupings with one time instead of in all the places where the
+grouping is used.
 
 Other reasons to use tailf:annotate-(module|statement) include using 
 annotation modules with the NSO ncsc --compile-bundle feature that does 
@@ -36,12 +36,12 @@ YANG modules and needs to adjust the path to match the new destination.
 Using annotations from tailf:annotate that was intended for use with another 
 schema would therefore be error prone as ncsc would have to in many cases 
 guess what the intention of the tailf:annotate was for the schema that the
-compile-bundle feature arrived at. 
+compile-bundle feature arrived at.
 
-Converting already implemented tailf:annotate annotation modules to the 
-more powerful tailf:annotate-(module|statement) can be a time consuming 
-task if done manually. This demo attempts to provide a starting point 
-for doing basic conversion using a Python script. 
+Converting already implemented tailf:annotate annotation modules to the
+more powerful tailf:annotate-(module|statement) can be a time consuming
+task if done manually. This demo attempts to provide a starting point
+for doing basic conversion using a Python script.
 
 About the demo:
 o The demo converts YANG models to YIN XML using the pyang Python tool.
@@ -52,6 +52,13 @@ o In this demo we use the powerful Python Beautiful Soup Python (bs4)
 o After tailf:annotation XML nodes have been converted to 
   tailf:annotate-(module|statement) variants, pyang is used to convert
   the YIN modules back to YANG modules.
+o The YANG model used for this demo convert perfectly. However, if there
+  are more than one candidate node path remaining after matching
+  tailf:annotate path against nodes, the two or more conflicting node
+  trees will be wrapped with a '<conflict number="1 of x">..</conflict>
+  tag. The winning candidate can then be selected manually, and the node
+  tree that is not what was intended to be used by the tailf:annotate
+  path can be discarded.
 
 Prerequisites
 -------------
@@ -66,4 +73,4 @@ Steps
 3. See the setup.sh script and the Dockerfile for details on the setup.
 4. See the app/run.sh script for details on how pyang convert the YANG modules
    to YIN, run the simple Python script that changes the annotation statements,
-   after which pyang is used to convert the YIN modules back to YANG 
+   after which pyang is used to convert the YIN modules back to YANG
