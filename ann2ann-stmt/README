@@ -1,12 +1,16 @@
-Convert tailf:annotate Statements to tailf:annotate-module/statments
-====================================================================
+Convert tailf:annotate Statements to tailf:annotate-(module|statement)
+======================================================================
 
 tailf:annotate and tailf-annotate-module in combination with tailf:annotate-
-statement is often used to nnotate an existing module or submodule statement
+statement is often used to annotate an existing module or submodule statement
 with a 'tailf' statement. This is useful in order to add tailf statements to
-a module without touching the module source. Annotation statements can then
-be put in a separate annotation module, and then passed to 'confdc' (or
-'pyang') when the original module is compiled.
+a module without touching the module source, which also means that when the 
+YANG models are requested using NETCONF <get-schema> the annotations of tailf
+extensions that may not be understood by the NETCONF client, unless the 
+client is for example NSO, will not be included in the YANG model. The 
+annotation statements can then be placed in a separate annotation module, and
+then passed to 'confdc' (or 'pyang' or 'yanger') when the original module is
+compiled.
 
 tailf:annotate is used to annotate the resulting schema from the compiled
 YANG model while tailf:annotate-(module|statement) is used to annotate the
@@ -23,14 +27,14 @@ tailf:annotate-(module|statement) annotate the YANG models and can thus
 annotate groupings with one time instead of in all the places where the
 grouping is used.
 
-Other reasons to use tailf:annotate-(module|statement) include using
-annotation modules with the NSO ncsc --compile-bundle feature that does
-transformations on the YANG models before compiling the final schema.
-NSO compile-bundle doesn't therefore not support tailf:annotation, only
+Other reasons to use tailf:annotate-(module|statement) include using 
+annotation modules with the NSO ncsc --compile-bundle feature that does 
+transformations on the YANG models before compiling the final schema. 
+NSO compile-bundle therefore does not support tailf:annotation, only 
 tailf:annotate-(module|statement) is supported. NSO compile-bundle generate
-YANG modules and needs to adjust the path to match the new destination.
-Using annotations from tailf:annotate that was intented for use with another
-schema would therefor be error prone as ncsc would have to in many cases
+YANG modules and needs to adjust the path to match the new destination. 
+Using annotations from tailf:annotate that was intended for use with another 
+schema would therefore be error prone as ncsc would have to in many cases 
 guess what the intention of the tailf:annotate was for the schema that the
 compile-bundle feature arrived at.
 
@@ -40,12 +44,12 @@ task if done manually. This demo attempts to provide a starting point
 for doing basic conversion using a Python script.
 
 About the demo:
-o The demo convert YANG models to YIN XML using the pyang Python tool.
+o The demo converts YANG models to YIN XML using the pyang Python tool.
 o The XML format is supported by many powerful tools that can aid in the
   modification of the YANG modules (now in YIN format).
 o In this demo we use the powerful Python Beautiful Soup Python (bs4)
-  library that in turn use the lxml library for processing XML.
-o After tailf:annotation XML nodes have been converted to
+  library that in turn uses the lxml library for processing XML.
+o After tailf:annotation XML nodes have been converted to 
   tailf:annotate-(module|statement) variants, pyang is used to convert
   the YIN modules back to YANG modules.
 o The YANG model used for this demo convert perfectly. However, if there
@@ -67,6 +71,6 @@ Steps
 1. Drop the confd-7.x* installation packages into the directory of this README.
 2. Run the setup.sh script.
 3. See the setup.sh script and the Dockerfile for details on the setup.
-4. See the app/run.sh script for details on how pyang convert the YANG modulesa
+4. See the app/run.sh script for details on how pyang convert the YANG modules
    to YIN, run the simple Python script that changes the annotation statements,
    after which pyang is used to convert the YIN modules back to YANG
