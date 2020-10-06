@@ -58,8 +58,10 @@ o The YANG model used for this demo convert perfectly. However, if there
   trees will be wrapped with a <conflict number="1 of x">...</conflict>
   tag. The winning candidate can then be selected manually, and the node
   tree that is not what was intended to be used by the tailf:annotate
-  path can be discarded. Note that pyang will complain if you try to 
-  convert a YIN file that contain <conflict> tags to YANG.
+  path can be discarded. Any corner cases for which handing has not yet
+  been implemented will be shown as a <skipped target="/path/to/node"/>
+  Note that pyang will complain if you try to convert a YIN file that 
+  contain <conflict> or <skipped> tags to YANG.
 
 Prerequisites
 -------------
