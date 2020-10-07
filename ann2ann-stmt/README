@@ -63,6 +63,49 @@ o The YANG model used for this demo convert perfectly. However, if there
   Note that pyang will complain if you try to convert a YIN file that 
   contain <conflict> or <skipped> tags to YANG.
 
+If there are issues with converting a YANG annotation, the path of the
+tailf:annotation statement can be tricky to follow if it traverses 
+augments and groupings. One way to get a better overview of a YANG model
+is to, for example, use the pyang tool to print a YANG tree diagram:
+
+$ python3 /usr/local/bin/pyang -f tree -p yin -p $CONFD_DIR/src/confd/yang \
+--tree-print-groupings --tree-no-expand-uses yin/mtest.yin
+module: mtest
+  +--rw mtest-container
+     +--rw a-number?   int64
+     +--rw b-number?   int64
+     +--rw c-number?   string
+     +--rw group* [id]
+        +--rw id           string
+        +--rw (security-model)?
+           +--:(v1)
+           |  +--rw v1
+           +--:(v2c)
+           |  +--rw v2c
+           +--:(v3)
+              +--rw v3
+                 +--rw security-level-list* [security-level]
+                 |  +--rw security-level            enumeration
+                 |  +---u config-access-grouping
+                 +--rw context?               string
+                 +--rw match?                 enumeration
+                 +--rw read?                  string
+                 +--rw write?                 string
+                 +--rw notify?                string
+                 +--rw access?                union
+
+  grouping config-access-grouping
+    +-- access-config
+       +-- ipv6-acl?         string
+       +-- (access-option)?
+          +--:(acl-name)
+          |  +-- acl-name?   string
+          +--:(ipv6)
+             +-- ipv6?       string
+
+See the IETF YANG Tree Diagram RFC for details:
+https://tools.ietf.org/html/rfc8340
+
 Prerequisites
 -------------
 confd-7.x.linux.x86_64.installer.bin
