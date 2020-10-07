@@ -319,10 +319,6 @@
     </cgi>
   </webui>
 
-  <rest>
-    <enabled>true</enabled>
-  </rest>
-
   <restconf>
     <enabled>true</enabled>
   </restconf>
