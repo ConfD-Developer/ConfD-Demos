@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import fileinput
 import argparse
 import copy
+import sys
 
 def pattern_replace(file_path, pattern, subst):
     for line in fileinput.input(file_path, inplace=True):
@@ -15,7 +16,7 @@ def handle_annotate_node(annotate_node, module_soup, ann_soup, append_node, modu
     path_tags = ann_path.split('/') # Split the "target" path into a "path_list" of prefix:node strings.
     if path_tags[0] == '': # Remove the extra '' if there was a root slash
         path_tags.pop(0)
-    path_tag_name = path_tags[-1].split(':')[1] # Find and create a list of all module_nodes in module named as the last tag.
+    path_tag_name = path_tags[-1].split(':')[-1] # Find and create a list of all module_nodes in module named as the last tag.
     path_tags.pop()
     module_nodes = []
     for module_node in module_soup.find_all(yname=path_tag_name):
@@ -37,10 +38,10 @@ def handle_annotate_node(annotate_node, module_soup, ann_soup, append_node, modu
         path_tags.pop()
         path_tag_prefix = path_tag[0]
         if path_tag_prefix == module_prefix:
-            path_tag_name = path_tag[1]
+            path_tag_name = path_tag[-1]
             index = 0;
             for module_node, ann_node in zip(list(module_nodes), list(ann_nodes)): # Compare module node tag name with path tag name to find the intended path
-                if ((module_node.parent.name == "choice" and module_node.parent['yname'] == path_tag_name) or (module_node.name == "choice" and module_node['yname'] == path_tag_name) or (module_node.parent.name == "choice" and len(path_tags) > 0 and module_node.parent['yname'] == path_tags[-1].split(':')[1])) and module_node.name != 'case': # Handle choice without a case
+                if ((module_node.parent.name == "choice" and module_node.parent['yname'] == path_tag_name) or (module_node.name == "choice" and module_node['yname'] == path_tag_name) or (module_node.parent.name == "choice" and len(path_tags) > 0 and module_node.parent['yname'] == path_tags[-1].split(':')[-1])) and module_node.name != 'case': # Handle choice without a case
                     new_annotate_statement = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(module_node.parent.name, module_node.parent['yname']))
                     if module_node.parent.name == "choice" and module_node.parent['yname'] == path_tag_name:
                         extra_choice_node = ann_soup.new_tag('remove_next_node', extra_choice_node=module_node['yname'])
@@ -49,7 +50,7 @@ def handle_annotate_node(annotate_node, module_soup, ann_soup, append_node, modu
                     else:
                         new_annotate_statement.append(ann_nodes[index])
                         path_tag_prefix = path_tags[-1].split(':')[0]
-                        path_tag_name = path_tags[-1].split(':')[1]
+                        path_tag_name = path_tags[-1].split(':')[-1]
                         path_tags.pop()
                     ann_nodes[index] = new_annotate_statement
                     module_nodes[index] = module_node.parent
@@ -74,7 +75,7 @@ def handle_annotate_node(annotate_node, module_soup, ann_soup, append_node, modu
                             elif uses_node.parent.has_attr('target_node'): # augment parent to uses
                                 augment_path_tags = uses_node.parent['target_node'].split('/')
                                 augment_path_tag = augment_path_tags[-1].split(':')
-                                if augment_path_tag[1] == path_tag_name:
+                                if augment_path_tag[-1] == path_tag_name:
                                     found = True
                                     break;
                             else: # Parent of the uses not a node we can compare with. Keep to be safe
@@ -90,7 +91,7 @@ def handle_annotate_node(annotate_node, module_soup, ann_soup, append_node, modu
                 elif module_node.parent.name == 'augment':
                     augment_path_tags = module_node.parent['target_node'].split('/')
                     augment_path_tag = augment_path_tags[-1].split(':')
-                    if augment_path_tag[1] == path_tag_name:
+                    if augment_path_tag[-1] == path_tag_name:
                         new_annotate_statement = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(module_node.parent.name, module_node.parent['target_node']))
                         new_annotate_statement.append(copy.copy(ann_nodes[index]))
                         tmp_nodes.append(new_annotate_statement)
