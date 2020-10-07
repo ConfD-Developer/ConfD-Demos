@@ -106,6 +106,15 @@ module: mtest
 See the IETF YANG Tree Diagram RFC for details:
 https://tools.ietf.org/html/rfc8340
 
+The Python script print the converted tailf-annotate-module/statement based
+result in YIN "raw" XML format. If you for example for debug purposes want to 
+print the YIN XML in "pretty" format you can use, for example, xmllint or
+pyang to do so:
+
+$ python3 /usr/local/bin/pyang -f yin -p yin -p $CONFD_DIR/src/confd/yang \
+yin/mtest-ann.yinmod
+...
+
 Prerequisites
 -------------
 confd-7.x.linux.x86_64.installer.bin
