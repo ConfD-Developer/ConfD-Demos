@@ -1,7 +1,7 @@
 #!/bin/bash
 
-CONFD_VERSION="basic-7.3"
-NSO_VERSION="5.3"
+CONFD_VERSION="7.4"
+NSO_VERSION="5.4.1"
 APP_NAME="router"
 IMG_NAME="$APP_NAME-drned-demo"
 
