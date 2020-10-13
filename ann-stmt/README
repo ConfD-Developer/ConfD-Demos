@@ -1,0 +1,50 @@
+Extract tailf Extensions to a tailf:annotate-(module|statement) module
+=======================================================================
+
+tailf-annotate-module in combination with tailf:annotate-statement is often 
+used to annotate an existing module or submodule statement with a 'tailf' 
+statement. This is useful in order to add tailf statements to a module without
+touching the module source, which also means that when the YANG models are 
+requested using NETCONF <get-schema> the annotations of tailf extensions that
+may not be understood by the NETCONF client, unless the client is for example
+NSO, will not be included in the YANG model. The  annotation statements can 
+then be placed in a separate annotation module, and passed to 'confdc' 
+(or 'pyang' or 'yanger') when the original module is compiled.
+
+Often a ConfD project start with adding tailf extensions to its YANG models
+and at a later stage move the extensions to a separate annotation file on a
+for example using tailf:annotate-(module|statement).
+
+However, by this time, there can be a large number of annotations and
+performing the task manually can be tedious and time-consuming. This demo
+attempts to do that work using a Python script.
+
+About the demo:
+o The demo converts YANG models to YIN XML using the pyang Python tool.
+o The XML format is supported by many powerful tools that can aid in the
+  modification of the YANG modules (now in YIN format).
+o In this demo we use the powerful Python Beautiful Soup Python (bs4)
+  library that in turn uses the lxml library for processing XML.
+o After the tailf extension XML nodes have been extracted to 
+  tailf:annotate-(module|statement) variants, pyang is used to convert
+  the new annotation module and the original YIN module back to YANG modules.
+
+See YANG RFC 7950 section 13 "YIN" for details on the YIN XML format
+
+Prerequisites
+-------------
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into the directory of this README.
+2. Run the setup.sh script.
+3. See the setup.sh script and the Dockerfile for details on the setup.
+4. See the app/run.sh script for details on how it, in turn, use the simple 
+   Python script, tailf_ann_stmt.py, which extracts the tailf extensions and add
+   them to tailf:annotation-statements
+5. A bonus python script that just sanitize the tailf extensions from a YANG 
+   model and outputs the result to stout is also available. See 
+   tailf_sanetize.py.
