@@ -1,5 +1,5 @@
-Extract tailf Extensions to a tailf:annotate-(module|statement) module
-=======================================================================
+Extract tailf Extensions to a tailf:annotate-(module|statement) Module
+======================================================================
 
 tailf-annotate-module in combination with tailf:annotate-statement is often 
 used to annotate an existing module or submodule statement with a 'tailf' 
