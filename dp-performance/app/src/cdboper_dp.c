@@ -144,6 +144,7 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
   struct confd_type *type;
 
   //confd_pp_kpath(kp_str, bufsiz, keypath);
+  //fprintf(stderr, "\nKP_STR\n %s",kp_str);
   for(i = kp_len; i >= 0; i--) {
     v = &(keypath->v[i][0]);
     if (v->type == C_XMLTAG) {
@@ -158,7 +159,7 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
       }
       for (j = 0; keypath->v[i][j].type != C_NOEXISTS; j++) {
         confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][0]), BUFSIZ);
-        if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0) {
+        if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0 && cs_node->next != NULL) {
           cs_node = cs_node->next;
           type = cs_node->info.type;
         }
@@ -292,14 +293,10 @@ static int get_object(struct confd_trans_ctx *tctx,
   int pos, j = 0, n;
   struct confd_cs_node *cs_node, *start;
   char kp_str[BUFSIZ], *lastslash;
-  char path[BUFSIZ];
-  confd_pp_kpath(&path[0], BUFSIZ, keypath);
 
   start = confd_find_cs_node(keypath, keypath->len);
-
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   cs_node = confd_cs_node_cd(NULL, kp_str);
-
   itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
   if (cs_node->info.flags & CS_NODE_IS_LIST) { /* list */
     pos = cdb_index(cdbsock, kp_str);
@@ -319,16 +316,14 @@ static int get_object(struct confd_trans_ctx *tctx,
       *lastslash = 0;
     }
   }
-
   if (cdb_get_values(cdbsock, itv, j, kp_str) != CONFD_OK) {
     confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
   }
-
   tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
   n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and end tags for each object */
   //print_tag_value_array(tv, n, NULL, 0);
-
   confd_data_reply_tag_value_array(tctx, tv, n);
+
   free(tv);
   free(itv);
   return CONFD_OK;

@@ -1,11 +1,12 @@
 #!/bin/bash
 ID=0
-TC_NUMS=( 5 1000 5000 10000 )
-TC_NAME=( "RCGETA" "NCGETD" "NCGETO" "NCGETA" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
+TC_NUMS=( 1000 5000 10000 )
+TC_NAME=( "NCGETA" "RCGETA" "NCGETD" "NCGETO" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
 TC_TYPE=( "OPER" "RUN" "CAND" )
 MAAPI_DS="-O"
 NETCONF_DS="operational"
 CALLPOINT="oper-cp"
+NESTED_LISTS_CALLPOINT="nested-lists-cp"
 LIBCONFD_LOG="./libconfd.log"
 
 echo "ID,NUM,TIME,HWM,RSS,TC"
@@ -19,7 +20,7 @@ fi
 start() {
     ${CONFD} --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
     ${CONFD} --start-phase1
-    ./cdboper_dp -l $LIBCONFD_LOG -s -c $CALLPOINT &
+    ./cdboper_dp -l $LIBCONFD_LOG -s -c $CALLPOINT &> /dev/null &
     ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
     ${CONFD} --start-phase2
 }
@@ -28,10 +29,10 @@ for NUM in "${TC_NUMS[@]}"
 do
     make stop clean all &> /dev/null
     start
-    ./cdbgen.py gen-nmda $NUM > init_nmda.xml
-    confd_load -o -m -l init_nmda.xml
-    ./cdbgen.py gen-nmda-state $NUM > init_nmda.xml
-    confd_load -O -m -l init_nmda.xml
+    ./cdbgen.py gen $NUM > init.xml
+    confd_load -o -m -l init.xml
+    ./cdbgen.py gen-state $NUM > init.xml
+    confd_load -O -m -l init.xml
     make stop &> /dev/null
     for TYPE in "${TC_TYPE[@]}"
     do
@@ -83,4 +84,4 @@ do
     done
 done
 
-tail -F libconfd.log
+tail -F devel.log

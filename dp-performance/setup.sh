@@ -1,20 +1,38 @@
 #!/bin/bash
-CONFD_VERSION="7.3.2"
+CONFD_VERSION="7.4"
 IMG_NAME="perf-dp"
 
-if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] \
-       && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ]
-then
-    echo "Using:"
-    echo "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
-    echo "confd-$CONFD_VERSION.libconfd.tar.gz"
+function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
+
+VSN7=7
+VSN73=7.3.99
+if version_gt $CONFD_VERSION $VSN73; then
+  if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ]
+  then
+      echo "Using:"
+      echo "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
+  else
+      echo >&2 "This demo require that the ConfD SDK installer has been placed in this folder."
+      echo >&2 "E.g.:"
+      echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
+      echo >&2 "Aborting..."
+      exit
+  fi
 else
-    echo >&2 "This demo require that the ConfD SDK installer, ConfD libconfd C-API library, and the ConfD examples tar-ball has been placed in this folder."
-    echo >&2 "E.g.:"
-    echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
-    echo >&2 "confd-$CONFD_VERSION.libconfd.tar.gz"
-    echo >&2 "Aborting..."
-    exit
+  if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] \
+         && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ]
+  then
+      echo "Using:"
+      echo "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
+      echo "confd-$CONFD_VERSION.libconfd.tar.gz"
+  else
+      echo >&2 "This demo require that the ConfD SDK installer, ConfD libconfd C-API library, and the ConfD examples tar-ball has been placed in this folder."
+      echo >&2 "E.g.:"
+      echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
+      echo >&2 "confd-$CONFD_VERSION.libconfd.tar.gz"
+      echo >&2 "Aborting..."
+      exit
+  fi
 fi
 
 COPYFILE_DISABLE=true tar cvfz app.tar.gz app
@@ -28,7 +46,13 @@ else
     docker stop $IMG_NAME
 fi
 
-docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION -f Dockerfile .
+if version_gt $CONFD_VERSION $VSN73; then
+  docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION -f Dockerfile .
+elif version_gt $CONFD_VERSION $VSN7; then
+  docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION -f Dockerfile.pre74 .
+else
+  docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION -f Dockerfile.pre7 .
+fi
 CID="$(docker run --name $IMG_NAME -d --rm -p 2022:2022 $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
