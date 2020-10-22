@@ -15,15 +15,7 @@ RUN apt-get update \
     && pip3 install --no-cache-dir paramiko
 
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
-RUN ln -s libcrypto.so /usr/lib/x86_64-linux-gnu/libcrypto.so.1.0.0 \
-    && /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
-
-# Add the ConfD cryptography integration and C-library API source
-ADD confd-${CONFD_VERSION}.libconfd.tar.gz /tmp
-
-# Rebuild the ConfD crypto integration for libcrypto1.1
-WORKDIR /tmp/confd-${CONFD_VERSION}/libconfd
-RUN make install_crypto
+RUN /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
 
 # Cleanup
 RUN rm -rf /tmp/* /var/tmp/* \

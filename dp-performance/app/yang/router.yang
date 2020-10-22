@@ -90,7 +90,7 @@ module router {
       enum "info";
       enum "debug";
       enum "none";
-      enum "all";
+      enum "all" { tailf:code-name all-level; }
     }
   }
 
@@ -106,7 +106,7 @@ module router {
       enum "mail";
       enum "news";
       enum "security";
-      enum "syslog";
+      enum "syslog" { tailf:code-name syslog-facility; }
       enum "user";
       enum "uucp";
       enum "local0";
@@ -117,7 +117,7 @@ module router {
       enum "local5";
       enum "local6";
       enum "local7";
-      enum "all";
+      enum "all" { tailf:code-name all-facility; }
     }
   }
 
@@ -177,7 +177,7 @@ module router {
       enum "notrap";
       enum "notrust";
       enum "ntpport";
-      enum "version";
+      enum "version" { tailf:code-name version-restrict-flag; }
     }
   }
 
@@ -353,8 +353,8 @@ module router {
         }
         leaf type {
           type enumeration {
-            enum "next-hop";
-            enum "reject";
+            enum "next-hop" { tailf:code-name next-hop-inet; }
+            enum "reject" { tailf:code-name reject-inet; }
             enum "discard";
             enum "prohibit";
           }
@@ -394,8 +394,8 @@ module router {
         }
         leaf type {
           type enumeration {
-            enum "next-hop";
-            enum "reject";
+            enum "next-hop" { tailf:code-name next-hop-inet6; }
+            enum "reject" { tailf:code-name reject-inet6; }
           }
           default "next-hop";
         }
@@ -619,9 +619,7 @@ module router {
   }
 
   container sys {
-    tailf:callpoint "oper-cp" {
-      tailf:config false;
-    }
+    tailf:callpoint "oper-cp";
     container interfaces {
       uses interfaces;
     }
