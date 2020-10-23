@@ -18,7 +18,8 @@ def tailf_sanitize(yang_file):
     for tailf_extension in yin_soup.find_all(re.compile('tailf_prefix_')):
         tailf_extension.decompose()
     tailf_import = yin_soup.find('import', module='tailf-common')
-    tailf_import.decompose()
+    if tailf_import is not None:
+        tailf_import.decompose()
     yang_content = subprocess.run(['python3', '/usr/local/bin/pyang', '-f',
                                    'yang', '-p', yang_path, '-p', confd_dir],
                                    stdout=subprocess.PIPE, input=str(yin_soup),

@@ -1,0 +1,37 @@
+submodule test-valid {
+  belongs-to test {
+    prefix test;
+  }
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  revision 2020-10-20 {
+    description "Initial revision.";
+  }
+
+  grouping test-valid {
+    container valid {
+      leaf a-number {
+        type int64;
+        default 42;
+        tailf:validate vp1 {
+          tailf:dependency '../b-number';
+        }
+      }
+      leaf b-number {
+        type int64;
+        default 7;
+      }
+      leaf c-number {
+        type int64;
+        default 10;
+      }
+      leaf d-number {
+        type int64;
+        default 20;
+      }
+    }
+  }
+}
