@@ -1,0 +1,126 @@
+module actions {
+  yang-version 1.1;
+  namespace "http://tail-f.com/ns/example/actions";
+  prefix actions;
+
+  import test {
+    prefix test;
+  }
+  import tailf-common {
+    prefix tailf;
+  }
+
+  revision 2020-10-20 {
+    description "Initial revision.";
+  }
+
+  augment /test:test {
+    container actions {
+      container system {
+        leaf sys-name {
+          type string;
+          default tst;
+        }
+        action reboot {
+          tailf:actionpoint reboot-point;
+        }
+        action restart {
+          tailf:actionpoint reboot-point;
+          input {
+            leaf mode {
+              type string;
+              mandatory true;
+            }
+            leaf debug {
+              type empty;
+            }
+            container foo {
+              presence "";
+              leaf debug {
+                type empty;
+              }
+              leaf trace {
+                type string;
+              }
+            }
+          }
+          output {
+            leaf time {
+              type string;
+              mandatory true;
+            }
+          }
+        }
+        action abort-test {
+          tailf:actionpoint reboot-point;
+          input {
+            leaf mode {
+              type string;
+              mandatory true;
+            }
+          }
+        }
+      }
+
+      list server {
+        key name;
+        max-elements 64;
+        leaf name {
+          tailf:cli-allow-range;
+          type string;
+        }
+        action reset {
+          tailf:actionpoint reboot-point;
+          input {
+            leaf when {
+              type string;
+              mandatory true;
+            }
+          }
+          output {
+            leaf time {
+              type string;
+              mandatory true;
+            }
+          }
+        }
+      }
+
+      list host {
+        key name;
+        leaf name {
+          type string;
+        }
+        action ping {
+          tailf:exec "./ping.pl" {
+            tailf:args "-c $(context) -p $(path)";
+          }
+          input {
+            leaf count {
+              type int32;
+              default "3";
+            }
+          }
+          output {
+            leaf header {
+              type string;
+            }
+            list response {
+              leaf data {
+                type string;
+              }
+            }
+            container statistics {
+              leaf packet {
+                type string;
+              }
+              leaf time {
+                type string;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

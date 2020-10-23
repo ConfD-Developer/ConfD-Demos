@@ -13,35 +13,27 @@ $(CONFD_DIR)/src/confd/build/include.mk:
 ######################################################################
 # Example specific definitions and rules
 
-CONFD_FLAGS = --addloadpath $(CONFD_DIR)/etc/confd --addloadpath fxs
+CONFD_FLAGS = --addloadpath $(CONFD_DIR)/etc/confd --addloadpath fxs \
+              --ignore-initial-validation
 START_FLAGS ?=
 
 CONFDC=$(CONFD_DIR)/bin/confdc
 
 YANG_SOURCES        = $(wildcard yang/*.yang)
 SUBMODULES          = $(shell grep -l belongs-to yang/*.yang)
-ANNOTATION_MODULES  = $(wildcard yang/*-ann*.yang)
-TAILF_MODULES       = $(wildcard yang/tailf-*.yang)
+ANNOTATION_MODULES  = $(wildcard yang/*-ann.yang)
+E :=
+S := $E $E
 
-BUILTIN_MODULES     += yang/ietf-yang-types@2013-07-15.yang
-BUILTIN_MODULES     += yang/ietf-inet-types@2013-07-15.yang
-BUILTIN_MODULES     += yang/ietf-netconf@2011-06-01.yang
-BUILTIN_MODULES     += yang/ietf-netconf-acm@2012-02-22.yang
-BUILTIN_MODULES     += yang/ietf-netconf-with-defaults@2010-06-09.yang
-BUILTIN_MODULES     += yang/ietf-netconf-with-defaults@2011-06-01.yang
-BUILTIN_MODULES     += yang/ietf-netconf-notifications@2012-02-06.yang
-BUILTIN_MODULES     += yang/ietf-netconf-monitoring@2010-10-04.yang
-BUILTIN_MODULES     += yang/ietf-yang-metadata@2016-08-05.yang
-
-YANG_MODULES = $(filter-out $(SUBMODULES) $(ANNOTATION_MODULES) \
-		$(BUILTIN_MODULES) $(TAILF_MODULES) ,$(YANG_SOURCES))
+YANG_MODULES = $(filter-out $(SUBMODULES) $(ANNOTATION_MODULES), \
+                            $(YANG_SOURCES))
 
 ALL_FXS_FILES = $(YANG_MODULES:yang/%.yang=fxs/%.fxs)
 FXS_DIR = ./fxs
 
-fxs/%.fxs: yang/%.yang yang/%-ann.yang
+fxs/%.fxs: yang/%.yang yang/%*-ann.yang
 	$(CONFDC) -c --yangpath yang --yangpath $(CONFD_DIR)/src/confd/aaa \
-	-o $@  -a yang/$*-ann.yang -- $<
+	-o $@ $(subst _,$S,$(foreach ann,$^,$(join -a_,$(ann)))) -- $<
 
 fxs/%.fxs: yang/%.yang
 	$(CONFDC) -c --yangpath yang --yangpath $(CONFD_DIR)/src/confd/aaa \

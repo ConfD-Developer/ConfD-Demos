@@ -10,12 +10,11 @@ import copy
 def gen_ann_module(name, ns, prefix):
     revdate = datetime.today().strftime('%Y-%m-%d')
     str = """<?xml version="1.0" encoding="utf-8"?>
-<module xmlns="urn:ietf:params:xml:ns:yang:yin:1" xmlns:tailf="http://tail-f.com/yang/common" yname="{}-ann">
+<module xmlns="urn:ietf:params:xml:ns:yang:yin:1"
+               xmlns:tailf="http://tail-f.com/yang/common"
+               yname="{}-ann">
   <namespace uri="{}-ann"/>
   <prefix value="{}-ann"/>
-  <import module="{}">
-    <prefix value="{}"/>
-  </import>
   <import module="tailf-common">
     <prefix value="tailf"/>
   </import>
@@ -25,12 +24,12 @@ def gen_ann_module(name, ns, prefix):
     </description>
   </revision>
   <tailf_prefix_annotate_module module_name="{}"/>
-</module>
-    """.format(name,ns,prefix,name,prefix,revdate,name)
+</module>""".format(name,ns,prefix,revdate,name)
     return str
 
+
 def add_stmt(node, ann_node, ann_soup):
-    if node.parent.name == "module":
+    if node.parent.name == "module" or node.parent.name == "submodule":
         return ann_node
     elif node.parent.name == "augment":
         parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['target_node']))
@@ -52,10 +51,20 @@ def tailf_ann_stmt(yang_file):
     yin_content = yin_content.replace('tailf:', 'tailf_prefix_')
     yin_content = yin_content.replace('name=', 'yname=')
     yin_content = yin_content.replace('target-node=', 'target_node=')
+    yin_content = yin_content.replace('xmlns:', 'xmlns_')
     yin_soup = BeautifulSoup(yin_content, "xml")
-    annotate_module = gen_ann_module(yang_filename.rsplit('.', 1)[0],
-                                     yin_soup.module.find('namespace')['uri'],
-                                     yin_soup.module.find('prefix')['value'])
+    if yin_soup.module is not None:
+        annotate_module = gen_ann_module(yang_filename.rsplit('.', 1)[0],
+                                         yin_soup.module.find('namespace')['uri'],
+                                         yin_soup.module.find('prefix')['value'])
+    elif yin_soup.submodule is not None:
+        prefix = yin_soup.submodule.find('prefix')['value']
+        annotate_module = gen_ann_module(yang_filename.rsplit('.', 1)[0],
+                                         yin_soup.submodule["xmlns_{}".format(prefix)],
+                                         prefix)
+    else:
+        print("Error: Unknown module type. Neither a YANG module or submodule ")
+        return
     ann_soup = BeautifulSoup(annotate_module, "xml")
     for tailf_extension in yin_soup.find_all(re.compile('tailf_prefix_')):
         if tailf_extension.parent is not None and tailf_extension.parent.name.startswith('tailf_prefix_') == False:
@@ -63,11 +72,13 @@ def tailf_ann_stmt(yang_file):
             ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
             tailf_extension.decompose()
     tailf_import = yin_soup.find('import', module='tailf-common')
-    tailf_import.decompose()
+    if tailf_import is not None:
+        tailf_import.decompose()
     yin_soup_str = str(yin_soup)
     yin_soup_str = yin_soup_str.replace('tailf_prefix_', 'tailf:')
     yin_soup_str = yin_soup_str.replace('yname=', 'name=')
     yin_soup_str = yin_soup_str.replace('target_node=', 'target-node=')
+    yin_soup_str = yin_soup_str.replace('xmlns_', 'xmlns:')
     result = subprocess.run(['python3', '/usr/local/bin/pyang', '-f',
                             'yang', '-p', yang_path, '-p', confd_dir],
                             stdout=subprocess.PIPE, input=yin_soup_str,
@@ -83,6 +94,7 @@ def tailf_ann_stmt(yang_file):
     ann_soup_str = ann_soup_str.replace('statement_path=', 'statement-path=')
     ann_soup_str = ann_soup_str.replace('yname=', 'name=')
     ann_soup_str = ann_soup_str.replace('target_node=', 'target-node=')
+    ann_soup_str = ann_soup_str.replace('xmlns_', 'xmlns:')
     result = subprocess.run(['python3', '/usr/local/bin/pyang', '-f',
                             'yang', '--ignore-error=UNUSED_IMPORT', '-p',
                             yang_path, '-p', confd_dir], stdout=subprocess.PIPE,

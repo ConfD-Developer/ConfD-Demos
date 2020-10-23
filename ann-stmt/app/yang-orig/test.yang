@@ -8,316 +8,305 @@ module test {
   import ietf-inet-types {
     prefix inet;
   }
+  include test-valid;
 
-  organization "Tail-f Systems (a Cisco company)";
-  contact
-    "info@tail-f.com";
-  description
-    "YANG datamodel for CLI modification example
-     (C) 2005-2018 Tail-f Systems";
-
-  revision 2019-02-14 {
-    description
-      "Normalized YANG identifier names.";
-  }
-  revision 2018-11-28 {
-    description
-      "YANG header information updated";
-  }
-  revision 2010-02-28 {
+  revision 2020-10-20 {
     description
       "Initial revision.";
   }
 
-  container si-test {
-    list interface {
-      tailf:secondary-index "my-index" {
-        tailf:index-leafs "if-index";
-        tailf:display-default-order;
+  container test {
+    uses test-valid;
+    container si-test {
+      list interface {
+        tailf:secondary-index "my-index" {
+          tailf:index-leafs "if-index";
+          tailf:display-default-order;
+        }
+        key "name";
+        leaf name {
+          type string;
+        }
+        leaf if-index {
+          mandatory true;
+          type int32;
+        }
       }
+    }
+    leaf shutdown {
+      tailf:cli-show-no;
+      type empty;
+    }
+    container testmod1 {
+      tailf:cli-mode-name "testMOD";
+      tailf:cli-add-mode;
+      leaf dummy {
+        type string;
+      }
+    }
+    container testmod2 {
+      tailf:cli-mode-name-actionpoint "mode_name";
+      tailf:cli-add-mode;
+      leaf dummy {
+        type string;
+      }
+    }
+    list nomode {
+      tailf:cli-suppress-mode;
+      tailf:cli-incomplete-command;
       key "name";
       leaf name {
         type string;
       }
-      leaf if-index {
-        mandatory true;
+      leaf dummy {
+        type string;
+      }
+    }
+    container compact {
+      tailf:cli-compact-syntax;
+      leaf first {
+        type int32;
+      }
+      leaf second {
         type int32;
       }
     }
-  }
-  leaf shutdown {
-    tailf:cli-show-no;
-    type empty;
-  }
-  container testmod1 {
-    tailf:cli-mode-name "testMOD";
-    tailf:cli-add-mode;
-    leaf dummy {
-      type string;
+    list table1 {
+      key "name";
+      tailf:cli-suppress-key-abbreviation;
+      tailf:cli-instance-info-leafs "meter";
+      leaf name {
+        type boolean;
+      }
+      leaf meter {
+        type string;
+      }
     }
-  }
-  container testmod2 {
-    tailf:cli-mode-name-actionpoint "mode_name";
-    tailf:cli-add-mode;
-    leaf dummy {
-      type string;
+    list table2 {
+      key "name";
+      tailf:cli-allow-key-abbreviation;
+      tailf:cli-mode-name "config-table-xx/$(name)";
+      leaf name {
+        type boolean;
+      }
+      leaf desc {
+        type string;
+      }
     }
-  }
-  list nomode {
-    tailf:cli-suppress-mode;
-    tailf:cli-incomplete-command;
-    key "name";
-    leaf name {
-      type string;
-    }
-    leaf dummy {
-      type string;
-    }
-  }
-  container compact {
-    tailf:cli-compact-syntax;
-    leaf first {
-      type int32;
-    }
-    leaf second {
-      type int32;
-    }
-  }
-  list table1 {
-    key "name";
-    tailf:cli-suppress-key-abbreviation;
-    tailf:cli-instance-info-leafs "meter";
-    leaf name {
-      type boolean;
-    }
-    leaf meter {
-      type string;
-    }
-  }
-  list table2 {
-    key "name";
-    tailf:cli-allow-key-abbreviation;
-    tailf:cli-mode-name "config-table-xx/$(name)";
-    leaf name {
-      type boolean;
-    }
-    leaf desc {
-      type string;
-    }
-  }
-  container incomplete {
-    tailf:cli-incomplete-command;
-    tailf:cli-sequence-commands;
-    tailf:cli-compact-syntax;
-    leaf a {
-      tailf:cli-drop-node-name;
+    container incomplete {
       tailf:cli-incomplete-command;
-      type string;
-    }
-    leaf b {
-      tailf:cli-drop-node-name;
-      type string;
-    }
-  }
-  container full {
-    tailf:cli-add-mode;
-    tailf:cli-full-command;
-    leaf a {
-      type string;
-    }
-  }
-  leaf multi {
-    type string;
-    tailf:cli-multi-value;
-  }
-  list host {
-    key "name";
-    tailf:cli-run-template-enter "$(.prefix_str) $(.key_str)               ! ($(active==true?active:inactive))\n";
-    tailf:cli-run-template-legend "! Does not really make sense\n";
-    tailf:cli-run-template-footer
-      "$(.?% Some entries in the table.
-       :% No entries in the table.
-       )";
-    leaf name {
-      type string;
-    }
-    leaf description {
-      type string;
-      mandatory true;
-      tailf:cli-run-template "description $(.)   ! careful here\n";
-    }
-    leaf active {
-      type boolean;
-      mandatory true;
-    }
-  }
-  list x {
-    key "name";
-    tailf:cli-display-empty-config;
-    leaf name {
-      type string;
-    }
-    leaf dummy {
-      config false;
-      tailf:cdb-oper;
-      type string;
-    }
-  }
-  list xmulti {
-    key "name";
-    leaf name {
-      type string;
-      tailf:cli-multi-word-key {
-        tailf:cli-max-words "2";
+      tailf:cli-sequence-commands;
+      tailf:cli-compact-syntax;
+      leaf a {
+        tailf:cli-drop-node-name;
+        tailf:cli-incomplete-command;
+        type string;
+      }
+      leaf b {
+        tailf:cli-drop-node-name;
+        type string;
       }
     }
-    leaf port {
-      type uint32;
+    container full {
+      tailf:cli-add-mode;
+      tailf:cli-full-command;
+      leaf a {
+        type string;
+      }
     }
-  }
-  list auto {
-    key "name";
-    leaf name {
+    leaf multi {
       type string;
+      tailf:cli-multi-value;
     }
-    leaf desc {
-      tailf:cli-autowizard;
-      type string;
-    }
-    leaf port {
-      tailf:cli-suppress-show-conf-path;
-      type uint32;
-      mandatory true;
-    }
-  }
-  container hosts {
     list host {
-      key "name type";
-      tailf:cli-key-format "$(1)-$(2)";
+      key "name";
+      tailf:cli-run-template-enter "$(.prefix_str) $(.key_str)               ! ($(active==true?active:inactive))\n";
+      tailf:cli-run-template-legend "! Does not really make sense\n";
+      tailf:cli-run-template-footer
+        "$(.?% Some entries in the table.
+         :% No entries in the table.
+         )";
       leaf name {
         type string;
       }
-      leaf type {
+      leaf description {
         type string;
+        mandatory true;
+        tailf:cli-run-template "description $(.)   ! careful here\n";
       }
-      leaf defgw {
-        type inet:ipv4-address;
+      leaf active {
+        type boolean;
+        mandatory true;
       }
     }
-  }
-  container testno1 {
-    presence "true";
-    tailf:cli-incomplete-no;
-    list host {
+    list x {
       key "name";
-      tailf:cli-suppress-list-no;
+      tailf:cli-display-empty-config;
       leaf name {
         type string;
       }
-      leaf type {
+      leaf dummy {
+        config false;
+        tailf:cdb-oper;
         type string;
-        tailf:cli-suppress-no;
-      }
-      leaf defgw {
-        type inet:ipv4-address;
       }
     }
-  }
-  container testno2 {
-    list host {
+    list xmulti {
       key "name";
+      leaf name {
+        type string;
+        tailf:cli-multi-word-key {
+          tailf:cli-max-words "2";
+        }
+      }
+      leaf port {
+        type uint32;
+      }
+    }
+    list auto {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf desc {
+        tailf:cli-autowizard;
+        type string;
+      }
+      leaf port {
+        tailf:cli-suppress-show-conf-path;
+        type uint32;
+        mandatory true;
+      }
+    }
+    container hosts {
+      list host {
+        key "name type";
+        tailf:cli-key-format "$(1)-$(2)";
+        leaf name {
+          type string;
+        }
+        leaf type {
+          type string;
+        }
+        leaf defgw {
+          type inet:ipv4-address;
+        }
+      }
+    }
+    container testno1 {
+      presence "true";
+      tailf:cli-incomplete-no;
+      list host {
+        key "name";
+        tailf:cli-suppress-list-no;
+        leaf name {
+          type string;
+        }
+        leaf type {
+          type string;
+          tailf:cli-suppress-no;
+        }
+        leaf defgw {
+          type inet:ipv4-address;
+        }
+      }
+    }
+    container testno2 {
+      list host {
+        key "name";
+        tailf:cli-full-no;
+        leaf name {
+          type string;
+        }
+        leaf type {
+          type string;
+        }
+        leaf defgw {
+          type inet:ipv4-address;
+        }
+      }
+    }
+    container testno3 {
+      presence "true";
       tailf:cli-full-no;
-      leaf name {
-        type string;
-      }
-      leaf type {
-        type string;
-      }
-      leaf defgw {
-        type inet:ipv4-address;
+      list host {
+        key "name";
+        leaf name {
+          type string;
+        }
+        leaf type {
+          type string;
+        }
+        leaf defgw {
+          type inet:ipv4-address;
+        }
       }
     }
-  }
-  container testno3 {
-    presence "true";
-    tailf:cli-full-no;
-    list host {
+    leaf-list ints {
+      tailf:cli-list-syntax;
+      type int32;
+    }
+    leaf-list strings {
+      tailf:cli-list-syntax {
+        tailf:cli-multi-word;
+      }
+      type string;
+    }
+    leaf-list flat-ints {
+      tailf:cli-flat-list-syntax;
+      type int32;
+    }
+    leaf-list range-ints {
+      tailf:cli-range-list-syntax;
+      type int32;
+    }
+    list flat1 {
+      tailf:cli-sequence-commands;
+      tailf:cli-compact-syntax;
       key "name";
       leaf name {
         type string;
       }
+      leaf domain {
+        type string;
+      }
+      container sub1 {
+        tailf:cli-flatten-container;
+        presence "true";
+      }
+      container sub2 {
+        tailf:cli-flatten-container;
+        leaf if {
+          type string;
+        }
+      }
       leaf type {
         type string;
       }
-      leaf defgw {
-        type inet:ipv4-address;
-      }
     }
-  }
-  leaf-list ints {
-    tailf:cli-list-syntax;
-    type int32;
-  }
-  leaf-list strings {
-    tailf:cli-list-syntax {
-      tailf:cli-multi-word;
-    }
-    type string;
-  }
-  leaf-list flat-ints {
-    tailf:cli-flat-list-syntax;
-    type int32;
-  }
-  leaf-list range-ints {
-    tailf:cli-range-list-syntax;
-    type int32;
-  }
-  list flat1 {
-    tailf:cli-sequence-commands;
-    tailf:cli-compact-syntax;
-    key "name";
-    leaf name {
-      type string;
-    }
-    leaf domain {
-      type string;
-    }
-    container sub1 {
-      tailf:cli-flatten-container;
-      presence "true";
-    }
-    container sub2 {
-      tailf:cli-flatten-container;
-      leaf if {
+    list flat2 {
+      tailf:cli-sequence-commands;
+      tailf:cli-compact-syntax;
+      key "name";
+      leaf name {
         type string;
       }
-    }
-    leaf type {
-      type string;
-    }
-  }
-  list flat2 {
-    tailf:cli-sequence-commands;
-    tailf:cli-compact-syntax;
-    key "name";
-    leaf name {
-      type string;
-    }
-    leaf domain {
-      type string;
-    }
-    container sub1 {
-      tailf:cli-flatten-container;
-      presence "true";
-    }
-    container sub2 {
-      tailf:cli-flatten-container;
-      leaf if {
+      leaf domain {
         type string;
       }
-    }
-    leaf type {
-      type string;
+      container sub1 {
+        tailf:cli-flatten-container;
+        presence "true";
+      }
+      container sub2 {
+        tailf:cli-flatten-container;
+        leaf if {
+          type string;
+        }
+      }
+      leaf type {
+        type string;
+      }
     }
   }
 }
