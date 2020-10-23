@@ -96,9 +96,6 @@ data from the CDB operational data store using the CDB API.
       cli-show-sys.sh for details.
 - Wall clock time is measured for each of the above northbound clients
   for a configurable size of the data read.
-- Two test types are used:
-  1. Data in the list of routes (nested list) only.
-  2. All data
 - Again, the purpose of the example is to show an example implementation of a
   high-performance data provider, but the example also give some guidance in how
   to use the CDB API, MAAPI, and other northbound clients.
