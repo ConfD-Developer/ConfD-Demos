@@ -10,9 +10,7 @@ import copy
 def gen_ann_module(name, ns, prefix):
     revdate = datetime.today().strftime('%Y-%m-%d')
     str = """<?xml version="1.0" encoding="utf-8"?>
-<module xmlns="urn:ietf:params:xml:ns:yang:yin:1"
-               xmlns:tailf="http://tail-f.com/yang/common"
-               yname="{}-ann">
+<module>
   <namespace uri="{}-ann"/>
   <prefix value="{}-ann"/>
   <import module="tailf-common">
@@ -24,7 +22,7 @@ def gen_ann_module(name, ns, prefix):
     </description>
   </revision>
   <tailf_prefix_annotate_module module_name="{}"/>
-</module>""".format(name,ns,prefix,revdate,name)
+</module>""".format(ns,prefix,revdate,name)
     return str
 
 
@@ -72,8 +70,21 @@ def tailf_ann_stmt(yang_file):
             ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
             tailf_extension.decompose()
     tailf_import = yin_soup.find('import', module='tailf-common')
-    if tailf_import is not None:
+    if tailf_import is None:
+        create_ann_module = False
+    else:
+        create_ann_module = True
         tailf_import.decompose()
+    tailf_ann_import = ann_soup.find('import', module='tailf-common')
+    if yin_soup.module is not None:
+        ann_soup.module.attrs = copy.copy(yin_soup.module.attrs)
+        for module_import in yin_soup.module.find_all('import', recursive=False):
+            tailf_ann_import.insert_before(copy.copy(module_import))
+    else:
+        ann_soup.module.attrs = copy.copy(yin_soup.submodule.attrs)
+        for module_import in yin_soup.submodule.find_all('import', recursive=False):
+            tailf_ann_import.insert_before(copy.copy(module_import))
+    ann_soup.module['yname'] = "{}-ann".format(ann_soup.module['yname'])
     yin_soup_str = str(yin_soup)
     yin_soup_str = yin_soup_str.replace('tailf_prefix_', 'tailf:')
     yin_soup_str = yin_soup_str.replace('yname=', 'name=')
@@ -87,22 +98,23 @@ def tailf_ann_stmt(yang_file):
     with open("yang/{}".format(yang_filename), "w") as fp:
         fp.write(str(yang_content))
         fp.close()
-    ann_soup_str = str(ann_soup)
-    ann_soup_str = ann_soup_str.replace('tailf_prefix_', 'tailf:')
-    ann_soup_str = ann_soup_str.replace('annotate_module', 'annotate-module')
-    ann_soup_str = ann_soup_str.replace('module_name=', 'module-name=')
-    ann_soup_str = ann_soup_str.replace('statement_path=', 'statement-path=')
-    ann_soup_str = ann_soup_str.replace('yname=', 'name=')
-    ann_soup_str = ann_soup_str.replace('target_node=', 'target-node=')
-    ann_soup_str = ann_soup_str.replace('xmlns_', 'xmlns:')
-    result = subprocess.run(['python3', '/usr/local/bin/pyang', '-f',
-                            'yang', '--ignore-error=UNUSED_IMPORT', '-p',
-                            yang_path, '-p', confd_dir], stdout=subprocess.PIPE,
-                            input=ann_soup_str, encoding='utf-8')
-    ann_content = result.stdout
-    with open("yang/{}".format(ann_filename), "w") as fp:
-        fp.write(str(ann_content))
-        fp.close()
+    if create_ann_module is True:
+        ann_soup_str = str(ann_soup)
+        ann_soup_str = ann_soup_str.replace('tailf_prefix_', 'tailf:')
+        ann_soup_str = ann_soup_str.replace('annotate_module', 'annotate-module')
+        ann_soup_str = ann_soup_str.replace('module_name=', 'module-name=')
+        ann_soup_str = ann_soup_str.replace('statement_path=', 'statement-path=')
+        ann_soup_str = ann_soup_str.replace('yname=', 'name=')
+        ann_soup_str = ann_soup_str.replace('target_node=', 'target-node=')
+        ann_soup_str = ann_soup_str.replace('xmlns_', 'xmlns:')
+        result = subprocess.run(['python3', '/usr/local/bin/pyang', '-f',
+                                'yang', '--ignore-error=UNUSED_IMPORT', '-p',
+                                yang_path, '-p', confd_dir], stdout=subprocess.PIPE,
+                                input=ann_soup_str, encoding='utf-8')
+        ann_content = result.stdout
+        with open("yang/{}".format(ann_filename), "w") as fp:
+            fp.write(str(ann_content))
+            fp.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
