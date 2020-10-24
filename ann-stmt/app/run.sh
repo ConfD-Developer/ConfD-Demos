@@ -2,7 +2,7 @@
 rm -rf yang
 mkdir -p yang
 
-echo "Create a tailf:annotate-module/statement module and sanetize the original YANG module"
+echo "Create a tailf:annotate-module/statement module and sanitize the original YANG module"
 for f in yang-orig/*.yang
 do
     echo "Processing $f"
