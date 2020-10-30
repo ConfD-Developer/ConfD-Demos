@@ -33,7 +33,9 @@ def add_stmt(node, ann_node, ann_soup):
     elif node.parent.name == "augment":
         parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['target_node']))
     else:
-        parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['yname']))
+        parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[{}=\'{}\']".format(node.parent.name,
+   													                                                         next(iter(node.parent.attrs)),
+													                                                         next(iter(node.parent.attrs.values()))))
     parent_ann_node.append(ann_node)
     return add_stmt(node.parent, parent_ann_node, ann_soup)
 
