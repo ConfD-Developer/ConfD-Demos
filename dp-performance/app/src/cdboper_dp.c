@@ -266,7 +266,9 @@ static int format_object(confd_tag_value_t *tv, confd_tag_value_t *itv, int n_it
       prefix = confd_ns2prefix(CONFD_GET_TAG_NS(&itv[i]));
       len = strlen(prefix);
       mod_len = strlen(KP_MOD);
-      prefix[len-mod_len] = '\0';
+      if (strcmp(&(prefix[len-mod_len]), KP_MOD) == 0) {
+        prefix[len-mod_len] = '\0';
+      }
       if (CONFD_GET_TAG_VALUE(&itv[i])->type == C_XMLEND) {
         if (start->parent == NULL) {
           start = confd_find_cs_root(start->ns);
