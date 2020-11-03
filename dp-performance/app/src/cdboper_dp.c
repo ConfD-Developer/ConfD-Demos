@@ -616,7 +616,7 @@ int main(int argc, char *argv[])
   confd_user_log_hook = libconfd_logger;
 
   /* Initialize confd library */
-  confd_init("cdb-oper-dp", stderr, debuglevel);
+  confd_init("cdb-oper-dp", estream, debuglevel);
 
   if (callpoint == NULL )
     confd_fatal("Need a callpoint name, -c \"my-callpoint\"\n");
