@@ -426,22 +426,21 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     confd_value_t *list;
     int n_list, pos;
 
-    if ((res = cdb_get(cdbsock, &v, kp_str)) == CONFD_OK) {
-      list = CONFD_GET_LIST(&v);
-      n_list = CONFD_GET_LISTSIZE(&v);
-      if (nkeys == 0) {
-        confd_data_reply_next_object_array(tctx, list, 1, -1);
+    cdb_get(cdbsock, &v, kp_str);
+    list = CONFD_GET_LIST(&v);
+    n_list = CONFD_GET_LISTSIZE(&v);
+    if (nkeys == 0) {
+      confd_data_reply_next_object_array(tctx, list, 1, -1);
+    } else {
+      pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+      if (pos == -1) {
+        confd_data_reply_next_key(tctx, NULL, -1, -1);
       } else {
-        pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
-        if (pos == -1) {
-          confd_data_reply_next_key(tctx, NULL, -1, -1);
-        } else {
-          confd_data_reply_next_object_array(tctx, &list[pos], 1, -1);
-        }
+        confd_data_reply_next_object_array(tctx, &list[pos], 1, -1);
       }
-      if (n_list > 0) {
-        confd_free_value(&v);
-      }
+    }
+    if (n_list > 0) {
+      confd_free_value(&v);
     }
     return CONFD_OK;
   }
