@@ -422,17 +422,27 @@ static int find_next_object(struct confd_trans_ctx *tctx,
 
   cs_node = confd_cs_node_cd(NULL, kp_str);
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
-    confd_tag_value_t *lltv = NULL;
-    confd_value_t *v = NULL;
-    n = cdb_num_instances(cdbsock, kp_str);
-    if (n > 0) {
-      cdb_get(cdbsock, v, kp_str);
-      CONFD_SET_TAG_VALUE(lltv, 0, v);
-      CONFD_SET_TAG_NS(lltv, cs_node->ns);
+    confd_value_t v;
+    confd_value_t *list;
+    int n_list, pos;
+
+    if ((res = cdb_get(cdbsock, &v, kp_str)) == CONFD_OK) {
+      list = CONFD_GET_LIST(&v);
+      n_list = CONFD_GET_LISTSIZE(&v);
+      if (nkeys == 0) {
+        confd_data_reply_next_object_array(tctx, list, 1, 1);
+      } else {
+        pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+        if (pos == -1) {
+          confd_data_reply_next_key(tctx, NULL, -1, -1);
+        } else {
+          confd_data_reply_next_object_array(tctx, &list[pos], 1, pos+1);
+        }
+      }
+      if (n_list > 0) {
+        confd_free_value(&v);
+      }
     }
-    confd_data_reply_next_object_tag_value_array(tctx, lltv, n, n);
-    if (n > 0)
-      confd_free_value(v);
     return CONFD_OK;
   }
 
@@ -616,7 +626,7 @@ int main(int argc, char *argv[])
   confd_user_log_hook = libconfd_logger;
 
   /* Initialize confd library */
-  confd_init("cdb-oper-dp", estream, debuglevel);
+  confd_init("cdb-oper-dp", stderr, debuglevel);
 
   if (callpoint == NULL )
     confd_fatal("Need a callpoint name, -c \"my-callpoint\"\n");
