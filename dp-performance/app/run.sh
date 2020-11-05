@@ -18,7 +18,7 @@ else
 fi
 
 start() {
-    ${CONFD} --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
+    ${CONFD} --smp $(nproc) --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
     ${CONFD} --start-phase1
     ./cdboper_dp -l $LIBCONFD_LOG -s -c $CALLPOINT &> /dev/null &
     ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
@@ -71,7 +71,7 @@ do
             fi
             END=$($DATE +%s)
             TIME=$(($END-$START))
-            pid=($(pidof confd))
+            pid=($(pidof confd.smp))
             PID=$(echo ${pid[0]})
             MEM=$(cat "/proc/$PID/status" | grep -A 1 VmHWM)
             arr=($MEM)
