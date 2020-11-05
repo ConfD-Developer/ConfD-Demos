@@ -424,23 +424,26 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
     confd_value_t v;
     confd_value_t *list;
-    int n_list, pos;
+    int n_list, pos, ret;
 
-    cdb_get(cdbsock, &v, kp_str);
-    list = CONFD_GET_LIST(&v);
-    n_list = CONFD_GET_LISTSIZE(&v);
-    if (nkeys == 0) {
-      confd_data_reply_next_object_array(tctx, list, 1, -1);
+    if ((ret = cdb_get(cdbsock, &v, kp_str)) != CONFD_OK) {
+      confd_data_reply_next_key(tctx, NULL, -1, -1);
     } else {
-      pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
-      if (pos == -1) {
-        confd_data_reply_next_key(tctx, NULL, -1, -1);
+    list = CONFD_GET_LIST(&v);
+      n_list = CONFD_GET_LISTSIZE(&v);
+      if (nkeys == 0) {
+        confd_data_reply_next_object_array(tctx, list, 1, -1);
       } else {
-        confd_data_reply_next_object_array(tctx, &list[pos], 1, -1);
+        pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+        if (pos == -1) {
+          confd_data_reply_next_key(tctx, NULL, -1, -1);
+        } else {
+          confd_data_reply_next_object_array(tctx, &list[pos], 1, -1);
+        }
       }
-    }
-    if (n_list > 0) {
-      confd_free_value(list);
+      if (n_list > 0) {
+        confd_free_value(list);
+      }
     }
     return CONFD_OK;
   }
