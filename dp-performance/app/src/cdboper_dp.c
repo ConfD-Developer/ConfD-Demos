@@ -440,7 +440,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
       }
     }
     if (n_list > 0) {
-      confd_free_value(&v);
+      confd_free_value(list);
     }
     return CONFD_OK;
   }
