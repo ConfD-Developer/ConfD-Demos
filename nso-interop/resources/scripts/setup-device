@@ -1,0 +1,68 @@
+#!/bin/bash
+
+usage() {
+    echo "$(basename $0): -d <dev_name> -i <dev_ip> -n <ned_id> -t <dev_port> [-u <dev_user>] [-p <dev_pass>]"
+}
+
+if [ $# = 0 ]; then
+    usage
+    exit 1
+fi
+
+if [ $1 = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+while getopts ":d:i:n:p:t:u:" opt; do
+    case $opt in
+        d)
+            dev_name=$OPTARG
+            ;;
+        i)
+            dev_ip=$OPTARG
+            ;;
+        n)
+            ned_id=$OPTARG
+            ;;
+        p)
+            dev_pass=$OPTARG
+            ;;
+        t)
+            dev_port=$OPTARG
+            ;;
+        u)
+            dev_user=$OPTARG
+            ;;
+        \?)
+            echo "Invalid option: $OPTARG" 1>&2
+            ;;
+        :)
+            echo "Invalid option: $OPTARG requires an argument" 1>&2
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+if [ -n "$dev_pass" ] || [ -n "$dev_user" ]; then
+    cat <<EOF | ncs_cli -C -u admin
+config
+devices authgroups group interop default-map remote_name ${dev_user:-cisco} remote_password ${dev_pass:-cisco123}
+!
+commit
+EOF
+fi
+
+cat <<EOF | ncs_cli -C -u admin
+config
+devices device $dev_name
+ address   $dev_ip
+ port      ${dev_port:-830}
+ authgroup interop
+ device-type netconf ned-id $ned_id
+ commit-queue enabled-by-default false
+ trace pretty
+ state admin-state unlocked
+!
+commit
+EOF

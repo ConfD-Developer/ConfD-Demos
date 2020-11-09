@@ -1,0 +1,23 @@
+#!/bin/bash
+
+usage() {
+    echo "$0: <ned-name> <ned-vendor> <ned-version>"
+}
+
+if [ $1 = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+    exit 0
+elif [ $# -ne 3 ]; then
+    usage
+    exit 1
+else
+    ned_name=$1
+    ned_vendor=$2
+    ned_ver=$3
+
+    ncs-make-package --netconf-ned yangs $ned_name --dest packages/$ned_name-nc-$ned_ver --no-fail-on-warnings --no-java --no-netsim --no-python --vendor $ned_vendor --package-version $ned_ver
+    make -C packages/$ned_name-nc-$ned_ver/src clean all
+    cat <<EOF | ncs_cli -C -u admin
+packages reload
+EOF
+fi

@@ -1,0 +1,8 @@
+devices device nc0
+ address   172.26.228.144
+ port      62436
+ authgroup interop
+ device-type netconf ned-id router-nc-1.0
+ commit-queue enabled-by-default false
+ state admin-state unlocked
+!

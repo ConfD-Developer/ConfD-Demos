@@ -1,0 +1,10 @@
+resources/NSO-*/**
+resources/yangs/**
+interop-logs/*
+!interop-logs/.gitkeep
+interop-states/*
+!interop-states/.gitkeep
+interop-xmnr/**
+!interop-xmnr/.gitkeep
+interop-yangs/*
+!interop-yangs/.gitkeep

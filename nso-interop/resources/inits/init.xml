@@ -1,0 +1,56 @@
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <devices xmlns="http://tail-f.com/ns/ncs">
+    <authgroups>
+      <group>
+        <name>interop</name>
+        <default-map>
+          <remote-name>DEVUSER</remote-name>
+          <remote-password>DEVPASS</remote-password>
+        </default-map>
+      </group>
+    </authgroups>
+    <device>
+      <name>DEVNAME</name>
+      <address>DEVIP</address>
+      <port>DEVPORT</port>
+      <device-type>
+        <netconf>
+          <ned-id>NEDNAME-nc-NEDVER</ned-id>
+        </netconf>
+      </device-type>
+      <commit-queue>
+        <enabled-by-default>false</enabled-by-default>
+      </commit-queue>
+      <state>
+        <admin-state>unlocked</admin-state>
+      </state>
+      <authgroup>interop</authgroup>
+    </device>
+    <global-settings>
+      <trace>pretty</trace>
+      <commit-queue>
+        <enabled-by-default>false</enabled-by-default>
+      </commit-queue>
+    </global-settings>
+  </devices>
+  <drned-xmnr xmlns="http://cisco.com/ns/drned-xmnr">
+    <xmnr-directory>xmnr</xmnr-directory>
+    <log-detail>
+      <cli>drned-overview</cli>
+    </log-detail>
+  </drned-xmnr>
+  <netconf-ned-builder xmlns="http://tail-f.com/ns/ncs/netconf-ned-builder">
+    <project>
+      <family-name>NEDNAME</family-name>
+      <major-version>NEDVER</major-version>
+      <device>DEVNAME</device>
+      <local-user>DEVUSER</local-user>
+      <vendor>NEDVENDOR</vendor>
+    </project>
+  </netconf-ned-builder>
+  <python-vm xmlns="http://tail-f.com/ns/ncs">
+    <logging>
+      <level>level-debug</level>
+    </logging>
+  </python-vm>
+</config>
