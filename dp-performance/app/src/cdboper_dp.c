@@ -313,9 +313,12 @@ static int get_object(struct confd_trans_ctx *tctx,
   } else { /* container */
     j = traverse_cs_nodes(cs_node->children, &itv[0], j);
   }
-  if((lastslash = strrchr(kp_str, '/')) != NULL) {
-    if (lastslash != &kp_str[0]) {
-      *lastslash = 0;
+  if((lastslash = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+    *lastslash = 0;
+    if((lastslash = strrchr(kp_str, '/')) != NULL) {
+      if (lastslash != &kp_str[0]) {
+        *lastslash = 0;
+      }
     }
   }
   if (cdb_get_values(cdbsock, itv, j, kp_str) != CONFD_OK) {
@@ -405,9 +408,12 @@ static int find_next(struct confd_trans_ctx *tctx,
   }
   CONFD_SET_TAG_XMLEND(&tv[j], cs_node->tag, cs_node->ns); j++;
 
-  if((lastslash = strrchr(kp_str, '/'))) {
-    if (lastslash != &kp_str[0]) {
-      *lastslash = 0;
+  if((lastslash = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+    *lastslash = 0;
+    if((lastslash = strrchr(kp_str, '/')) != NULL) {
+      if (lastslash != &kp_str[0]) {
+        *lastslash = 0;
+      }
     }
   }
 
@@ -515,9 +521,12 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     CONFD_SET_TAG_XMLEND(&itv[j], cs_node->tag, cs_node->ns); j++;
   }
 
-  if((lastslash = strrchr(kp_str, '/'))) {
-    if (lastslash != &kp_str[0]) {
-      *lastslash = 0;
+  if((lastslash = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+    *lastslash = 0;
+    if((lastslash = strrchr(kp_str, '/')) != NULL) {
+      if (lastslash != &kp_str[0]) {
+        *lastslash = 0;
+      }
     }
   }
 
