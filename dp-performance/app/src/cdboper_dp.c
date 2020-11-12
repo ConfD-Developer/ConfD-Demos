@@ -288,6 +288,21 @@ static int format_object(confd_tag_value_t *tv, confd_tag_value_t *itv, int n_it
   return n;
 }
 
+static char* strrstr(const char *haystack, const char *needle)
+{
+	char *r = NULL;
+
+	if (!needle[0])
+		return (char*)haystack + strlen(haystack);
+	while (1) {
+		char *p = strstr(haystack, needle);
+		if (!p)
+			return r;
+		r = p;
+		haystack = p + 1;
+	}
+}
+
 static int get_object(struct confd_trans_ctx *tctx,
                       confd_hkeypath_t *keypath)
 {
@@ -341,10 +356,10 @@ static int find_next(struct confd_trans_ctx *tctx,
 {
   confd_value_t v[confd_maxkeylen];
   confd_tag_value_t tv[confd_maxkeylen];
-  int pos = -1, i, j;
+  int pos = -1, i, j, real_nkeys = 0;
   u_int32_t *keyptr;
   struct confd_cs_node *cs_node;
-  char kp_str[BUFSIZ], *lastslash;
+  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ];
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
 
@@ -376,17 +391,28 @@ static int find_next(struct confd_trans_ctx *tctx,
     return CONFD_OK;
   }
 
+  for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
+    real_nkeys++;
+  }
+  stars[0] = 0;
+  for (i = 0; i < real_nkeys-nkeys; i++) {
+    strcat(&stars[0], " *");
+  }
   if (nkeys == 0) {
     pos = 0; /* first call */
   } else {
     switch (type) {
     case CONFD_FIND_SAME_OR_NEXT:
-      if((pos = cdb_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys)) < 0) {
-        pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+      if (real_nkeys - nkeys == 0) {
+        if((pos = cdb_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys)) < 0) {
+          pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+        }
+      } else {
+        pos = cdb_next_index(cdbsock, "%s{%*x%s}", kp_str, nkeys, keys, stars);
       }
       break;
     case CONFD_FIND_NEXT:
-      pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+      pos = cdb_next_index(cdbsock, "%s{%*x%s}", kp_str, nkeys, keys, stars);
       break;
     default:
       confd_fatal("invalid find next type");
@@ -439,11 +465,12 @@ static int find_next_object(struct confd_trans_ctx *tctx,
                             enum confd_find_next_type type,
                             confd_value_t *keys, int nkeys)
 {
-  int pos = -1, n_list_entries, nobj, i, j, n = 0;
+  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0;
   confd_tag_value_t *tv, *itv;
   struct confd_tag_next_object *tobj;
   struct confd_cs_node *cs_node, *start;
-  char kp_str[BUFSIZ], *lastslash;
+  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ];
+  u_int32_t *keyptr;
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   start = confd_find_cs_node(keypath, keypath->len);
@@ -476,17 +503,28 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     return CONFD_OK;
   }
 
+  for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
+    real_nkeys++;
+  }
+  stars[0] = 0;
+  for (i = 0; i < real_nkeys-nkeys; i++) {
+    strcat(&stars[0], " *");
+  }
   if (nkeys == 0) {
     pos = 0; /* first call */
   } else {
     switch (type) {
     case CONFD_FIND_SAME_OR_NEXT:
-      if((pos = cdb_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys)) < 0) {
-        pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+      if (real_nkeys - nkeys == 0) {
+        if((pos = cdb_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys)) < 0) {
+          pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+        }
+      } else {
+        pos = cdb_next_index(cdbsock, "%s{%*x%s}", kp_str, nkeys, keys, stars);
       }
       break;
     case CONFD_FIND_NEXT:
-      pos = cdb_next_index(cdbsock, "%s{%*x}", kp_str, nkeys, keys);
+      pos = cdb_next_index(cdbsock, "%s{%*x%s}", kp_str, nkeys, keys, stars);
       break;
     default:
       confd_fatal("invalid find next type");
