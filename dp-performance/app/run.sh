@@ -1,12 +1,11 @@
 #!/bin/bash
 ID=0
-TC_NUMS=( 1000 5000 10000 )
-TC_NAME=( "NCGETA" "RCGETA" "NCGETD" "NCGETO" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
+TC_NUMS=( 10 100 1000 )
+TC_NAME=( "NCGETA" "NCGETD" "NCGETO" "RCGETA" "MSAVEX" "MSAVEJ" "MITERA" "MGOBJS" "CLISH" )
 TC_TYPE=( "OPER" "RUN" "CAND" )
 MAAPI_DS="-O"
 NETCONF_DS="operational"
 CALLPOINT="oper-cp"
-NESTED_LISTS_CALLPOINT="nested-lists-cp"
 LIBCONFD_LOG="./libconfd.log"
 
 echo "ID,NUM,TIME,HWM,RSS,TC"
@@ -78,10 +77,12 @@ do
             HWM=$(echo ${arr[1]})
             RSS=$(echo ${arr[4]})
             echo "$ID,$NUM,$TIME,$HWM,$RSS,$TC-$TYPE"
+            mv libconfd.log libconfd.log.$ID
+            mv devel.log devel.log.$ID
             make stop &> /dev/null
             let ID+=1
         done
     done
 done
 
-tail -F devel.log
+tail -F devel.log.0

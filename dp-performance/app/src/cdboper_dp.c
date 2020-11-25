@@ -142,6 +142,7 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
   char tmpbuf[confd_maxkeylen][BUFSIZ];
   struct confd_cs_node *cs_node;
   struct confd_type *type;
+  u_int64_t pseudo_key = -1;
 
   //confd_pp_kpath(kp_str, bufsiz, keypath);
   //fprintf(stderr, "\nKP_STR\n %s",kp_str);
@@ -157,11 +158,18 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
         cs_node = cs_node->children;
         type = cs_node->info.type;
       }
-      for (j = 0; keypath->v[i][j].type != C_NOEXISTS; j++) {
-        confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][0]), BUFSIZ);
-        if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0 && cs_node->next != NULL) {
-          cs_node = cs_node->next;
-          type = cs_node->info.type;
+      if (cs_node->parent->info.keys == NULL && cs_node->parent->info.flags & CS_NODE_IS_LIST) {
+        /* keyless list - get the pseudo key */
+        pseudo_key = CONFD_GET_INT64(&(keypath->v[i][0]));
+        snprintf(&(tmpbuf[0][0]), BUFSIZ, "%ld", pseudo_key);
+        j = 1;
+      } else {
+        for (j = 0; keypath->v[i][j].type != C_NOEXISTS; j++) {
+          confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][0]), BUFSIZ);
+          if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0 && cs_node->next != NULL) {
+            cs_node = cs_node->next;
+            type = cs_node->info.type;
+          }
         }
       }
       strcpy(&kp_str[kp_strlen], "{"); kp_strlen++;
@@ -309,18 +317,26 @@ static int get_object(struct confd_trans_ctx *tctx,
   confd_tag_value_t *itv, *tv;
   int pos, j = 0, n;
   struct confd_cs_node *cs_node, *start;
-  char kp_str[BUFSIZ], *lastslash;
+  char kp_str[BUFSIZ], *lastslash, *lastprefix, *lastcurly_start, *lastcurly_end, tmpc;
 
   start = confd_find_cs_node(keypath, keypath->len);
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   cs_node = confd_cs_node_cd(NULL, kp_str);
   itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
   if (cs_node->info.flags & CS_NODE_IS_LIST) { /* list */
-    pos = cdb_index(cdbsock, kp_str);
-    if (pos < 0) {
-      /* No list entry with a maching key */
-      confd_data_reply_not_found(tctx);
-      return CONFD_OK;
+    if (cs_node->info.keys == NULL) { /* keyless list */
+      lastcurly_start = strrchr(kp_str, '{');
+      lastcurly_end = strrchr(kp_str, '}');
+      *lastcurly_end = 0;
+      lastcurly_start++;
+      pos = atoi(lastcurly_start);
+    } else {
+      pos = cdb_index(cdbsock, kp_str);
+      if (pos < 0) {
+        /* No list entry with a maching key */
+        confd_data_reply_not_found(tctx);
+        return CONFD_OK;
+      }
     }
     CONFD_SET_TAG_CDBBEGIN(&itv[j], cs_node->tag, cs_node->ns, pos); j++;
     j = traverse_cs_nodes(cs_node->children, &itv[0], j);
@@ -328,11 +344,14 @@ static int get_object(struct confd_trans_ctx *tctx,
   } else { /* container */
     j = traverse_cs_nodes(cs_node->children, &itv[0], j);
   }
-  if((lastslash = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
-    *lastslash = 0;
+  if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+    tmpc = *lastprefix;
+    *lastprefix = 0;
     if((lastslash = strrchr(kp_str, '/')) != NULL) {
       if (lastslash != &kp_str[0]) {
         *lastslash = 0;
+      } else {
+        *lastprefix = tmpc;
       }
     }
   }
@@ -341,7 +360,6 @@ static int get_object(struct confd_trans_ctx *tctx,
   }
   tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
   n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and end tags for each object */
-  //print_tag_value_array(tv, n, NULL, 0);
   confd_data_reply_tag_value_array(tctx, tv, n);
 
   free(tv);
@@ -359,7 +377,7 @@ static int find_next(struct confd_trans_ctx *tctx,
   int pos = -1, i, j, real_nkeys = 0;
   u_int32_t *keyptr;
   struct confd_cs_node *cs_node;
-  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ];
+  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ], *lastprefix, tmpc;
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
 
@@ -434,11 +452,14 @@ static int find_next(struct confd_trans_ctx *tctx,
   }
   CONFD_SET_TAG_XMLEND(&tv[j], cs_node->tag, cs_node->ns); j++;
 
-  if((lastslash = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
-    *lastslash = 0;
+  if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+    tmpc = *lastprefix;
+    *lastprefix = 0;
     if((lastslash = strrchr(kp_str, '/')) != NULL) {
       if (lastslash != &kp_str[0]) {
         *lastslash = 0;
+      } else {
+        *lastprefix = tmpc;
       }
     }
   }
@@ -449,7 +470,6 @@ static int find_next(struct confd_trans_ctx *tctx,
     confd_data_reply_next_key(tctx, NULL, -1, -1);
     return CONFD_OK;
   }
-  //print_tag_value_array(&tv[0], j, NULL, 0);
 
   for (i = 0; i < j-2; i++) {
     v[i].type = tv[i+1].v.type;
@@ -469,12 +489,11 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   confd_tag_value_t *tv, *itv;
   struct confd_tag_next_object *tobj;
   struct confd_cs_node *cs_node, *start;
-  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ];
+  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ], *lastprefix, tmpc;
   u_int32_t *keyptr;
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   start = confd_find_cs_node(keypath, keypath->len);
-
   cs_node = confd_cs_node_cd(NULL, kp_str);
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
     confd_value_t v;
@@ -502,8 +521,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     }
     return CONFD_OK;
   }
-
-  for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
+  for (keyptr = cs_node->info.keys; keyptr != NULL && *keyptr != 0; keyptr++) {
     real_nkeys++;
   }
   stars[0] = 0;
@@ -559,11 +577,14 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     CONFD_SET_TAG_XMLEND(&itv[j], cs_node->tag, cs_node->ns); j++;
   }
 
-  if((lastslash = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
-    *lastslash = 0;
+  if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+    tmpc = *lastprefix;
+    *lastprefix = 0;
     if((lastslash = strrchr(kp_str, '/')) != NULL) {
       if (lastslash != &kp_str[0]) {
         *lastslash = 0;
+      } else {
+        *lastprefix = tmpc;
       }
     }
   }
@@ -573,7 +594,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   }
 
   tobj = malloc(sizeof(struct confd_tag_next_object) * (max_nobjs + 1));
-  tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * max_nobjs * 2 * (1 + confd_max_object_size(cs_node)));
+  tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * max_nobjs * 2 * (1 + 1 + confd_max_object_size(cs_node)));
 
   /* create reply */
   int n_itv = j/nobj;
@@ -581,10 +602,16 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   n = 0;
   for (i = 0; i < nobj; i++) {
     tobj[i].tv = &tv[n_tv];
-    n = format_object(tobj[i].tv, &itv[n_itv*i+1], n_itv-2, start); /* +1 and -2 to skip begin and end tags for each object */
+    if (real_nkeys > 0) {
+      n = format_object(tobj[i].tv, &itv[n_itv*i+1], n_itv-2, start); /* +1 and -2 to skip begin and end tags for each object */
+    } else { /* keyless list - add pseudo key */
+      CONFD_SET_TAG_INT64(&(tobj[i].tv)[0], 0, i);
+      n = format_object(&(tobj[i].tv)[1], &itv[n_itv*i+1], n_itv-2, start); /* +1 and -2 to skip begin and end tags for each object */
+      n++;
+    }
     n_tv += n;
     tobj[i].n = n;
-    tobj[i].next = -1; //(long)pos+i+1;
+    tobj[i].next = -1; /* -1 is ok here since we are not using get_next* callbacks, else next can be (long)pos+i+1; */
     //print_tag_value_array(tobj[i].tv, n, NULL, 0);
   }
   if (pos + i >= n_list_entries) {
@@ -592,11 +619,9 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     tobj[i].n = 0;
     tobj[i].next = -1;
     i++;
-    //fprintf(estream, "indicate no more list entries pos %d + i %d >= n_list_entries %d\n", pos, i, n_list_entries);
   }
 
   /* reply */
-  //fprintf(estream, "pos=%d i=%d\n", pos, i);
   confd_data_reply_next_object_tag_value_arrays(tctx, tobj, i, 0);
   free(itv);
   free(tv);
@@ -710,7 +735,7 @@ int main(int argc, char *argv[])
                          sizeof (struct sockaddr_in)) != CONFD_OK)
     confd_fatal("Failed to load schemas from confd\n");
 
-  if ((dctx = confd_init_daemon("static-transform")) == NULL)
+  if ((dctx = confd_init_daemon("static-dp")) == NULL)
     confd_fatal("Failed to initialize daemon\n");
   flags = (CONFD_DAEMON_FLAG_BULK_GET_CONTAINER);
   if (confd_set_daemon_flags(dctx, flags) != CONFD_OK)
