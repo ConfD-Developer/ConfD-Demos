@@ -81,6 +81,13 @@ while [[ $(docker ps -l -a -q -f status=running | grep $CONFD_CID) != $CONFD_CID
     sleep .5
 done
 
+ecode=1;
+while [ $ecode -ne 0 ]; do
+    sleep .5 
+    docker exec -it cnbng confd --wait-started
+    ecode=$?
+done;
+
 CID="$(docker run --net $NET_NAME --name $IMG_NAME -d --rm -p 18080:8080 $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
