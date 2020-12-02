@@ -39,8 +39,8 @@ $ find . -type f
 ./router_nso/check-build.py
 ./router_nso/check-build.yang
 ./Dockerfile.confd                          # Adjust to your device setup
-./nso-5.4.1.linux.x86_64.signed.bin         # (*) need to be added to the project
-./confd-7.4.1.linux.x86_64.installer.bin.   # (*) need to be added to the project
+(*)./nso-5.4.1.linux.x86_64.signed.bin      # Need to be added to the project. Version can be controlled in the setup.sh file
+(*)./confd-7.4.1.linux.x86_64.installer.bin # Need to be added to the project. Version can be controlled in the setup.sh file
 ./router_confd/sys.xml                      # replace with the "base" config for your device
 ./router_confd/tools/Makefile
 ./router_confd/tools/confd_cmd.c
