@@ -15,6 +15,7 @@
 
   <load-path>
     <dir>./packages</dir>
+    <dir>.</dir>
     <dir>${NCS_DIR}/etc/ncs</dir>
 
     <!-- To disable northbound snmp altogether -->
@@ -211,7 +212,7 @@
     <!-- debug must expressions in YANG models -->
 
     <xpath-trace-log>
-      <enabled>true</enabled>
+      <enabled>false</enabled>
       <filename>./logs/xpath.trace</filename>
     </xpath-trace-log>
 
@@ -300,12 +301,12 @@
       <tcp>
         <enabled>true</enabled>
         <ip>0.0.0.0</ip>
-        <port>8080</port>
+        <port>18080</port>
       </tcp>
       <ssl>
         <enabled>false</enabled>
         <ip>0.0.0.0</ip>
-        <port>8888</port>
+        <port>18888</port>
         <key-file>${NCS_DIR}/var/ncs/webui/cert/host.key</key-file>
         <cert-file>${NCS_DIR}/var/ncs/webui/cert/host.cert</cert-file>
       </ssl>

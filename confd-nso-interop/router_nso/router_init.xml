@@ -11,7 +11,7 @@
     </authgroups>
     <device>
       <name>router</name>
-      <address>127.0.0.1</address>
+      <address>router</address>
       <port>12022</port>
       <authgroup>my-group</authgroup>
       <device-type>
