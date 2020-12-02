@@ -21,23 +21,9 @@ CONFDC=$(CONFD_DIR)/bin/confdc
 YANG_SOURCES        = $(wildcard yang/*.yang)
 SUBMODULES          = $(shell grep -l belongs-to yang/*.yang)
 ANNOTATION_MODULES  = $(wildcard yang/*-ann*.yang)
-TAILF_MODULES       = $(wildcard yang/tailf-*.yang)
-
-BUILTIN_MODULES     += ietf-yang-types.yang
-BUILTIN_MODULES     += ietf-inet-types.yang
-BUILTIN_MODULES     += ietf-yang-library.yang
-
-BUILTIN_MODULES     += ietf-netconf.yang
-BUILTIN_MODULES     += ietf-netconf-acm.yang
-BUILTIN_MODULES     += ietf-netconf-with-defaults.yang
-
-BUILTIN_MODULES     += ietf-restconf.yang
-BUILTIN_MODULES     += ietf-yang-patch.yang
-BUILTIN_MODULES     += tailf-rest-error.yang
-BUILTIN_MODULES     += tailf-rest-query.yang
 
 YANG_MODULES = $(filter-out $(SUBMODULES) $(ANNOTATION_MODULES) \
-		$(BUILTIN_MODULES) $(TAILF_MODULES) ,$(YANG_SOURCES))
+		,$(YANG_SOURCES))
 
 ALL_FXS_FILES = $(YANG_MODULES:yang/%.yang=fxs/%.fxs)
 FXS_DIR = ./fxs

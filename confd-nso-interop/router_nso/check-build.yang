@@ -1,0 +1,24 @@
+module check-build {
+  yang-version 1.1;
+  namespace "http://example.com/check-build";
+  prefix chk;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  import tailf-ncs-netconf-ned-builder {
+    prefix tnnb;
+  }
+
+  revision 2020-10-27 {
+    description
+    "Initial revision.";
+  }
+
+  augment /tnnb:netconf-ned-builder {
+    action wait-for-pending {
+      tailf:actionpoint "wait-for-pending";
+    }
+  }
+}
