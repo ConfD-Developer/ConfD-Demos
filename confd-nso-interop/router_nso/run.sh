@@ -45,6 +45,9 @@ netconf-ned-builder project $APP_NAME 1.0 export-ned to-directory /$(echo "$APP_
 exit
 EOF
 
+ncs_load -o -Fp -p "/netconf-ned-builder/project/module/build-warning"
+ncs_load -o -Fp -p "/netconf-ned-builder/project/module/build-error"
+
 cd "/"$APP_NAME"_nso"/packages/
 tar xfz ncs-$NSO_VERSION-$APP_NAME-nc-1.0.tar.gz
 rm ncs-$NSO_VERSION-$APP_NAME-nc-1.0.tar.gz
