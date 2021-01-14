@@ -1,5 +1,3 @@
-## Dependencies
-
 Version history
 
 ```
@@ -11,11 +9,20 @@ Version:  Date:         Description:                        Author:
 --------------------------------------------------------------------------------
 ```
 
+## Dependencies
+
+* Python3
+* ConfD
+* `make`
+
+
 ### python grpc
 
 Install:
 `pip install grpcio-tools`
-
+           
+NOTE: We expect that `python` nad `pip` are from Python3 environment. Use `python3` or `pip3`
+if you have mixed Python2 and Python3 environemnt.
         
 Update:
 `pip install --upgrade grpcio-tools`
@@ -104,9 +111,9 @@ Options:
 Examples:
 
 `./src/confd_gnmi_client.py -o capabilities`
-`./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_82]/name --path "interface[name=if_82]/type"`
+`./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_82]/name --path interface[name=if_82]/type`
 `./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_82]/type --val fastEther`
-`./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_82]/name --path "interface[name=if_82]/type"`
+`./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_82]/name --path interface[name=if_82]/type`
 
 NOTE: Other parameters (username, password, subscription types are currently hardcoded, TODO)
     
@@ -146,13 +153,12 @@ Each model has following attributes:
 
 ##### Implementation 
 
-Read values from `"/ncm:netconf-state/ncm:capabilities/ncm:capability"` found 
-in the `ietf-netconf-monitoring.yang` YANG data model.  
+Capability information can be fetched from `"/ncm:netconf-state/ncm:capabilities/ncm:capability"`  
+datamodel, found in the `ietf-netconf-monitoring.yang`.  
 
-Another option can be:
+Another option can be to get it with `confd_get_nslist` API call:
 
 Call  `confd_get_nslist`, array of following is returned:
-
 ```
 struct confd_nsinfo {
     const char *uri;
@@ -246,7 +252,7 @@ https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.
 Initial `pytest` tests created in `test` directory. 
              
 Use:
-pip `install pytest` or `pip install --upgrade pytest`
+`pip install pytest` or `pip install --upgrade pytest`
 
 Currently, there are only few unit tests - TODO
 
