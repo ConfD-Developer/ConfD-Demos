@@ -104,9 +104,9 @@ Options:
 Examples:
 
 `./src/confd_gnmi_client.py -o capabilities`
-`./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=cp_ont_82]/name --path "interface[name=cp_ont_82]/type"`
-`./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=cp_ont_82]/type --val fastEther`
-`./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=cp_ont_82]/name --path "interface[name=cp_ont_82]/type"`
+`./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_82]/name --path "interface[name=if_82]/type"`
+`./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_82]/type --val fastEther`
+`./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_82]/name --path "interface[name=if_82]/type"`
 
 NOTE: Other parameters (username, password, subscription types are currently hardcoded, TODO)
     
@@ -138,7 +138,7 @@ We use (part) of `ietf-interfaces.yang` as sample datamodel.
 `rpc Capabilities(CapabilityRequest) returns (CapabilityResponse);`
 
 `Capability` returns list of `supported_models` and list of `encodings`.
-It can also return lis of gNMI extensions.  
+It can also return list of gNMI extensions.  
 
 Each model has following attributes: 
  
@@ -146,8 +146,8 @@ Each model has following attributes:
 
 ##### Implementation 
 
-
-Read values in  `"/ncm:netconf-state/ncm:capabilities/ncm:capability"`
+Read values from `"/ncm:netconf-state/ncm:capabilities/ncm:capability"` found 
+in the `ietf-netconf-monitoring.yang` YANG data model.  
 
 Another option can be:
 
@@ -166,7 +166,6 @@ struct confd_nsinfo {
 `name` -> `module`
 `organization` -> TODO (cannot get with ConfD API, return empty string)
 `version` -> `revision` (return revision string -date ?)
-
 
 TODO: Pass yang file content as extension? HOW to get yang files from ConfD?
 
@@ -196,7 +195,7 @@ we have to find out, which elements are keys and add them to the Path(s).
 
 ##### Implementation 
 
-Use `maapi_save_config`  - can be used even for operational data (` MAAPI_CONFIG_WITH_OPER`).
+`maapi_save_config`  - can be used even for operational data (` MAAPI_CONFIG_WITH_OPER`).
 Get subtree as XML, parse XML and create response.
 
 TODOs:
@@ -213,7 +212,7 @@ be replaced (`replace`) and list of paths and values to be updated (`update`).
 
 TODOs:
 
-* difference between replace and update.   -> 3.4.4.
+* difference between replace and update.   -> gnNMI specification 3.4.4.
 * should `replace` be supported?
  
 Get in response list of Paths and what was done for each path (`response`).
@@ -226,7 +225,7 @@ Each gNMI `Set` call should be treated as transaction
 
 Stream subscription requests and get stream of subscription responses.
 
-In some cases, subscription response is similar to `Get`, this means all data in 
+Subscription response is similar to `Get`, this means all data in 
 given sub-tree is returned in response: 
 
 `ONCE` and `POLL` mode of the `SubscriptionList`,

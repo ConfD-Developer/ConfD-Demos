@@ -87,14 +87,20 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.debug("<== handler=%s", handler)
         return handler
 
-    def connect(self, addr=confd_addr, port=confd_port, username="admin",
-                password="admin"):
+    def connect(self, addr=None, port=None, username="admin", password="admin",
+                confd_debug_level=None):
+        if addr is None:
+            addr = GnmiConfDApiServerAdapter.confd_addr
+        if port is None:
+            port = GnmiConfDApiServerAdapter.confd_port
+        if confd_debug_level is None:
+            confd_debug_level = GnmiConfDApiServerAdapter.confd_debug_level
+
         log.info("==> addr=%s port=%i username=%s password=:-)", addr, port,
                  username)
         self.addr = addr
         self.port = port
-        _confd.set_debug(GnmiConfDApiServerAdapter.confd_debug_level,
-                         sys.stderr)
+        _confd.set_debug(confd_debug_level, sys.stderr)
         # TODO we are connecting low level maapi always, even though we  use
         # high level maapi only in some cases
         # TODO parallel processing
@@ -275,6 +281,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         log.debug("<== save_str=%s", save_str)
         return save_str
+
+    # TODO simplify
+    # def get_xml_leaves(self, elem):
+    #     if len(elem) <= 0:
+    #         return [elem];
+    #     return [self.get_xml_leaves(e) for e in elem];
 
     def get_xml_leaves(self, elem):
         leaves = []

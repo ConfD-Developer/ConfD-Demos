@@ -16,7 +16,7 @@ def gen_intf(name):
 
 
 def ifname(index):
-    return "cp_ont_{}".format(index)
+    return "if_{}".format(index)
 
 
 def parse_num(str):

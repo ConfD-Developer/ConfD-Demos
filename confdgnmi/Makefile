@@ -1,6 +1,6 @@
 ######################################################################
 # Interface Status example
-# (C) 2006-2009 Tail-f Systems
+# (C) 2021 Cisco/Tail-f Systems
 #
 # See the README file for more information
 ######################################################################
@@ -36,10 +36,6 @@ SRC_DIR=src
 PCG_DIR=$(SRC_DIR)
 
 
-#all:	ietf-ip.fxs ietf-interfaces.fxs ietf-ipv6-unicast-routing.fxs \
-#        ietf-ipv4-unicast-routing.fxs ietf-routing.fxs $(CDB_DIR) ssh-keydir
-#	@echo "Build complete"
-
 all: gnmi_proto \
 	iana-if-type.fxs ietf-interfaces.fxs $(PCG_DIR)/ietf_interfaces_ns.py \
 	$(PCG_DIR)/ietf_netconf_monitoring_ns.py \
@@ -59,7 +55,7 @@ gnmi_proto:
 	python -m grpc_tools.protoc -I$(PCG_DIR)/proto --python_out=$(PCG_DIR) --grpc_python_out=$(PCG_DIR) $(PCG_DIR)/proto/gnmi.proto $(PCG_DIR)/proto/gnmi_ext.proto
 
 test:
-	PYTHONPATH=src pytest -sv
+	PYTHONPATH=$(PCG_DIR) pytest -sv
 
 ######################################################################
 clean:	iclean

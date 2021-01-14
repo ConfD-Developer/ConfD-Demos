@@ -23,7 +23,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         log.debug("==>")
         if_num = 100
         for i in range(if_num):
-            if_name = "cp_ont_{}".format(i + 1)
+            if_name = "if_{}".format(i + 1)
             path = "/interfaces/interface[name={}]".format(if_name)
             self.demo_db["{}/name".format(path)] = if_name
             self.demo_db["{}/type".format(path)] = "gigabitEthernet"
@@ -35,7 +35,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         # key: int = 82
         #
         # def _make_name_elem(self, k) -> str:
-        #     return "cp_ont_{}".format(k)
+        #     return "if_{}".format(k)
 
         # def _make_update(self, k):
         #     return gnmi_pb2.Update(path=make_gnmi_path(

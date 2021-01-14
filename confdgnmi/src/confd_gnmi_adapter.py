@@ -19,7 +19,7 @@ class GnmiServerAdapter(ABC):
     @abstractmethod
     def capabilities(self):
         """
-        Invoke capabilities oon adapter and return list of Capabilities
+        Invoke capabilities on adapter and return list of Capabilities
         :return: list of  CapabilityModel elements (schema is empty string for now TODO)
         """
         pass
