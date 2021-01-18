@@ -84,7 +84,7 @@ done
 ecode=1;
 while [ $ecode -ne 0 ]; do
     sleep .5 
-    docker exec -it cnbng confd --wait-started
+    docker exec -it $APP_NAME confd --wait-started
     ecode=$?
 done;
 
