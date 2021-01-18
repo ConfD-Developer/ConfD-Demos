@@ -32,6 +32,8 @@ def add_stmt(node, ann_node, ann_soup):
         return ann_node
     elif node.parent.name == "augment":
         parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['target_node']))
+    elif node.parent.name == "when":
+        parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="when")
     else:
         parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[{}=\'{}\']".format(node.parent.name,
    													     next(iter(node.parent.attrs)),
@@ -120,7 +122,7 @@ def tailf_ann_stmt(yang_file):
             fp.write(str(ann_content))
             fp.close()
 
-            
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="",
