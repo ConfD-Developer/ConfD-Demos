@@ -193,16 +193,15 @@ class ConfDgNMIServicer(gNMIServicer):
         log.info("<==")
 
     @staticmethod
-    def serve(port, adapter_type):
-        log.info("==> port=%s", port)
+    def serve(port = PORT, adapter_type=AdapterType.DEMO):
+        log.info("==> port=%s adapter_type=%s", port, adapter_type)
 
         server = grpc.server(ThreadPoolExecutor(max_workers=10))
         add_gNMIServicer_to_server(ConfDgNMIServicer(adapter_type), server)
         server.add_insecure_port("[::]:{}".format(port))
         server.start()
-        server.wait_for_termination()
-
-        log.info("<==")
+        log.info("<== server=%s", server)
+        return server
 
 
 if __name__ == '__main__':
@@ -238,4 +237,5 @@ if __name__ == '__main__':
         log.warning("Unknown server type %s", opt.type)
 
     (opt, args) = parser.parse_args()
-    ConfDgNMIServicer.serve(PORT, adapter_type)
+    server = ConfDgNMIServicer.serve(PORT, adapter_type)
+    server.wait_for_termination()

@@ -4,6 +4,7 @@ from confd_gnmi_common import make_name_keys, make_gnmi_path, make_xpath_path, \
     make_formatted_path
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("input, output", [
     ("name[key1=val1]", ("name", {"key1": "val1"})),
     ("name[key1=val1][key2=val2]",
@@ -17,6 +18,7 @@ def test_make_name_keys(input, output):
     assert keys == output[1]
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("path",
                          ["/name1", "/", "/name1/name2", "/name1[key1=val1]"])
 def test_make_path(path):
@@ -30,7 +32,7 @@ def test_make_path(path):
                     namekeys = make_name_keys(elem)
                     elem_string = namekeys[0]
                     for k, v in namekeys[1].items():
-                        elem_string +="{{{}}}".format(v)
+                        elem_string += "{{{}}}".format(v)
                 formatted += elem_string
         formatted = formatted.replace("//", "/")
         return formatted

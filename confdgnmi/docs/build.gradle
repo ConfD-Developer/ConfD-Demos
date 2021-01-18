@@ -1,0 +1,40 @@
+// Gradle build script to build HTML documentation from Asciidoc files
+// build documentation with `gradle clean asciidoctor`, located under build/docs
+
+plugins {
+    id 'idea'
+    id 'com.github.ben-manes.versions' version '0.36.0' // gradle dependencyUpdates -Drevision=release
+    id 'org.asciidoctor.jvm.convert' version '3.3.0'
+}
+
+repositories {
+    jcenter()
+}
+
+configurations {
+    adoc
+}
+
+dependencies {
+    //adoc files('asciidoctorext/build/libs/asciidoctorext-0.0.1.jar')
+    adoc group: 'com.gitlab.novakmi', name: 'asciidoctorext', version: '0.0.1'
+}
+
+asciidoctorj {
+    modules {
+        diagram.use()
+    }
+}
+
+asciidoctor {
+    configurations 'adoc'
+    sourceDir file('.')
+    sources {
+        include 'ConfD_gNMI_adapter.adoc'
+    }
+    attributes 'stylesheet': "${projectDir}/res/asciidoctor_modif.css"
+    outputDir file('build/docs')
+    baseDirFollowsSourceFile()
+    copyNoResources()
+}
+

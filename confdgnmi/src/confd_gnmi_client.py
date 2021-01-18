@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import optparse
 import threading
-
 from time import sleep
 
 from confd_gnmi_common import *
@@ -12,7 +11,7 @@ log = logging.getLogger('confd_gnmi_client')
 
 class ConfDgNMIClient:
 
-    def __init__(self, host, port,
+    def __init__(self, host=HOST, port=PORT,
                  metadata=[('username', 'admin'), ('password', 'admin')]):
         log.info("==> host=%s, port=%i, metadata-%s", host, port, metadata)
         channel = grpc.insecure_channel("{}:{}".format(host, port))
@@ -26,12 +25,8 @@ class ConfDgNMIClient:
         request = gnmi__pb2.CapabilityRequest()
         log.debug("Calling stub.Capabilities")
         response = self.stub.Capabilities(request, metadata=self.metadata)
-        print("Capabilities - supported models:")
-        for m in response.supported_models:
-            print("name:{} organization:{} version: {}".format(m.name,
-                                                               m.organization,
-                                                               m.version))
-        log.info("<== response=%s", response)
+        log.info("<== response.supported_models=%s", response.supported_models)
+        return response.supported_models
 
     @staticmethod
     def make_subscription_list(prefix, paths, mode):
@@ -69,8 +64,7 @@ class ConfDgNMIClient:
 
         sub = gnmi__pb2.SubscribeRequest(subscribe=subscription_list,
                                          extension=[])
-        print("Generating subscription mode {} ....".format(
-            subscription_list.mode))
+        log.debug("subscription_list.mode=%s", subscription_list.mode)
         yield sub
 
         if subscription_list.mode == gnmi_pb2.SubscriptionList.POLL:
@@ -83,7 +77,10 @@ class ConfDgNMIClient:
 
     @staticmethod
     def print_notification(n):
-        print("timestamp {} atomic {}".format(n.timestamp, n.atomic))
+        print("timestamp {} prefix {} atomic {}".format(n.timestamp,
+                                                        make_xpath_path(
+                                                            gnmi_prefix=n.prefix),
+                                                        n.atomic))
         print("Updates:")
         for u in n.update:
             print("path: {} value {}".format(make_xpath_path(u.path), u.val))
@@ -101,21 +98,19 @@ class ConfDgNMIClient:
         log.info("<==")
 
     # TODO this API would change with more subscription support
-    def subscribe(self, subscription_list, poll_interval=0,
-                  poll_count=0):
+    def subscribe(self, subscription_list, read_thread=None,
+                  poll_interval=0, poll_count=0):
         log.info("==>")
         responses = self.stub.Subscribe(
             ConfDgNMIClient.generate_subscriptions(subscription_list,
                                                    poll_interval, poll_count),
             metadata=self.metadata)
-        thr = threading.Thread(target=ConfDgNMIClient.read_subscribe_responses,
-                               args=(responses,))
-        # for response in responses:
-        #     log.info("Received subscription response=%s", response)
-        thr.start()
-        thr.join()
-        print(".... subscription done")
-        log.info("<==")
+        if read_thread is not None:
+            thr = threading.Thread(target=read_thread, args=(responses,))
+            thr.start()
+            thr.join()
+        log.info("<== responses=%s", responses)
+        return responses
 
     def get(self, prefix, paths, type, encoding):
         log.info("==>")
@@ -128,11 +123,8 @@ class ConfDgNMIClient:
                                       extension=[])
         response = self.stub.Get(request, metadata=self.metadata)
 
-        print("Get - Notifications:")
-        for n in response.notification:
-            ConfDgNMIClient.print_notification(n)
-
-        log.info("<== response=%s", response)
+        log.info("<== response.notification=%s", response.notification)
+        return response.notification
 
     def set(self, prefix, path_vals):
         log.info("==> prefix=%s path_vals=%s", prefix, path_vals)
@@ -142,17 +134,8 @@ class ConfDgNMIClient:
             update.append(up)
         request = gnmi_pb2.SetRequest(prefix=prefix, update=update)
         response = self.stub.Set(request, metadata=self.metadata)
-
-        print("Set - UpdateResult:")
-        print("timestamp {} prefix {}".format(response.timestamp,
-                                              make_xpath_path(
-                                                  response.prefix)))
-        for r in response.response:
-            print("timestamp {} op {} path {}".format(r.timestamp,
-                                                      r.op,
-                                                      make_xpath_path(
-                                                          r.path)))
         log.info("<== response=%s", response)
+        return response
 
 
 if __name__ == '__main__':
@@ -178,7 +161,7 @@ if __name__ == '__main__':
     prefix = make_gnmi_path(prefix_str)
     paths = [make_gnmi_path(p) for p in opt.paths]
     vals = [gnmi_pb2.TypedValue(string_val=v) for v in opt.vals]
-    type = gnmi_pb2.GetRequest.DataType.CONFIG
+    datatype = gnmi_pb2.GetRequest.DataType.CONFIG
     encoding = gnmi_pb2.Encoding.BYTES
     subscription_mode = gnmi_pb2.SubscriptionList.POLL
 
@@ -190,16 +173,39 @@ if __name__ == '__main__':
 
     client = ConfDgNMIClient(HOST, PORT)
     if opt.operation == "capabilities":
-        client.get_capabilities()
+        supported_models = client.get_capabilities()
+        print("Capabilities - supported models:")
+        for m in supported_models:
+            print("name:{} organization:{} version: {}".format(m.name,
+                                                               m.organization,
+                                                               m.version))
     elif opt.operation == "subscribe":
-        client.subscribe(subscription_list, poll_interval, poll_count)
+        print("Starting subscription ....")
+        client.subscribe(subscription_list,
+                         read_thread=ConfDgNMIClient.read_subscribe_responses,
+                         poll_interval=poll_interval, poll_count=poll_count)
+        print(".... subscription done")
     elif opt.operation == "get":
-        client.get(prefix, paths, type, encoding)
+        notification = client.get(prefix, paths, datatype, encoding)
+        print("Get - Notifications:")
+        for n in notification:
+            ConfDgNMIClient.print_notification(n)
     elif opt.operation == "set":
         if len(paths) != len(vals):
-            log.waring("len(paths) != len(vals); %i != %i", len(paths), len(vals))
-            print("Number of paths (--path) must be the same as number of vals (--val)!")
+            log.waring("len(paths) != len(vals); %i != %i", len(paths),
+                       len(vals))
+            print(
+                "Number of paths (--path) must be the same as number of vals (--val)!")
         else:
-            client.set(prefix, list(zip(paths, vals)))
+            response = client.set(prefix, list(zip(paths, vals)))
+            print("Set - UpdateResult:")
+            print("timestamp {} prefix {}".format(response.timestamp,
+                                                  make_xpath_path(
+                                                      response.prefix)))
+        for r in response.response:
+            print("timestamp {} op {} path {}".format(r.timestamp,
+                                                      r.op,
+                                                      make_xpath_path(
+                                                          r.path)))
     else:
         log.warning("Unknown operation %s", opt.operation)

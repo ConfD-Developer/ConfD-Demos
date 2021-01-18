@@ -8,7 +8,14 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
     # simple demo database
     # map with XPath, value - both strings
     demo_db = {}
+    num_of_ifs = 10
     _instance: GnmiServerAdapter = None
+
+    capability_list = [
+        dict(name="tailf-common", organization="", version="2020-06-25"),
+        dict(name="ietf-inet-types", organization="", version="2013-07-15"),
+        dict(name="ietf-interfaces", organization="", version="2014-05-08"),
+    ]
 
     def __init__(self):
         self._fill_demo_db()
@@ -21,8 +28,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
 
     def _fill_demo_db(self):
         log.debug("==>")
-        if_num = 100
-        for i in range(if_num):
+        for i in range(GnmiDemoServerAdapter.num_of_ifs):
             if_name = "if_{}".format(i + 1)
             path = "/interfaces/interface[name={}]".format(if_name)
             self.demo_db["{}/name".format(path)] = if_name
@@ -30,18 +36,6 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         log.debug("==> self.demo_db=%s", self.demo_db)
 
     class SubscriptionHandler(GnmiServerAdapter.SubscriptionHandler):
-
-        # # TODO
-        # key: int = 82
-        #
-        # def _make_name_elem(self, k) -> str:
-        #     return "if_{}".format(k)
-
-        # def _make_update(self, k):
-        #     return gnmi_pb2.Update(path=make_gnmi_path(
-        #         "interface[name={}]/name".format(self._make_name_elem(k))),
-        #         val=gnmi_pb2.TypedValue(
-        #             string_val=self._make_name_elem(k)))
 
         def make_subscription_response(self) -> gnmi_pb2.SubscribeResponse:
             log.debug("==>")
@@ -51,14 +45,18 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
 
             update = []
             for s in self.subscription_list.subscription:
-                path_str = make_xpath_path(s.path,
-                                           self.subscription_list.prefix)
-                if path_str in self.adapter.demo_db:
-                    update.append(
-                        gnmi_pb2.Update(path=s.path,
-                                        val=gnmi_pb2.TypedValue(
-                                            string_val=self.adapter.demo_db[path_str]))
-                    )
+                path_with_prefix_str = make_xpath_path(s.path,
+                                                       self.subscription_list.prefix)
+                prefix_str = make_xpath_path(
+                    gnmi_prefix=self.subscription_list.prefix)
+                log.debug("path_with_prefix_str=%s perfix_str=%s",
+                          path_with_prefix_str, prefix_str)
+                for p, v in self.adapter.demo_db.items():
+                    if p.startswith(path_with_prefix_str):
+                        p = p[len(prefix_str):]
+                        update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
+                                                      val=gnmi_pb2.TypedValue(
+                                                          string_val=v)))
             delete = []
             notif = gnmi_pb2.Notification(timestamp=0,
                                           prefix=self.subscription_list.prefix,
@@ -80,28 +78,39 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         return GnmiDemoServerAdapter()
 
     def capabilities(self):
-        cap = [
-            GnmiServerAdapter.CapabilityModel(name="tailf-common",
-                                              organization="tail-f",
-                                              version="1.1"),
-            GnmiServerAdapter.CapabilityModel(name="ietf-types",
-                                              organization="ietf",
-                                              version="1.2")
-        ]
+        cap = []
+        for c in GnmiDemoServerAdapter.capability_list:
+            cap.append(
+                GnmiServerAdapter.CapabilityModel(name=c['name'],
+                                                  organization=c[
+                                                      'organization'],
+                                                  version=c['version']))
         return cap
 
+    def get_updates(self, path, prefix):
+        log.debug("==> path=%s prefix=%s", path, prefix)
+        path_with_prefix_str = make_xpath_path(gnmi_path=path,
+                                               gnmi_prefix=prefix)
+        prefix_str = make_xpath_path(gnmi_prefix=prefix)
+        log.debug("path_with_prefix_str=%s perfix_str=%s",
+                  path_with_prefix_str, prefix_str)
+        update = []
+        for p, v in self.demo_db.items():
+            if p.startswith(path_with_prefix_str):
+                p = p[len(prefix_str):]
+                update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
+                                              val=gnmi_pb2.TypedValue(
+                                                  string_val=v)))
+        log.debug("<== update=%s", update)
+        return update
+
     def get(self, prefix, paths, data_type, use_models):
-        log.debug("==> prefix=%s, paths=%s, data_type=%s, use_models=%",
+        log.debug("==> prefix=%s, paths=%s, data_type=%s, use_models=%s",
                   prefix, paths, data_type, use_models);
         notifications = []
         update = []
         for path in paths:
-            path_str = make_xpath_path(path, prefix)
-            if path_str in self.demo_db:
-                up = gnmi_pb2.Update(path=path,
-                                     val=gnmi_pb2.TypedValue(
-                                         string_val=self.demo_db[path_str]))
-                update.append(up)
+            update.extend(self.get_updates(path, prefix))
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
                                       update=update,
                                       delete=[],

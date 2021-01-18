@@ -1,0 +1,91 @@
+@startuml
+allow_mixing
+
+node "gNMI Adapter\nServer" {
+    class ConfDgNMIServicer {
+        adapter
+        ---
+        serve()
+        ..gNMI interface..
+        Capabilities()
+        Get()
+        Set()
+        Subscribe()
+        ....
+        get_adapter()
+        connect_adapter()
+        get_connected_adapter()
+        disconnect_adapter()
+    }
+
+    node ConfD {
+        database CDB
+    }
+
+    database DemoData
+
+    abstract class GnmiServerAdapter {
+        {abstract} capabilities()
+        {abstract} get()
+        {abstract} set()
+        {abstract} get_subscription_handler()
+        {abstract} get_inst()
+    }
+
+    class GnmiConfDApiServerAdapter {
+            capabilities()
+            get()
+            set()
+            get_subscription_handler()
+            get_inst()
+    }
+
+    class GnmiDemoServerAdapter {
+            capabilities()
+            get()
+            set()
+            get_subscription_handler()
+            get_inst()
+    }
+
+    class GnmiNetconfServerAdapter {
+            capabilities()
+            get()
+            set()
+            get_subscription_handler()
+            get_inst()
+    }
+
+    abstract class SubscriptionHandler {
+        add_subscription_list()
+        {abstract} make_subscription_response()
+        stop()
+        read()
+        poll()
+    }
+
+    class GnmiConfDApiServerAdapter.SubscriptionHandler {
+        make_subscription_response()
+    }
+
+    class GnmiDemoServerAdapter.SubscriptionHandler {
+        make_subscription_response()
+    }
+
+    SubscriptionHandler <-- GnmiConfDApiServerAdapter.SubscriptionHandler
+    SubscriptionHandler <-- GnmiDemoServerAdapter.SubscriptionHandler
+    GnmiServerAdapter <-le- GnmiDemoServerAdapter
+    GnmiServerAdapter <-le- GnmiConfDApiServerAdapter
+    GnmiServerAdapter <.up. GnmiNetconfServerAdapter
+    ConfDgNMIServicer "1" *-- GnmiServerAdapter
+    GnmiServerAdapter "1" *-- SubscriptionHandler
+
+    GnmiConfDApiServerAdapter <..> ConfD
+    GnmiConfDApiServerAdapter.SubscriptionHandler <..> ConfD
+
+    GnmiDemoServerAdapter <..> DemoData
+    GnmiDemoServerAdapter.SubscriptionHandler <..> DemoData
+
+}
+
+@enduml

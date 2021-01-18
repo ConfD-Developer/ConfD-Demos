@@ -1,0 +1,41 @@
+@startuml
+
+node gNMIClient [
+gNMI Adapter
+
+....
+
+client
+]
+
+
+node gNMIServer [
+gNMI Adapter
+
+....
+
+server
+]
+
+node ConfD {
+    database CDB
+}
+
+
+node Netconf [
+<i>NETCONF</i>
+<i>device</i>
+]
+
+cloud net1
+cloud net2
+cloud net3
+
+gNMIClient <-ri-> net1
+net1 <-ri-> gNMIServer
+gNMIServer <-ri-> net2
+gNMIServer <.do.> net3
+net2 <-ri-> ConfD
+net3 <.ri.> Netconf
+
+@enduml
