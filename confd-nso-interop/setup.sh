@@ -1,7 +1,7 @@
 #!/bin/bash
 
-CONFD_VERSION="7.4.1"
-NSO_VERSION="5.4.1"
+CONFD_VERSION="7.5"
+NSO_VERSION="5.5"
 APP_NAME="router"
 IMG_NAME="$APP_NAME-nyat-demo"
 NET_NAME="nyat-test-net"
