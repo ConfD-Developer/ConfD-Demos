@@ -289,7 +289,6 @@
     <c-prompt1>\u@ncs# </c-prompt1>
     <c-prompt2>\u@ncs(\m)# </c-prompt2>
 
-    <show-log-directory>./logs</show-log-directory>
     <show-commit-progress>true</show-commit-progress>
     <suppress-commit-message-context>maapi</suppress-commit-message-context>
     <suppress-commit-message-context>system</suppress-commit-message-context>
