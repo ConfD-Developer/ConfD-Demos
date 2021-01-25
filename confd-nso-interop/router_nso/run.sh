@@ -70,17 +70,6 @@ netconf-console -s raw --host=$APP_NAME --user='admin' --password='admin' \
                 --port=12022 --hello
 /nso/bin/ncs_cli -n -u admin -C << EOF
 show running-config devices device $APP_NAME config | display xml | save router-states/base.xml
-config
-devices device $APP_NAME compare-config
-load merge router-states/sys2.xml
-commit dry-run
-commit
-devices device $APP_NAME compare-config
-load merge router-states/base.xml
-commit dry-run
-commit
-devices device $APP_NAME compare-config
-exit
 exit
 EOF
 
