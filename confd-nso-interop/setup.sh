@@ -60,6 +60,15 @@ else
     docker stop $APP_NAME
 fi
 
+DOCKERPS_CONFD=$(docker ps -q -n 1 -f name="$APP_NAME")
+if [ -z "$DOCKERPS_CONFD" ] ;
+then
+    echo "Build & run APP_NAME"
+else
+    echo "Stop any existing $APP_NAME container, then build & run"
+    docker stop $APP_NAME
+fi
+
 DOCKERNETLS=$(docker network ls -q -f name=$NET_NAME)
 if [ -z "$DOCKERNETLS" ] ;
 then
