@@ -1,13 +1,4 @@
-Version history
-
-```
---------------------------------------------------------------------------------
-Version:  Date:         Description:                        Author:             
---------------------------------------------------------------------------------
-0.0.1     2021-01-13    Initial version                     Michal Novák        
-                                                            micnovak@cisco.com               
---------------------------------------------------------------------------------
-```
+# ConfD gNMI Adapter Demo
 
 ## Dependencies
 
@@ -22,7 +13,7 @@ Install:
 `pip install grpcio-tools`
            
 NOTE: We expect that `python` nad `pip` are from Python3 environment. Use `python3` or `pip3`
-if you have mixed Python2 and Python3 environemnt.
+if you have mixed Python2 and Python3 environment.
         
 Update:
 `pip install --upgrade grpcio-tools`
@@ -81,7 +72,7 @@ Options:
 ```
 
 NOTE: `netconf` type server not yet implemented
-NOTE: Other parameters (e.g ports)  are currently hardcoded in source code (TODO)
+NOTE: Other parameters (e.g. ports)  are currently hardcoded in source code (TODO)
 
 ### Client
 
@@ -126,8 +117,7 @@ NOTE: Other parameters (username, password, subscription types are currently har
     * `heartbeat_interval` not supported
     * `sync_response` not generated
 * all values `TypedValues` are used as strings (`string_val`)
-* gNMI Path is converted to XPath or formatted path with simple string operations 
-  no datamodel knowledge used) 
+* gNMI Path is converted to XPath or formatted path with simple string operations (no datamodel knowledge used) 
   
 ## Investigations/TODOs
 
@@ -234,7 +224,7 @@ Stream subscription requests and get stream of subscription responses.
 Subscription response is similar to `Get`, this means all data in 
 given sub-tree is returned in response: 
 
-`ONCE` and `POLL` mode of the `SubscriptionList`,
+`ONCE`, `POLL` mode of the `SubscriptionList`,
 responses according to `heartbeat_interval`,
 responses to `SAMPLE` mode in the `Subscription` element
                               
