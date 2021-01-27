@@ -1,8 +1,8 @@
+import sys
 import xml.etree.ElementTree as ET
 from socket import socket
 
 import _confd
-import sys
 # TODO replace maapi_low with high level MAAPI
 from _confd import maapi as maapi_low
 from confd import maapi, maagic
@@ -119,49 +119,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("<==")
 
     # https://tools.ietf.org/html/rfc6022#page-8
-    # TODO remove low level impl ?
-    # def get_netconf_capabilities_low(self):
-    #     log.info("==>")
-    #     context = "maapi"
-    #     groups = [self.username]
-    #     values = []
-    #     try:
-    #         maapi_low.start_user_session(self.maapisock, self.username, context,
-    #                                      groups, CONFD_ADDR,
-    #                                      _confd.PROTO_TCP)
-    #         dbname = _confd.RUNNING
-    #         tid = maapi_low.start_trans(self.maapisock, dbname, _confd.READ)
-    #         mc = maapi_low.init_cursor(self.maapisock, tid,
-    #                                    "/ncm:netconf-state/ncm:capabilities/ncm:capability")
-    #         count = 0
-    #         keys = maapi_low.get_next(mc)
-    #         # format
-    #         # http://tail-f.com/ns/confd-progress?module=tailf-confd-progress&revision=2020-06-29
-    #         while keys:
-    #             val = str(keys[0])
-    #             if "module=" in val:
-    #                 el = val.split("?")
-    #                 if len(el) > 1:
-    #                     cap = el[1].split("&")
-    #                     name = cap[0]
-    #                     ver = ''
-    #                     if len(cap) > 1:
-    #                         ver = cap[1]
-    #                     values.append((el[0], name.replace("module=", ""), "",
-    #                                    ver.replace("revision=", "")))
-    #             count += 1
-    #             log.debug("Value element count=%d" % count)
-    #             keys = maapi.get_next(mc)
-    #         maapi_low.finish_trans(self.maapisock, tid)
-    #         log.debug("values=%s", values)
-    #         maapi_low.end_user_session(self.maapisock)
-    #     except Exception as e:
-    #         log.exception(e)
-    #
-    #     log.info("<==")
-    #     return values
-
-    # https://tools.ietf.org/html/rfc6022#page-8
     # TODO pass username from request context
     def get_netconf_capabilities(self):
         log.info("==>")
@@ -197,39 +154,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("<==")
         return values
 
-    # https://tools.ietf.org/html/rfc6022#page-8
-    # TODO not working
-    # def get_schema_action(self, identifier):
-    #     log.info("==>identifier=%s", identifier)
-    #     params = [
-    #         _confd.TagValue(
-    #             _confd.XmlTag(ietf_netconf_monitoring_ns.ns.hash,
-    #                           ietf_netconf_monitoring_ns.ns.ncm_identifier),
-    #             _confd.Value(identifier, _confd.C_BUF))
-    #     ]
-    #     log.debug("params=%s", params)
-    #     context = "maapi"
-    #     groups = [self.username]
-    #     maapi_low.start_user_session(self.maapisock, self.username, context,
-    #                                  groups,
-    #                                  CONFD_ADDR,
-    #                                  _confd.PROTO_TCP)
-    #     values = maapi_low.request_action(self.maapisock, params,
-    #                                       ietf_netconf_monitoring_ns.ns.hash,
-    #                                       "/ncm:get-schema")
-    #     log.debug("values=%s", values)
-    #     maapi_low.end_user_session(self.maapisock)
-    #     log.info("<== get_schema_action")
-
     def capabilities(self):
         log.info("==>")
         ns_list = self.get_netconf_capabilities()
-        # ns_list = _confd.get_nslist()
         log.debug("ns_list=%s", ns_list)
-        # self.get_schema_action("tailf-webui")
         models = []
         for ns in ns_list:
-            # self.get_schema_action(ns[1])
             models.append(GnmiServerAdapter.CapabilityModel(name=ns[1],
                                                             organization="",
                                                             version=ns[3]))
@@ -244,14 +174,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         groups = [self.username]
         try:
             save_flags = _confd.maapi.CONFIG_XML | _confd.maapi.CONFIG_XPATH
-            # maapi_low.start_user_session(self.maapisock, self.username, context,
-            #                              groups, CONFD_ADDR,
-            #                              _confd.PROTO_TCP)
-            # dbname = _confd.RUNNING
-            # tid = maapi_low.start_trans(self.maapisock, dbname, _confd.READ)
-            # save_id = maapi_low.save_config(self.maapisock, tid,
-            #                                 save_flags,
-            #                                 path_str)
             with maapi.single_read_trans(self.username, context, groups,
                                          src_ip=self.addr) as t:
                 save_id = t.save_config(save_flags, path_str)
@@ -274,8 +196,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 log.debug("save_result=%s", save_result)
                 assert save_result == 0
                 save_sock.close()
-            # maapi_low.finish_trans(self.maapisock, tid)
-            # maapi_low.end_user_session(self.maapisock)
         except Exception as e:
             log.exception(e)
 

@@ -110,9 +110,9 @@ Options:
       
 Examples:
 
-`./src/confd_gnmi_client.py -o capabilities`
-`./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_82]/name --path interface[name=if_82]/type`
-`./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_82]/type --val fastEther`
+`./src/confd_gnmi_client.py -o capabilities`  
+`./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_82]/name --path interface[name=if_82]/type`  
+`./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_82]/type --val fastEther`  
 `./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_82]/name --path interface[name=if_82]/type`
 
 NOTE: Other parameters (username, password, subscription types are currently hardcoded, TODO)

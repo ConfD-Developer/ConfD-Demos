@@ -1,6 +1,5 @@
 ######################################################################
-# Interface Status example
-# (C) 2021 Cisco/Tail-f Systems
+# ConfD gNMI Adapter
 #
 # See the README file for more information
 ######################################################################
@@ -37,16 +36,9 @@ PCG_DIR=$(SRC_DIR)
 
 
 all: gnmi_proto \
-	iana-if-type.fxs ietf-interfaces.fxs $(PCG_DIR)/ietf_interfaces_ns.py \
-	$(PCG_DIR)/ietf_netconf_monitoring_ns.py \
+	iana-if-type.fxs ietf-interfaces.fxs  \
 	$(CDB_DIR) ssh-keydir init_interfaces.xml
 	@echo "Build complete"
-
-$(PCG_DIR)/ietf_netconf_monitoring_ns.py: $(CONFD_DIR)/etc/confd/ietf-netconf-monitoring.fxs
-	$(CONFDC) --emit-python $@ $<
-
-$(PCG_DIR)/ietf_interfaces_ns.py: ietf-interfaces.fxs
-	$(CONFDC) --emit-python $@ $<
 
 init_interfaces.xml:
 	  ./datagen.py 100
