@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+import optparse
+import threading
+from concurrent.futures.thread import ThreadPoolExecutor
+from enum import Enum
+
+from confd_gnmi_api_adapter import GnmiConfDApiServerAdapter
+from confd_gnmi_common import *
+from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
+from gnmi_pb2_grpc import *
+
+log = logging.getLogger('confd_gnmi_server')
+
+
+class AdapterType(Enum):
+    DEMO = 0
+    API = 1
+    NETCONF = 2
+
+
+class ConfDgNMIServicer(gNMIServicer):
+
+    # parameterized constructor
+    def __init__(self, adapter_type):
+        self.adapter_type = adapter_type
+        assert isinstance(self.adapter_type, AdapterType)
+
+    def extract_user_metadata(self, context):
+        log.debug("=>")
+        log.debug("metadata=%s", context.invocation_metadata())
+        metadict = dict(context.invocation_metadata())
+        username = metadict["username"]
+        password = metadict["password"]
+        log.debug("<= username=%s password=:-)", username)
+        return (username, password)
+
+    def get_adapter(self):
+        log.debug("==> self.adapter_type=%s", self.adapter_type)
+        if self.adapter_type == AdapterType.DEMO:
+            adapter = GnmiDemoServerAdapter.get_inst()
+        elif self.adapter_type == AdapterType.API:
+            adapter = GnmiConfDApiServerAdapter.get_inst()
+        log.debug("<== adapter=%s", adapter)
+        return adapter
+
+    def connect_adapter(self, adapter, username, password):
+        log.debug("==> adapter=%s username=%s password=:-)", adapter, username)
+        if isinstance(adapter, GnmiConfDApiServerAdapter):
+            adapter.connect(addr=GnmiConfDApiServerAdapter.confd_addr,
+                            port=GnmiConfDApiServerAdapter.confd_port,
+                            username=username, password=password)
+        log.debug("<==")
+
+    def disconnect_adapter(self, adapter):
+        if isinstance(adapter, GnmiConfDApiServerAdapter):
+            adapter.disconnect()
+
+    def get_connected_adapter(self, context):
+        """
+        Get adapter and connect it to ConfD if needed
+        Currently we always create new instance, later on
+        a pool of adapters can be maintained.
+        :param context:
+        :return:
+        """
+        log.debug("==>")
+        (username, password) = self.extract_user_metadata(context)
+        adapter = self.get_adapter()
+        self.connect_adapter(adapter, username=username, password=password)
+        log.debug("<== adapter=%s", adapter)
+        return adapter
+
+    def Capabilities(self, request, context):
+        """Capabilities allows the client to retrieve the set of capabilities
+        that is supported by the target. This allows the target to validate the
+        service version that is implemented and retrieve the set of models that
+        the target supports. The models can then be specified in subsequent RPCs
+        to restrict the set of data that is utilized.
+        Reference: gNMI Specification Section 3.2
+        """
+        log.info("==> request=%s context=%s", request, context)
+        supported_models = []
+
+        adapter = self.get_connected_adapter(context)
+
+        for cap in adapter.capabilities():
+            supported_models.append(
+                gnmi_pb2.ModelData(name=cap.name,
+                                   organization=cap.organization,
+                                   version=cap.version)
+            )
+        response = gnmi_pb2.CapabilityResponse(
+            supported_models=supported_models,
+            supported_encodings=[gnmi_pb2.Encoding.JSON,
+                                 gnmi_pb2.Encoding.BYTES],
+            gNMI_version="proto3",
+            extension=[])
+        # context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        # context.set_details('Method not implemented!')
+        # raise NotImplementedError('Method not implemented!')
+        self.disconnect_adapter(adapter)
+        log.info("<== response=%s", response)
+        return response
+
+    def Get(self, request, context):
+        """Retrieve a snapshot of data from the target. A Get RPC requests that the
+        target snapshots a subset of the data tree as specified by the paths
+        included in the message and serializes this to be returned to the
+        client using the specified encoding.
+        Reference: gNMI Specification Section 3.3
+        """
+        log.info("==> request=%s context=%s", request, context)
+        adapter = self.get_connected_adapter(context)
+
+        notifications = adapter.get(request.prefix, request.path,
+                                    request.type, request.use_models)
+        response = gnmi_pb2.GetResponse(notification=notifications)
+
+        self.disconnect_adapter(adapter)
+        log.info("<== response=%s", response)
+        return response
+
+    def Set(self, request, context):
+        """Set allows the client to modify the state of data on the target. The
+        paths to modified along with the new values that the client wishes
+        to set the value to.
+        Reference: gNMI Specification Section 3.4
+        """
+        log.info("==> request=%s context=%s", request, context)
+        adapter = self.get_connected_adapter(context)
+
+        response = []
+        # TODO for now we only process update list
+        for up in request.update:
+            op = adapter.set(request.prefix, up.path, up.val)
+            ur = gnmi_pb2.UpdateResult(timestamp=0, path=up.path, op=op)
+            response.append(ur)
+
+        response = gnmi_pb2.SetResponse(prefix=request.prefix,
+                                        response=response, timestamp=0)
+        self.disconnect_adapter(adapter)
+
+        log.info("<== response=%s", response)
+        return response
+
+    def Subscribe(self, request_iterator, context):
+        """Subscribe allows a client to request the target to send it values
+        of particular paths within the data tree. These values may be streamed
+        at a particular cadence (STREAM), sent one off on a long-lived channel
+        (POLL), or sent as a one-off retrieval (ONCE).
+        Reference: gNMI Specification Section 3.5
+        """
+        log.info(
+            "==> request_iterator=%s context=%s", request_iterator, context)
+
+        def read_sub_request(request_iterator, handler):
+            for req in request_iterator:
+                # TODO check req mode is POLL
+                if hasattr(req, "poll"):
+                    handler.poll()
+                elif hasattr(req, "alias"):
+                    # TODO exception, "alias: request not yet implemented
+                    assert (False)
+                else:
+                    # TODO exception, not expected other type of request
+                    assert (False)
+            handler.stop()
+
+        adapter = self.get_connected_adapter(context)
+        handler = adapter.get_subscription_handler()
+        # first request, should contain subscription list (`subscribe`)
+        request = next(request_iterator)
+        # TODO exception
+        assert hasattr(request, "subscribe")
+        handler.add_subscription_list(request.subscribe)
+        thr = None
+        streaming = (
+                            request.subscribe.mode == gnmi_pb2.SubscriptionList.POLL) or (
+                            request.subscribe.mode == gnmi_pb2.SubscriptionList.STREAM)
+        if streaming:
+            thr = threading.Thread(target=read_sub_request,
+                                   args=(request_iterator, handler,))
+            thr.start()
+        # `yield from` can be used, but to allow altering (e.g. path conversion)
+        # response later on we use `for`
+        for response in handler.read(streaming=streaming):
+            yield response
+
+        if thr is not None:
+            thr.join()
+        log.info("")
+        self.disconnect_adapter(adapter)
+        log.info("<==")
+
+    @staticmethod
+    def serve(port, adapter_type):
+        log.info("==> port=%s", port)
+
+        server = grpc.server(ThreadPoolExecutor(max_workers=10))
+        add_gNMIServicer_to_server(ConfDgNMIServicer(adapter_type), server)
+        server.add_insecure_port("[::]:{}".format(port))
+        server.start()
+        server.wait_for_termination()
+
+        log.info("<==")
+
+
+if __name__ == '__main__':
+    parser = optparse.OptionParser(version="%prog {}".format(VERSION))
+    parser.add_option("-t", "--type", action="store", dest="type",
+                      help="gNMI server type  [api, netconf, demo]",
+                      default="demo")
+    common_optparse_options(parser)
+    parser.add_option("-d", "--confd-debug", action="store", dest="confd_debug",
+                      help="ConfD debug level  [trace, debug, silent, proto]",
+                      default="debug")
+    parser.add_option("--confd-addr", action="store", dest="confd_addr",
+                      help="ConfD IP address (default is {})".format(
+                          GnmiConfDApiServerAdapter.confd_addr),
+                      default=GnmiConfDApiServerAdapter.confd_addr)
+    parser.add_option("--confd-port", action="store", dest="confd_port",
+                      help="ConfD port (default is {})".format(
+                          GnmiConfDApiServerAdapter.confd_port),
+                      default=GnmiConfDApiServerAdapter.confd_port)
+    (opt, args) = parser.parse_args()
+    common_optparse_process(opt, log)
+    adapter_type = AdapterType.DEMO
+    if opt.type == "api":
+        adapter_type = AdapterType.API
+        GnmiConfDApiServerAdapter.set_confd_debug_level(opt.confd_debug)
+        GnmiConfDApiServerAdapter.set_confd_addr(opt.confd_addr)
+        GnmiConfDApiServerAdapter.set_confd_port(int(opt.confd_port))
+    # elif opt.type == "netconf":
+    #     adapter_type = AdapterType.NETCONF
+    elif opt.type == "demo":
+        adapter_type = AdapterType.DEMO
+    else:
+        log.warning("Unknown server type %s", opt.type)
+
+    (opt, args) = parser.parse_args()
+    ConfDgNMIServicer.serve(PORT, adapter_type)
