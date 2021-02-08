@@ -150,6 +150,9 @@ if __name__ == '__main__':
     parser.add_option("-p", "--path", action="append", dest="paths",
                       help="'path' for get, set and subscribe operation, can be repeated (empty by default)",
                       default=[])
+    parser.add_option("-t", "--data-type", action="store", dest="datatype",
+                      help="'data type' for get operation, can be ALL, CONFIG, STATE, OPERATIONAL  (default 'CONFIG')",
+                      default="CONFIG")
     parser.add_option("-v", "--val", action="append", dest="vals",
                       help="'value' for set operation, can be repeated (empty by default)",
                       default=[])
@@ -161,11 +164,19 @@ if __name__ == '__main__':
     prefix = make_gnmi_path(prefix_str)
     paths = [make_gnmi_path(p) for p in opt.paths]
     vals = [gnmi_pb2.TypedValue(string_val=v) for v in opt.vals]
-    datatype = gnmi_pb2.GetRequest.DataType.CONFIG
+
+    datatype_map = {
+        "ALL": gnmi_pb2.GetRequest.DataType.ALL,
+        "CONFIG": gnmi_pb2.GetRequest.DataType.CONFIG,
+        "STATE": gnmi_pb2.GetRequest.DataType.STATE,
+        "OPERATIONAL": gnmi_pb2.GetRequest.DataType.OPERATIONAL,
+    }
+    datatype = datatype_map[opt.datatype]
+
     encoding = gnmi_pb2.Encoding.BYTES
     subscription_mode = gnmi_pb2.SubscriptionList.POLL
 
-    poll_interval: int = 5
+    poll_interval: int = 3
     poll_count: int = 10
     key = 82
     subscription_list = ConfDgNMIClient.make_subscription_list(

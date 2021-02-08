@@ -55,7 +55,8 @@ clean:	iclean
 	rm -rf $(PCG_DIR)/gnmi_pb2.py $(PCG_DIR)/gnmi_pb2_grpc.py \
            $(PCG_DIR)/gnmi_ext_pb2.py $(PCG_DIR)/gnmi_ext_pb2_grpc.py \
            $(PCG_DIR)/*__.py $(PCG_DIR)/*_ns.py \
-           $(TEST_DIR)/.pytest_cache init_interfaces.xml
+           $(TEST_DIR)/.pytest_cache ./.pytest_cache \
+           init_interfaces.xml init_interfaces_state.xml
 
 
 ######################################################################
@@ -63,7 +64,8 @@ clean:	iclean
 start:  stop
 	### Start the confd daemon with our example specific confd-config
 	$(CONFD) -c confd.conf $(CONFD_FLAGS)
-	netconf-console --edit-config=init_interfaces.xml
+	confd_load -m -l ./init_interfaces.xml
+	confd_load -m -O -l ./init_interfaces_state.xml
 
 ######################################################################
 stop:

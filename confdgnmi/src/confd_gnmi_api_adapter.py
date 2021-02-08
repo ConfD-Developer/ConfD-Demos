@@ -68,7 +68,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             update = []
             for s in self.subscription_list.subscription:
                 update.extend(self.adapter.get_updates_with_maapi_save(s.path,
-                                                                       self.subscription_list.prefix))
+                                                                       self.subscription_list.prefix,
+                                                                       gnmi_pb2.GetRequest.DataType.ALL))
             # TODO delete
             delete = []
             notif = gnmi_pb2.Notification(timestamp=0,
@@ -163,13 +164,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("<== models=%s", models)
         return models
 
-    def get_maapi_save_string(self, path_str):
+    def get_maapi_save_string(self, path_str, save_flags):
         log.debug("==> path_str=%s", path_str)
         save_str = ""
         context = "maapi"
         groups = [self.username]
         try:
-            save_flags = _confd.maapi.CONFIG_XML | _confd.maapi.CONFIG_XPATH
             with maapi.single_read_trans(self.username, context, groups,
                                          src_ip=self.addr) as t:
                 save_id = t.save_config(save_flags, path_str)
@@ -227,36 +227,47 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         else:
             # check if this is path for exact key
             keypath_cand = None
-            val = elem.text.split(":")[-1]
-            path_list = parent_path_cand.split('/')
-            if len(path_list) >= 2:
-                keypath_cand = "/".join(path_list[:-1]) + "[{}={}]".format(
-                    path_list[-1], val) + "/" + path_list[-1]
-            if keypath_cand != None and orig_path_str == keypath_cand:
-                path = keypath_cand
-                parent_path_cand = path
-            else:
-                path = parent_path_cand
-            # if path != orig_path_str:
-            #     path += "/" + elem.tag.split("}")[-1]
-            # we also need to check possibility this is exact key leaf
-            # skip not correctly detected paths
-            if path.startswith(parent_path_cand):
-                path_vals.append((path, val))
+            if elem.text != None:
+                val = elem.text.split(":")[-1]
+                path_list = parent_path_cand.split('/')
+                if len(path_list) >= 2:
+                    keypath_cand = "/".join(path_list[:-1]) + "[{}={}]".format(
+                        path_list[-1], val) + "/" + path_list[-1]
+                if keypath_cand != None and orig_path_str == keypath_cand:
+                    path = keypath_cand
+                    parent_path_cand = path
+                else:
+                    path = parent_path_cand
+                # if path != orig_path_str:
+                #     path += "/" + elem.tag.split("}")[-1]
+                # we also need to check possibility this is exact key leaf
+                # skip not correctly detected paths
+                if path.startswith(parent_path_cand):
+                    path_vals.append((path, val))
         log.debug("<== paths=%s", path_vals)
         return path_vals
 
-    def get_updates_with_maapi_save(self, path, prefix):
-        log.debug("==> path=%s prefix=%s", path, prefix)
+    def get_updates_with_maapi_save(self, path, prefix, data_type):
+        log.debug("==> path=%s prefix=%s data_type=%s", path, prefix, data_type)
         path_str = make_xpath_path(path, prefix, quote_val=False)
         # we need ariant with quoted values for maapi_save
         path_str_quote = make_xpath_path(path, prefix, quote_val=True)
         prefix_str = make_xpath_path(gnmi_prefix=prefix)
         log.debug("path_str=%s", path_str)
-        save_xml = self.get_maapi_save_string(path_str_quote)
+        save_flags = _confd.maapi.CONFIG_XML | _confd.maapi.CONFIG_XPATH
+
+        if data_type == gnmi_pb2.GetRequest.DataType.ALL:
+            save_flags |= _confd.maapi.CONFIG_WITH_OPER
+        elif data_type == gnmi_pb2.GetRequest.DataType.CONFIG:
+            pass
+        elif data_type == gnmi_pb2.GetRequest.DataType.STATE:
+            save_flags |= _confd.maapi.CONFIG_OPER_ONLY
+        elif data_type == gnmi_pb2.GetRequest.DataType.OPERATIONAL:
+            save_flags |= _confd.maapi.CONFIG_OPER_ONLY
+
+        save_xml = self.get_maapi_save_string(path_str_quote, save_flags)
         root = ET.fromstring(save_xml)
         xml_paths = self.get_xml_paths(root, path_str)
-        assert (len(xml_paths) >= 1)
         up = []
         for pv in xml_paths:
             # skip incorrecly detected paths
@@ -274,7 +285,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         notifications = []
         update = []
         for path in paths:
-            update.extend(self.get_updates_with_maapi_save(path, prefix))
+            update.extend(self.get_updates_with_maapi_save(path, prefix, data_type))
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
                                       update=update,
                                       delete=[],

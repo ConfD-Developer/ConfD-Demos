@@ -2,7 +2,7 @@ import logging
 
 import gnmi_pb2
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 HOST = "localhost"
 PORT = 50061
 logging.basicConfig(

@@ -14,14 +14,14 @@ class TestGrpc(object):
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        self.leaf_paths_str = ["interface[name=if_{}]/name",
-                               "interface[name=if_{}]/type"]
-        self.list_paths_str = ["interface[name=if_{}]", "interface"]
+        self.leaf_paths_str = ["interface[name={}if_{}]/name",
+                               "interface[name={}if_{}]/type"]
+        self.list_paths_str = ["interface[name={}if_{}]", "interface"]
 
     @staticmethod
-    def mk_gnmi_if_path(path_str, if_id=None):
+    def mk_gnmi_if_path(path_str, if_state_str="", if_id=None):
         if if_id != None:
-            path_str = path_str.format(if_id)
+            path_str = path_str.format(if_state_str, if_id)
         return make_gnmi_path(path_str)
 
     @pytest.fixture
@@ -93,15 +93,19 @@ class TestGrpc(object):
                     break
             assert found
 
-    def _test_get_subscribe_once(self, is_subscribe=False):
-        prefix = make_gnmi_path("/interfaces")
+    def _test_get_subscribe_once(self, is_subscribe=False,
+                                 datatype=gnmi_pb2.GetRequest.DataType.CONFIG):
+        if_state_str = prefix_state_str= ""
+        if datatype == gnmi_pb2.GetRequest.DataType.STATE:
+            prefix_state_str="-state"
+            if_state_str = "state_"
+        prefix = make_gnmi_path("/interfaces{}".format(prefix_state_str))
         if_id = 8
-        leaf_paths = [TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[0], if_id),
-                      TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], if_id)]
-        list_paths = [TestGrpc.mk_gnmi_if_path(self.list_paths_str[0], if_id),
-                      TestGrpc.mk_gnmi_if_path(self.list_paths_str[1], if_id)]
+        leaf_paths = [TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[0], if_state_str, if_id),
+                      TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], if_state_str, if_id)]
+        list_paths = [TestGrpc.mk_gnmi_if_path(self.list_paths_str[0], if_state_str, if_id),
+                      TestGrpc.mk_gnmi_if_path(self.list_paths_str[1], if_state_str, if_id)]
 
-        datatype = gnmi_pb2.GetRequest.DataType.CONFIG
         encoding = gnmi_pb2.Encoding.BYTES
 
         def verify_get_updates(paths, pv_list,
@@ -133,34 +137,42 @@ class TestGrpc(object):
         if is_subscribe:
             verify_updates = verify_sub_updates
 
+        ifname = "{}if_{}".format(if_state_str, if_id)
         verify_updates([leaf_paths[0]],
-                       [(leaf_paths[0], "if_{}".format(if_id))])
+                       [(leaf_paths[0], ifname)])
         verify_updates([leaf_paths[1]],
                        [(leaf_paths[1], "gigabitEthernet")])
-        verify_updates(leaf_paths, [(leaf_paths[0], "if_{}".format(if_id)),
+        verify_updates(leaf_paths, [(leaf_paths[0], ifname),
                                     (leaf_paths[1],
                                      "gigabitEthernet")])
         verify_updates([list_paths[0]],
-                       [(leaf_paths[0], "if_{}".format(if_id)),
+                       [(leaf_paths[0], ifname),
                         (leaf_paths[1],
                          "gigabitEthernet")])
         pv = []
         for i in range(1, GnmiDemoServerAdapter.num_of_ifs):
-            pv.append((TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[0], i),
-                       "if_{}".format(i)))
-            pv.append((TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], i),
+            pv.append((TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[0], if_state_str, i),
+                       "{}if_{}".format(if_state_str, i)))
+            pv.append((TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], if_state_str, i),
                        "gigabitEthernet"))
         verify_updates([list_paths[1]], pv,
                        assert_fun=TestGrpc.assert_in_updates)
 
     @pytest.mark.parametrize("adapter_type",
-                         [pytest.param(AdapterType.DEMO,
-                                       marks=[pytest.mark.demo]),
-                          pytest.param(AdapterType.API,
-                                       marks=[pytest.mark.confd])])
-    def test_get(self, request, adapter_type):
+                             [pytest.param(AdapterType.DEMO,
+                                           marks=[pytest.mark.demo]),
+                              pytest.param(AdapterType.API,
+                                           marks=[pytest.mark.confd])])
+    @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
+    def test_get(self, request, adapter_type, data_type):
         log.info("testing get")
-        self._test_get_subscribe_once()
+        datatype_map = {
+            "ALL": gnmi_pb2.GetRequest.DataType.ALL,
+            "CONFIG": gnmi_pb2.GetRequest.DataType.CONFIG,
+            "STATE": gnmi_pb2.GetRequest.DataType.STATE,
+            "OPERATIONAL": gnmi_pb2.GetRequest.DataType.OPERATIONAL,
+        }
+        self._test_get_subscribe_once(datatype=datatype_map[data_type])
 
     @pytest.mark.parametrize("adapter_type",
                              [pytest.param(AdapterType.DEMO,
@@ -172,15 +184,15 @@ class TestGrpc(object):
         self._test_get_subscribe_once(is_subscribe=True)
 
     @pytest.mark.parametrize("adapter_type",
-                         [pytest.param(AdapterType.DEMO,
-                                       marks=[pytest.mark.demo]),
-                          pytest.param(AdapterType.API,
-                                       marks=[pytest.mark.confd])])
+                             [pytest.param(AdapterType.DEMO,
+                                           marks=[pytest.mark.demo]),
+                              pytest.param(AdapterType.API,
+                                           marks=[pytest.mark.confd])])
     def test_set(self, request, adapter_type):
         log.info("testing set")
         if_id = 8
         prefix = make_gnmi_path("/interfaces")
-        paths = [TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], if_id)]
+        paths = [TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], "", if_id)]
         vals = [gnmi_pb2.TypedValue(string_val="fastEther")]
         response = self.client.set(prefix, list(zip(paths, vals)))
         assert (response.prefix == prefix)

@@ -8,6 +8,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
     # simple demo database
     # map with XPath, value - both strings
     demo_db = {}
+    demo_state_db = {}
     num_of_ifs = 10
     _instance: GnmiServerAdapter = None
 
@@ -30,10 +31,16 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         log.debug("==>")
         for i in range(GnmiDemoServerAdapter.num_of_ifs):
             if_name = "if_{}".format(i + 1)
+            state_if_name = "state_if_{}".format(i + 1)
             path = "/interfaces/interface[name={}]".format(if_name)
+            state_path = "/interfaces-state/interface[name={}]".format(
+                state_if_name)
             self.demo_db["{}/name".format(path)] = if_name
+            self.demo_state_db["{}/name".format(state_path)] = state_if_name
             self.demo_db["{}/type".format(path)] = "gigabitEthernet"
-        log.debug("==> self.demo_db=%s", self.demo_db)
+            self.demo_state_db["{}/type".format(state_path)] = "gigabitEthernet"
+        log.debug("<== self.demo_db=%s self.demo_state_db=%s", self.demo_db,
+                  self.demo_state_db)
 
     class SubscriptionHandler(GnmiServerAdapter.SubscriptionHandler):
 
@@ -87,7 +94,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                                                   version=c['version']))
         return cap
 
-    def get_updates(self, path, prefix):
+    def get_updates(self, path, prefix, data_type):
         log.debug("==> path=%s prefix=%s", path, prefix)
         path_with_prefix_str = make_xpath_path(gnmi_path=path,
                                                gnmi_prefix=prefix)
@@ -95,12 +102,20 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         log.debug("path_with_prefix_str=%s perfix_str=%s",
                   path_with_prefix_str, prefix_str)
         update = []
-        for p, v in self.demo_db.items():
-            if p.startswith(path_with_prefix_str):
-                p = p[len(prefix_str):]
-                update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                              val=gnmi_pb2.TypedValue(
-                                                  string_val=v)))
+
+        def process_db(db):
+            for p, v in db.items():
+                if p.startswith(path_with_prefix_str):
+                    p = p[len(prefix_str):]
+                    update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
+                                                  val=gnmi_pb2.TypedValue(
+                                                      string_val=v)))
+
+        if data_type == gnmi_pb2.GetRequest.DataType.CONFIG or \
+                data_type == gnmi_pb2.GetRequest.DataType.ALL:
+            process_db(self.demo_db)
+        if data_type != gnmi_pb2.GetRequest.DataType.CONFIG:
+            process_db(self.demo_state_db)
         log.debug("<== update=%s", update)
         return update
 
@@ -110,7 +125,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         notifications = []
         update = []
         for path in paths:
-            update.extend(self.get_updates(path, prefix))
+            update.extend(self.get_updates(path, prefix, data_type))
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
                                       update=update,
                                       delete=[],
