@@ -37,9 +37,12 @@ PCG_DIR=$(SRC_DIR)
 
 
 all: gnmi_proto \
-	iana-if-type.fxs ietf-interfaces.fxs  \
+	iana-if-type.fxs ietf-interfaces.fxs src/ietf-interfaces_ns.py \
 	$(CDB_DIR) ssh-keydir init_interfaces.xml
 	@echo "Build complete"
+
+src/ietf-interfaces_ns.py: ietf-interfaces.fxs
+	$(CONFDC) --emit-python src/ietf-interfaces_ns.py ietf-interfaces.fxs
 
 init_interfaces.xml:
 	  ./datagen.py 10

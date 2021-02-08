@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from threading import Event
+from queue import Queue
 
 from confd_gnmi_common import *
 
@@ -48,7 +48,7 @@ class GnmiServerAdapter(ABC):
     def set(self, prefix, path, val):
         """
         Set value for given path
-        TODO this is simple version for initial implmentation
+        TODO this is simple version for initial implementation
         To reflect fully gNMI Set,
         we should pass all delete, replace and update lists
         :param prefix: gNMI path prefix
@@ -58,119 +58,230 @@ class GnmiServerAdapter(ABC):
         """
         pass
 
-
     class SubscriptionHandler(ABC):
 
-        def __init__(self, adapter):
+        class SubscriptionEvent(Enum):
+            SAMPLE = 0
+            SEND_CHANGES = 1
+            FINISH = 10
+
+        def __init__(self, adapter, subscription_list):
             self.adapter = adapter
-
-        subscription_list = None
-
-        class SubscriptionStreamEventType(Enum):
-            GET = 0
-            FINISH = 1
-
-        subscription_stream_event_type: SubscriptionStreamEventType = None
-        thread_event: Event = None
+            self.subscription_list = subscription_list
+            self.read_queue: Queue = None
 
         @abstractmethod
-        def make_subscription_response(self) -> gnmi_pb2.SubscribeResponse:
+        def get_sample(self, path, prefix) -> []:
             """
-            Create subscription response according to self.subscription_stream_event_type
-            :return: gNMI subscription response
+            Create gNMI subscription updates for given path and prefix
+            :param path: gNMI path for updates
+            :param prefix: gNMI prefix
+            #TODO do we need to return array or would just one Update be enough?
+            :return: gNMI update array
             """
             pass
 
-        def add_subscription_list(self, subscription_list):
+        # SubscriptionHandler abstract methods - start
+        @abstractmethod
+        def add_path_for_monitoring(self, path, prefix):
             """
-            Add  (initial) subscription list to the handler
-            This method can be called  only once (TODO  - cosntructor might be better)
-            :param subscription_list: TODO
+            Add this path for monitoring for changes
+            Monitoring must be stopped.
+            :param path:
+            :param prefix:
             :return:
             """
-            log.debug("==> subscription_list=%s", subscription_list)
-            log.info("++++++ adding subscription subscription_list=%s",
-                     subscription_list)
-            # TODO exception
-            assert (self.subscription_list == None)
-            self.subscription_list = subscription_list
-            log.debug("<== self.subscription_list=%s", self.subscription_list)
+            pass
 
-        def _set_event(self, event):
+        @abstractmethod
+        def get_monitored_changes(self) -> []:
+            """
+            Get gNMI subscription updates for changed values (indicated by
+            self.SubscriptionEvent.PROCESS_CHANGES)
+            :return: gNMI update array
+            #TODO should we also return delete array
+            """
+            pass
+
+        @abstractmethod
+        def start_monitoring(self):
+            """
+            Start monitoring for changes.
+            This method should be non blocking.
+            :return:
+            """
+            pass
+
+        @abstractmethod
+        def stop_monitoring(self):
+            """
+            Stop monitoring changes
+            (it must be started with start_monitoring)
+            :return:
+            """
+            pass
+
+        # SubscriptionHandler abstract methods - end
+
+        def is_once(self):
+            """
+            Return True if subscription is of such type that that only one sample
+            is needed (no read thread)
+            :return:
+            """
+            return self.subscription_list.mode == gnmi_pb2.SubscriptionList.ONCE
+
+
+        def is_poll(self):
+            """
+            Return True if subscription is of such type (POLL) that more requests
+            can be expected.
+            :return:
+            """
+            return self.subscription_list.mode == gnmi_pb2.SubscriptionList.POLL
+
+        def is_monitor_changes(self):
+            """
+            Return True if subscription is of such type that we should monitor
+            changes.
+            :return:
+            """
+            return self.subscription_list.mode == gnmi_pb2.SubscriptionList.STREAM
+
+        def put_event(self, event):
+            """
+            Put event to queue of `read` function
+            :param event:
+            :return:
+            """
             log.info("==> event=%s", event)
-            assert self.subscription_list != None
-            assert self.thread_event != None
-            self.subscription_stream_event_type = event
-            self.thread_event.clear()
-            self.thread_event.set()
-            log.info("<== self.subscription_stream_event_type=%s",
-                     self.subscription_stream_event_type)
+            assert self.subscription_list is not None
+            assert self.read_queue is not None
+            self.read_queue.put(event)
+            log.info("<== ")
 
         def stop(self):
             """
-            Stop processing of subscriptions (read generator function should end)
+            Stop processing of subscriptions.
+            Sends SubscriptionEvent.FINISH to read function.
             """
             log.info("==>")
-            # TODO exception
-            self._set_event(self.SubscriptionStreamEventType.FINISH)
+            if self.is_monitor_changes():
+                self.stop_monitoring()
+            self.put_event(self.SubscriptionEvent.FINISH)
             log.info("<==")
 
-        def read(self, streaming=False):
+        def sample(self, start_monitoring=False):
             """
-            Read (get) subscription response(s) (in stream) for added subscription requests
-            This should be generator function
-            Response contains `notification` or `sync_response`
-            :param streaming: indicates this is streaming read request (POLL, STREAM),
-                            if yes, keep processing and wait for SubscriptionStreamEventType.FINISH
-            :return: TODO
+            Get current sample of subscribed paths according to
+            `self.subscription_list`.
+            :param start_monitoring: if True, the will be monitored for changes
+            TODO `delete` is processed and `delete` array is empty
+            TODO `alias` is dummy string, atomic is always False
+            TODO timestamp is 0
+            :return: SubscribeResponse with sample
+            """
+            log.debug("==> start_monitoring=%s", start_monitoring)
+            update = []
+            for s in self.subscription_list.subscription:
+                update.extend(self.get_sample(path=s.path,
+                                              prefix=self.subscription_list.prefix))
+                if start_monitoring:
+                    self.add_path_for_monitoring(s.path,
+                                                 self.subscription_list.prefix)
+            notif = gnmi_pb2.Notification(timestamp=0,
+                                          prefix=self.subscription_list.prefix,
+                                          alias="/alias", update=update,
+                                          delete=[],
+                                          atomic=False)
+            response = gnmi_pb2.SubscribeResponse(update=notif)
+            if start_monitoring:
+                self.start_monitoring()
+            log.debug("<== response=%s", response)
+            return response
+
+        def changes(self):
+            """
+            Get subscription response for changes (subscribed values).
+            `update` array contains changes
+            TODO `delete` is processed and `delete` array is empty
+            TODO `alias` is dummy string, atomic is always False
+            TODO timestamp is 0
+            :return: SubscribeResponse with changes
+            """
+            log.debug("==>")
+            update = self.get_monitored_changes()
+            notif = gnmi_pb2.Notification(timestamp=0,
+                                          prefix=self.subscription_list.prefix,
+                                          alias="/alias", update=update,
+                                          delete=[],
+                                          atomic=False)
+            response = gnmi_pb2.SubscribeResponse(update=notif)
+            log.debug("<== response=%s", response)
+            return response
+
+        def read(self):
+            """
+            Read (get) subscription response(s) (in stream) for added
+            subscription requests.
+            This is generator function. For streaming subscription it contains
+            event loop driven by self.read_queue (Queue object) and
+            SubscriptionEvent messages.
+            Response contains `notification` or `sync_response`.
+            :return: nothing
+            #TODO POLL mode with updates_only (send sync_response)
+            :see: SubscriptionHandler.SubscriptionEvent
             """
             log.info("==>")
             # TODO exceptions
-            self.subscription_stream_event_type = self.SubscriptionStreamEventType.GET
-            assert self.subscription_list != None
-            if streaming:
-                self.thread_event = Event()
+            assert self.subscription_list is not None
+            if not self.is_once():
+                self.read_queue = Queue()
+            event = None
+            first_sample = True
             while True:
-                if self.subscription_stream_event_type == self.SubscriptionStreamEventType.GET:
-                    log.debug("processing response")
-                    response = self.make_subscription_response()
+                log.debug("Processing event type %s", event)
+                # SAMPLE is handled in the same way as "first_sample"
+                if first_sample or event == self.SubscriptionEvent.SAMPLE:
+                    response = self.sample(
+                        start_monitoring=self.is_monitor_changes() and first_sample)
                     yield response
-                    if not streaming:
+                    first_sample = False
+                    if self.is_once():
                         break
-                elif self.subscription_stream_event_type == self.SubscriptionStreamEventType.FINISH:
+                elif event == self.SubscriptionEvent.FINISH:
                     log.debug("finishing subscription read")
                     break
-                elif self.subscription_stream_event_type == None:
-                    log.warning(
-                        "**** self.subscription_stream_event_type is None ! ****")
+                elif event == self.SubscriptionEvent.SEND_CHANGES:
+                    response = self.changes()
+                    log.debug("Sending changes")
+                    yield response
+                elif event is None:
+                    log.warning("**** event is None ! ****")
                     # TODO error
                     break
                 else:
-                    log.warning(
-                        "**** self.subscription_stream_event_type not processed ! ****")
+                    log.warning("**** event=%s not processed ! ****", event)
                     # TODO error
                     break
-                log.debug("Waiting self.subscription_stream_event_type=%s ...",
-                         self.subscription_stream_event_type)
-                self.thread_event.wait()
-                #TODO can there be a race condition? E.g. someone calling `stop`?
-                self.thread_event.clear()
-                log.debug("Woke up self.subscription_stream_event_type=%s",
-                         self.subscription_stream_event_type)
-
+                log.debug("Waiting for event")
+                event = self.read_queue.get()
+                log.debug("Woke up event=%s", event)
             log.info("<==")
 
         def poll(self):
             """
-            poll current state according to the subscription_list and add it to stream
+            Poll (invoke SubscriptionEvent.SAMPLE in read) current state
+            according to the subscription_list and add it to request stream.
             """
             log.info("==>")
             # TODO exception
-            self._set_event(self.SubscriptionStreamEventType.GET)
+            self.put_event(self.SubscriptionEvent.SAMPLE)
             log.info("<==")
 
     @abstractmethod
-    def get_subscription_handler(self) -> SubscriptionHandler:
+    def get_subscription_handler(self,
+                                 subscription_list) -> SubscriptionHandler:
         pass
 
     @classmethod
@@ -178,6 +289,7 @@ class GnmiServerAdapter(ABC):
     def get_inst(cls):
         """
         Get adapter instance
+        We use this, since we want to have adapter as singleton.
         :return: adapter instance
         """
         pass
