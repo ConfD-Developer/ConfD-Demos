@@ -1,0 +1,670 @@
+= ConfD gNMI Adapter
+:data-uri:
+:experimental:
+:icons: font
+:toc: left
+:source-highlighter: coderay
+
+ifdef::env-github[]
+//https://github.com/DBuret/journal/blob/master/github-adoc-puml.adoc
+:gitplant: http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/micnovak/ConfD-Demos/confdgnmi-develop/confdgnmi/docs
+:caution-caption: :fire:
+:important-caption: :exclamation:
+:note-caption: :information_source:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
+
+// Disable last updated text.
+:last-update-label!:
+
+:Author:    Michal Novák
+:email:     micnovak@cisco.com
+:URL:       https://www.tail-f.com/
+:Date:      2021-02-09
+:Revision:  0.0.1
+
+== Version history
+
+[options="header", cols="1s,10,^2s,2e"]
+|======
+| Document version     | Notes                                                  | Date        | Author
+| {revision}           | Initial document version                       | {date}      | {author} {email}
+|======
+
+toc::[]
+
+== Introduction
+
+https://www.tail-f.com/management-agent/[ConfD] is configuration management agent supporting various standard and proprietary northbound interfaces like:
+
+* https://tools.ietf.org/html/rfc6241[NETCONF]
+* https://tools.ietf.org/html/rfc8040[RESTCONF]
+* SNMP
+* MAAPI
+* WebAPI
+* CLI
+
+https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md[gNMI] is another popular north bound interface, which is not implemented by ConfD.
+In this demo project we will implement gNMI adapter over existing ConfD interfaces to make (at least partial) gNMI support.
+In the beginning we will provide basic functionality, for most common operations, later on we will add more.
+This demo focuses on functionality and simplicity, we have chosen Python as implementation language.
+
+This demo is still work in progress, see <<_limitations_and_todos>> section.
+
+=== Copy/Paste and Output blocks
+
+In this note you will find script and code examples, that can be directly pasted into shell or CLI terminal. We will use following block style for copy/paste ready text:
+
+[source,shell,role="acopy"]
+----
+pip install grpcio-tools
+----
+
+NOTE: make sure all commands have executed - confirm last command with kbd:[ENTER], if needed.
+If viewed on https://github.com[GitHub], you may find following
+browser https://github.com/zenorocha/codecopy[extension] useful, to get out of the box copy to clipboard button.
+
+The output of the shell CLI commands or file content will be displayed
+with following block style:
+
+.[.small]_output_
+[.output]
+----
+Usage: confd_gnmi_server.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -t TYPE, --type=TYPE  gNMI server type  [api, netconf, demo]
+  --logging=LOGGING     Logging level [error, warning, info, debug]
+  -d CONFD_DEBUG, --confd-debug=CONFD_DEBUG
+                        ConfD debug level  [trace, debug, silent, proto]
+  --confd-addr=CONFD_ADDR
+                        ConfD IP address (default is 127.0.0.1)
+  --confd-port=CONFD_PORT
+                        ConfD port (default is 4565)
+----
+
+== Dependencies
+
+=== Python3
+
+We expect https://www.python.org/[Python3] to be installed and that `python` nad `pip` are from Python3 environment. If not, use `python3` or `pip3` instead (or use e.g. `sudo apt-get install python-is-python3`)
+
+TIP: For package installation and development, you may consider creating https://docs.python.org/3/tutorial/venv.html[python virtual environment].
+
+=== gRPC Python tools
+
+We will use Python3 to generate gRPC binding. This is described in the gRPC
+https://grpc.io/docs/languages/python/basics/[Basic tutorial]. We need
+`grpcio-tools` Python3 package.
+
+.Installation
+[source, shell, role="acopy"]
+----
+pip install grpcio-tools
+----
+
+.Update
+[source, shell, role="acopy"]
+----
+pip install --upgrade grpcio-tools
+----
+
+=== Pytest
+
+For automated tests we will use https://www.pytest.org/[pytest] framework.
+If you want to run tests, use `pip` to install it.
+
+.Installation
+[source, shell, role="acopy"]
+----
+pip install pytest
+----
+
+.Update
+[source, shell, role="acopy"]
+----
+pip install --upgrade pytest
+----
+
+NOTE: pytest may be available also as package in your distribution (e.g. `apt-get install python3-pytest`). We still recommend to use `pip` to get the latest version.
+
+=== ConfD
+
+Install https://www.tail-f.com/management-agent/[ConfD Premium] or https://www.tail-f.com/confd-basic/[ConfD Basic] according to the description in the package (`README`). To set-up ConfD environment, source `confdrc`.
+
+.set-up ConfD envrionment
+[source, shell, role="acopy"]
+----
+source ${CONFD_DIR}/confdrc
+----
+
+TIP: See https://info.tail-f.com/confd-evaluation-kick-start-guide[ConfD Kick Start Guide] for additional information.
+
+=== Build environment
+
+We will use https://www.gnu.org/software/make/[GNU Make] for building and running the tests. It should be available in most Linux distributions (e.g. `apt-get install build-essential`).
+
+=== gNMI `proto` files
+
+We have downloaded gNMI `proto` files https://github.com/openconfig/gnmi/blob/master/proto/gnmi/gnmi.proto[`gnmi.proto`] and https://github.com/openconfig/gnmi/blob/master/proto/gnmi_ext/gnmi_ext.proto[`gnmi_ext.proto`] into `src/proto` directory.
+
+== gNMI overview
+
+gNMI protocol consists of four operations (`Capabilities`, Set`, `Get` and `Subscribe`).
+
+.gNMI Interface
+[source, protobuf, role="acopy"]
+----
+service gNMI {
+  rpc Capabilities(CapabilityRequest) returns (CapabilityResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Set(SetRequest) returns (SetResponse);
+  rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse);
+}
+----
+
+NOTE: The interface itself looks relatively simple, but we need to consider the Request and Response messages are complex. Mainly `Subscribe` method has many variants. More details can be found in the https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification[gNMI Specification].
+
+== Building gNMI Adapter demo
+
+=== gNMI python binding
+
+Since we use Python, we do not build any binary o library files. We only need to
+build Python gRPC binding for gNMI out of the `proto` files.
+
+This can be done with following command
+
+.build gNMI Python binding
+[source, shell, role="acopy"]
+----
+python -m grpc_tools.protoc -I./proto --python_out=. --grpc_python_out=. ./proto/gnmi.proto
+----
+
+NOTE: There is a `Makefile` target `gnmi_proto` that performs this build.
+
+=== ConfD datamodel binary files (`fxs`) and initial configuration
+
+The `Makefile` can build ConfD datamodel binary file (`fxs`) for
+https://tools.ietf.org/html/rfc8343[`ietf-interfaces.yang`] and its dependencies. It can also prepare some initial configuration (`interfaces.xml`). See `Makefile` target `all`.
+
+NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<Examples against `examples.confd/intro/5-c_stats`,`5-c_stats`>> and <<Examples against `examples.confd/intro/6-c_config`, `6-c_config`>>.
+
+== Running gNMI Adapter demo
+
+Before running the adapter, we need to make sure gNMI python binding is created.
+
+.build gNMI python binding, ConfD fxs files and initial configuration
+[source, shell, role="acopy"]
+----
+make clean all
+----
+
+The adapter can be run in _demo_ and _api_ mode.
+
+In _demo_ mode it does not require running ConfD, it partly emulates `ietf-interfaces.yang` data model and initial configuration. This mode is useful for testing, development, etc.
+
+In case we want to run adapter against ConfD (_api_ mode), we can use `Makefile` `start` target to start ConfD with initial demo configuration.
+
+.start ConfD and load demo configuration
+[source, shell, role="acopy"]
+----
+make clean all
+----
+
+=== Server
+
+Server is started by running  `./src/confd_gnmi_server.py` python script.
+
+.display gNMI server options
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_server.py -h
+----
+
+.output
+[source, shell]
+----
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -t TYPE, --type=TYPE  gNMI server type  [api, netconf, demo]
+  --logging=LOGGING     Logging level [error, warning, info, debug]
+  -d CONFD_DEBUG, --confd-debug=CONFD_DEBUG
+                        ConfD debug level  [trace, debug, silent, proto]
+  --confd-addr=CONFD_ADDR
+                        ConfD IP address (default is 127.0.0.1)
+  --confd-port=CONFD_PORT
+                        ConfD port (default is 4565)
+----
+
+We can run server in demo mode (pass `-t demo`) or in API (`maapi`) mode against ConfD (pass `-t api`). Other modes (like `netconf` are currently not supported).
+
+NOTE: Other parameters (e.g. port, host) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
+
+=== Client
+
+Client is run with `./src/confd_gnmi_client.py` python script.
+
+.display gNMI client options
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -h
+----
+
+.output
+[source, shell]
+----
+Usage: confd_gnmi_client.py [options]
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -o OPERATION, --oper=OPERATION
+                        gNMI operation [capabilities, set, get, subscribe]
+  --logging=LOGGING     Logging level [error, warning, info, debug]
+  --prefix=PREFIX       'prefix' path for set, get and subscribe operation
+                        (empty by default)
+  -p PATHS, --path=PATHS
+                        'path' for get, set and subscribe operation, can be
+                        repeated (empty by default)
+  -t DATATYPE, --data-type=DATATYPE
+                        'data type' for get operation, can be ALL, CONFIG,
+                        STATE, OPERATIONAL  (default 'CONFIG')
+  -v VALS, --val=VALS   'value' for set operation, can be repeated (empty by
+                        default)
+----
+
+NOTE: Other parameters (e.g. username, password, subscription parameter, data type) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_client.py`).
+
+==== Examples
+
+===== Adapter examples
+
+.get capabilities
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o capabilities
+----
+
+.get values of `leaf` elements
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+----
+
+.get values of `list` entry
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_8]
+----
+
+.get values of state `list` entry
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /interfaces-state --path interface[name=state_if_8] -t STATE
+----
+
+.get values of `list` entries
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface
+----
+
+.set value of `leaf` element
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_8]/type --val fastEther
+----
+
+.subscribe for `leaf` elements
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+----
+
+.subscribe for `list` entry
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_8]
+----
+
+.subscribe for `list` entries
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface
+----
+
+.subscribe for `list` entries (without `--prefix`)
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --path /interfaces/interface
+----
+
+.subscribe for state data `list` entry
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --prefix /interfaces-state --path interface[name=state_if_8]
+----
+
+
+.subscribe for `list` entries (without `--prefix`) or config and state data
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --path /interfaces-state/interface --path /interfaces/interface
+----
+
+===== Examples against `examples.confd/intro/5-c_stats`
+
+.get values of state `list` (with prefix)
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o get --prefix /arpentries --path arpe -t STATE
+----
+
+.get values of state `list` (without prefix)
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o get --path /arpentries/arpe -t STATE
+----
+
+.subscribe values of state `list` (with prefix)
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe --prefix /arpentries --path arpe
+----
+
+===== Examples against `examples.confd/intro/6-c_config`
+
+(`make clean all start` and `netconf-console cmd-create-woody.xml`)
+
+.get `list` entries
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --path /hosts/host[name=woody]/interfaces/interface
+----
+
+.get `list` entries with prefix
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /hosts/host[name=woody]/interfaces  --path interface
+----
+
+.get one `list` entry
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /hosts/host[name=woody]/interfaces  --path interface[name=eth0]
+----
+
+.get specific `leaf`
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get --prefix /hosts/host[name=woody]/interfaces  --path interface[name=eth0]/ip
+----
+
+.subscribe for `list` entries
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe  --prefix /hosts --path host[name=woody]/interfaces/interface
+----
+
+NOTE: As `examples.confd/intro/6-c_config` uses CANDIDATE DB, `set` is not shown (currently we only support RUNNING DB - see <<_limitations_and_todos>>)
+
+== Implementation
+
+=== Deployment and components
+
+Following diagram shows deployment context of the
+gNMI Adapter.
+
+ifdef::env-github[]
+image::{gitplant}/deployment.puml[]
+endif::[]
+ifndef::env-github[]
+plantuml::deployment.puml[format="svg", align="center"]
+endif::[]
+
+* *gNMI Adapter server* - connects to ConfD and uses its northbound interfaces (currently only MAAPI) to provide gNMI functionality. We aim for design that could be adapted to other devices (not only ConfD) with known management interfaces, e.g. devices supporting NETCONF, RESTCONF or mixed interfaces.
+* *gNMI Adapter client* - gNMI client developed in this project for testing and presentation of the functionality
+
+
+=== gNMI adapter server sub-components
+
+Following class/component diagram shows main structure of the gNMI adapter server
+
+ifdef::env-github[]
+image::{gitplant}/component.puml[]
+endif::[]
+ifndef::env-github[]
+plantuml::component.puml[format="svg", align="center"]
+endif::[]
+
+* ConfDgNMIServicer - main component
+** starts grpc by calling `serve()`
+** provides implementation og the gRPC interface (`Capabilities`, `Get`, `Set`, `Subscribe`)
+** uses concrete `adapter` object for gNMI implementation
+** has methods to initialize and work with `adapter` object
+* GnmiServerAdapter - abstract class
+** provides methods for gNMI functionality `capabilities()`, `get()`, `set()`
+** contains subscription handle for subscription functionality
+** SubscriptionHandler - abstract class
+*** implements methods to handle subscriptions
+* GnmiConfDApiServerAdapter - adapter using ConfD
+** GnmiConfDApiServerAdapter.SubscriptionHandler
+* GnmiDemoServerAdapter - adapter using demo data (for testing, development, presentation)
+** GnmiDemoServerAdapter.SubscriptionHandler
+
+=== gNMI Operations
+
+==== Capabilities
+
+`rpc Capabilities(CapabilityRequest) returns (CapabilityResponse);`
+
+`Capability` returns list of `supported_models` and list of `encodings`.
+It can also return list of gNMI extensions.
+
+Each model has following attributes:
+
+`name` (string), `organization` (string), `version`
+
+===== Implementation
+
+Capability information can be fetched from `"/ncm:netconf-state/ncm:capabilities/ncm:capability"`
+datamodel, found in the `ietf-netconf-monitoring.yang`.
+
+==== Get
+
+`rpc Get(GetRequest) returns (GetResponse);`
+
+Pass in request:
+list of `path`, `type` (CONFIG, OPERATIONAL, STATE), `encoding`,
+list of models to be used (`use_models`)
+
+Get in response list of `notifications`.
+
+===== Implementation
+
+`maapi_save_config`  - can be used, get subtree as XML, parse XML and create response. Operational data is supported (` MAAPI_CONFIG_WITH_OPER`).
+
+===== TODO
+
+* the `notification` contains list of updated paths with values and deleted paths.
+What should be returned? We return only `updated` paths.
+
+* the `notification` should contain whole subtree for each request path.
+This means, for each request path there will be list of paths in
+`update`, each with value (currently only `leafs` and last `lists` are supported)
+
+* since there is a path associated with each value, for requests on nested lists
+we have to find out, which elements are keys and add them to the Path(s).
+
+* what value type should be for empty or presence container ??? (bool ???)
+
+==== Set
+
+`rpc Set(SetRequest) returns (SetResponse);`
+
+Pass in request list of paths to `delete`, list of paths and values to
+be replaced (`replace`) and list of paths and values to be updated (`update`).
+
+Get in response list of Paths and what was done for each path (`response`).
+
+Each gNMI `Set` call should be treated as transaction.
+
+===== Implementation
+
+We can use `MAAPI` operations, like `set_elem`.
+
+===== TODO:
+
+* difference between replace and update.  -> gnNMI specification 3.4.4.
+* should `replace` be supported?
+* currently, only `leaf` elements are supported
+* `delete` not supported
+
+==== Subscribe
+
+`rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse);`
+
+Stream subscription requests and get stream of subscription responses.
+
+Subscription response is similar to `Get`, this means all data in
+given sub-tree is returned in response.
+
+`ONCE`, `POLL` mode of the `SubscriptionList`:
+
+* responses according to `heartbeat_interval`,
+* responses to `SAMPLE` mode in the `Subscription` element
+
+Only updated values are sent:
+
+* `STREAM` mode of the `SubscriptionList`
+* when `updates_only` is set for `STREAM` mode,
+* when `suppress_redundant` is set for `SAMPLE` mode
+
+There are many combinations how subscription response should behave.
+More description is in
+https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#35-subscribing-to-telemetry-updates
+
+===== Implementation
+
+Currently, implementation from <<Get,`Get`>> is reused.
+
+===== TODO
+
+* see <<Get, Get TODO>>
+* only `ONCE` and `POLL` mode is supported
+* many parameters are not supported, see <<Limitations and TODOs>>.
+
+=== Automated tests
+
+`pytest` tests are found in `tests` directory.
+
+Currently, there are only few unit tests and gRPC tests (testing gNMI operations
+via gRPC in single process).
+
+TIP: See `tests/pytest.ini` for available pytest markers.
+
+==== Run tests
+
+`make test` or `PYTHONPATH=src pytest -sv` or use `test.sh` script
+
+Examples:
+
+.run all tests
+[source, shell, role="acopy"]
+----
+./test.sh -s -v tests/
+----
+
+.run only tests in `tests/test_client_server.py::TestGrpc::test_capabilities`
+[source, shell, role="acopy"]
+----
+./test.sh -s -v tests/test_client_server.py::TestGrpc::test_capabilities
+----
+
+.run only specific test
+[source, shell, role="acopy"]
+----
+./test.sh -s -v tests/test_client_server.py::TestGrpc::test_subscribe_once[AdapterType.DEMO]
+----
+
+.run only tests with marker `unit`
+[source, shell, role="acopy"]
+----
+./test.sh -s -v -m unit tests/
+----
+
+.run only tests without marker `unit`
+[source, shell, role="acopy"]
+----
+./test.sh -s -v -m "not unit" tests/
+----
+
+TIP: To list-only tests, use  `./test.sh --collect-only -q  tests/`
+
+
+==== Unit tests
+
+==== gRPC tests
+
+NOTE: All gRPC API tests require ConfD running (`make start`)
+
+==== Integration tests
+
+_Not yet implmented_.
+
+=== Limitations and TODOs
+
+The implementation of the adapter (still in early phase) is demo reference implementation that shows how to add gNMI support to existing ConfD interfaces.
+It can be extended according to deployment requirements.
+This not all gNMI functionality are currently supported. They may be added in the future.
+
+*Limitations*
+
+* only `BYTES` are used as `encoding`
+* `Get`, `Set` and `Subscribe` works only on `leaf` and last `list` elements
+* `Set` works only on `leaf` elements
+* `Subscribe`
+** only `ONCE` anf `POLL` subscription mode is supported
+** `updates_only` not supported
+** `heartbeat_interval` not supported
+* * `sync_response` not generated
+* all values `TypedValues` are used as strings (`string_val`)
+* gNMI Path is converted to XPath or formatted path with simple string operations (no datamodel knowledge used)
+* current implementation works only against RUNNING DB
+* list of models (e.g. `Get`) is not supported
+* `leaf-lists` not supported
+* `delete` in `Set` not supported
+
+*TODOs*
+
+* add more command line options to server
+* add more command line options to client
+* converting XPath to ConfD formatted path/keypath and back is simple string manipulation - cannot handle complex keys (`cs_nodes` have to be used)
+* TODO: Pass yang file content as extension in `Capabilities` call?
+
+== Conclusion
+
+gNMI Adapter Demo can provide initial gNMI functionality.
+
+== References
+
+* https://grpc.io/docs/languages/python/basics/
+* gNMI Specification - https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification
+* ConfD - https://www.tail-f.com/management-agent
+
+=== Other resources
+
+https://pypi.org/project/betterproto/ +
+https://opennetworking.org/wp-content/uploads/2019/10/NG-SDN-Tutorial-Session-2.pdf +
+https://www.ietf.org/proceedings/101/slides/slides-101-netconf-grpc-network-management-interface-gnmi-00 +
+https://github.com/openconfig/gnmi +
+https://pypi.org/project/gnmi-proto/ +
+https://community.cisco.com/t5/service-providers-documents/understanding-gnmi-on-ios-xr-with-python/ta-p/4014205 +
+https://github.com/akarneliuk/grpc_demo +
+https://karneliuk.com/2020/05/gnmi-part-3-using-grpc-to-collect-data-in-openconfig-yang-from-arista-eos-and-nokia-sr-os/ +
+https://github.com/aristanetworks/pyopenconfig/tree/master/pyopenconfig +
+https://gnmic.kmrd.dev/basic_usage/ +
+https://github.com/p4lang/PI/tree/master/proto#tentative-gnmi-support-with-sysrepo +

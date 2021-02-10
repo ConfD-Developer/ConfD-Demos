@@ -1,9 +1,8 @@
 import logging
 
-
 import gnmi_pb2
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 HOST = "localhost"
 PORT = 50061
 logging.basicConfig(
@@ -84,7 +83,7 @@ def make_gnmi_path(xpath_string, origin=None, target=None) -> gnmi_pb2.Path:
     return path
 
 
-def _make_string_path(gnmi_path, gnmi_prefix=None, quote_val=False,
+def _make_string_path(gnmi_path=None, gnmi_prefix=None, quote_val=False,
                       xpath=False) -> str:
     """
     Create string path from gnmi_path and gnmi_prefix
@@ -110,15 +109,16 @@ def _make_string_path(gnmi_path, gnmi_prefix=None, quote_val=False,
         return path
 
     path_str = ""
-    if gnmi_prefix is not None:
+    if gnmi_prefix is not None and len(gnmi_prefix.elem) > 0:
         path_str = make_path(gnmi_prefix)
-    path_str = path_str + make_path(gnmi_path)
+    if gnmi_path is not None:
+        path_str = path_str + make_path(gnmi_path)
     log.debug("<== path_str=%s", path_str)
     return path_str
 
 
 # TODO tests
-def make_xpath_path(gnmi_path, gnmi_prefix=None, quote_val=False) -> str:
+def make_xpath_path(gnmi_path=None, gnmi_prefix=None, quote_val=False) -> str:
     """
     Create string path from gnmi_path and gnmi_prefix
     :param gnmi_path:

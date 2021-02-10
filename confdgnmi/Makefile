@@ -32,6 +32,7 @@ CONFD_FLAGS ?= --addloadpath $(CONFD_DIR)/etc/confd
 #EXTRA_LINK_FLAGS +=-F rt:router-id
 START_FLAGS ?=
 SRC_DIR=src
+TEST_DIR=tests
 PCG_DIR=$(SRC_DIR)
 
 
@@ -41,20 +42,21 @@ all: gnmi_proto \
 	@echo "Build complete"
 
 init_interfaces.xml:
-	  ./datagen.py 100
+	  ./datagen.py 10
 
 gnmi_proto:
 	python -m grpc_tools.protoc -I$(PCG_DIR)/proto --python_out=$(PCG_DIR) --grpc_python_out=$(PCG_DIR) $(PCG_DIR)/proto/gnmi.proto $(PCG_DIR)/proto/gnmi_ext.proto
 
 test:
-	PYTHONPATH=$(PCG_DIR) pytest -sv
+	PYTHONPATH=$(PCG_DIR):$(TEST_DIR):$(PYTHONPATH) pytest -s -v $(TEST_DIR)
 
 ######################################################################
 clean:	iclean
 	rm -rf $(PCG_DIR)/gnmi_pb2.py $(PCG_DIR)/gnmi_pb2_grpc.py \
            $(PCG_DIR)/gnmi_ext_pb2.py $(PCG_DIR)/gnmi_ext_pb2_grpc.py \
            $(PCG_DIR)/*__.py $(PCG_DIR)/*_ns.py \
-           .pytest_cache init_interfaces.xml
+           $(TEST_DIR)/.pytest_cache ./.pytest_cache \
+           init_interfaces.xml init_interfaces_state.xml
 
 
 ######################################################################
@@ -62,7 +64,8 @@ clean:	iclean
 start:  stop
 	### Start the confd daemon with our example specific confd-config
 	$(CONFD) -c confd.conf $(CONFD_FLAGS)
-	netconf-console --edit-config=init_interfaces.xml
+	confd_load -m -l ./init_interfaces.xml
+	confd_load -m -O -l ./init_interfaces_state.xml
 
 ######################################################################
 stop:
