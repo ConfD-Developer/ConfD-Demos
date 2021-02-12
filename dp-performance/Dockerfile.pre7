@@ -13,7 +13,8 @@ WORKDIR /
 RUN dnf group install -y "Development Tools" \
     && dnf install -y openssh openssl-devel compat-openssl10 python3 python3-pip nano \
     && ln -s /usr/bin/python3 /usr/bin/python \
-    && pip3 install --no-cache-dir paramiko bs4 lxml pyang
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --no-cache-dir paramiko
 
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
 WORKDIR ${CONFD_DIR}
