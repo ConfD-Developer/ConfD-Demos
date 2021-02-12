@@ -12,7 +12,8 @@ ENV LD_LIBRARY_PATH=${CONFD_DIR}/lib
 WORKDIR /
 RUN apt-get update \
     && apt-get install -y --no-install-recommends psmisc libxml2-utils python3 python3-pip python3-setuptools build-essential libssl-dev openssh-client curl htop nano \
-    && pip3 install --no-cache-dir paramiko bs4 lxml pyang
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --no-cache-dir paramiko bs4 lxml pyang
 
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
 RUN /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
