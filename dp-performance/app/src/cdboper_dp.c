@@ -359,7 +359,11 @@ static int get_object(struct confd_trans_ctx *tctx,
     confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
   }
   tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
-  n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and end tags for each object */
+  if (start->info.flags & CS_NODE_IS_CONTAINER) {
+    n = format_object(tv, &itv[0], j, start);
+  else {
+    n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and end tags for each object */
+  }
   confd_data_reply_tag_value_array(tctx, tv, n);
 
   free(tv);
