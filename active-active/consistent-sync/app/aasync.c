@@ -1,7 +1,3 @@
-/*
- * Copyright 2005-2016 Tail-f Systems AB
- */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
