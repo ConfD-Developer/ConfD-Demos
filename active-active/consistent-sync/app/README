@@ -1,0 +1,138 @@
+ConfD Active-Active Fully Synchronized HA Clusters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example demonstrates how you can use built-in ConfD features to
+with little effort setup ConfD to replicate a network operator
+automated service configuration provisioning across N number of ConfD
+instances, each serving any number of application (micro)services to
+form active-active fully synchronized clusters as the core part of an
+active-active HA framework in for example an NFV and NETCONF YANG
+enabled SDN setup.
+
+The focus of the example is consistency + partitioning and as a
+consequence we sacrifice some availability due to taking maapi_lock(s)
+on the nodes we synch to. Study the mathematically proven CAP theorem
+to find out more on why we need to sacrifice availability if we always
+want to preserve consistency.
+
+It is not an all or nothing database consistency. The configuration
+replicated could be the entire configuration (unlikely), a subtree
+in the configuration, or a single leaf
+
+In ConfD’s user guide and under examples.confd/ha/dummy you will find
+documentation on ConfD’s built-in HA functionality for active-standby
+(aka master-slave) synchronization of configuration and operational
+(status, statistics, etc.) data. To add active-active synchronization
+to complement the existing built-in ConfD active-standby HA framework,
+ConfD already provide us with built in solutions for the hard parts,
+such as:  
+
+• ConfD’s transactional management interface, such as NETCONF etc.
+and database schema are automatically rendered from our YANG model
+and enabled with a configuration switch. 
+
+• With a switch in the ConfD configuration file we enable confirmed
+commit and the candidate datastore to fully support network wide
+transactions. 
+
+• The ConfD core transaction engine implement the functionality
+needed for keeping atomicity, i.e. the consistency of the
+configuration data where a transaction is set or not at all.
+Transactions that fail or are aborted before the commit phase of the
+transaction are automatically rolled back. 
+
+• Independency between transactions is kept, Transactions executed by
+the ConfD transaction manager is executed in sequence, one at a time.
+Or so it appears to all observers, e.g. managers configuring the
+network and configuration subscribers providing application services.
+
+• ConfD ensure durability as the configuration is written to
+persistent storage during preparation before the transaction is
+committed.
+
+• ConfD's startup sequence can be split into several phases with an
+init transaction that can be written and read before the northbound
+interfaces, e.g. NETCONF, are available to the manager(s). For an
+active-active cluster this is helpful when initializing a cluster
+or having an initializing node join an existing cluster, making
+sure that a manager cannot mistakenly read or write to the
+configuration before the nodes in the cluster are in sync. 
+
+What the Example Does
+~~~~~~~~~~~~~~~~~~~~~
+
+This example, aasync.c, make use of ConfD's built in transactional
+capabilities and the following functionality to enable ConfD to
+participate in an active-active cluster that can scale out
+horizontally when the load in the system increases (or decreases):
+
+• Subscribes to the part of the configuration that we want to
+synchronize across our active-active cluster. 
+
+• Fully integrate the replication of data to other ConfD enabled
+active-active nodes with ConfD’s transaction engine as a two-phase
+subscriber
+
+• Identify synchronization transactions carrying out the
+replication of configuration data to not trigger the synchronization
+services on the active node we are synchronizing to. 
+
+• Have all nodes in the cluster rollback if the manager or a node in
+the cluster aborts the transaction. 
+
+• Utilize the ConfD init transaction at startup to synchronize the
+cluster before opening up the management interfaces, such as NETCONF,
+for reading and editing the configuration.
+
+• Again, utilize the ConfD start-phases and init transaction to allow
+nodes to join the cluster in a fully synchronized fashion.
+
+This example is designed to show the setup of multiple ConfD nodes,
+how to setup a cluster them  and how a configuration is replicated
+within that cluster. By default it will start three ConfD instances
+on the same host and the demo shell script, run.sh,  will run a
+configuration performance tests using NETCNF as well as add and
+remove a fourth node. 
+
+Running the Example
+~~~~~~~~~~~~~~~~~~~~
+
+Use the "./run.sh" shell script to setup, build and run the example.
+The script first changes the configuration through the ConfD CDB
+RUNNING datastore, followed by the same sequence with the CANDIDATE
+datastore and <confirmed-commit>. The shell script will setup 3
+nodes (we refer to them as node0, node1, and node2) and have all
+nodes initialize from node0's configuration using ConfD's start
+phases and init transaction. The example then proceeds to have a
+fourth node, node3, join the cluster through node0 where node3
+joins the cluster as it starts up, again using ConfD's start-phases
+and init transaction, while the other nodes remain up and running.
+The example then run a NETCONF <edit-config> operation towards node3
+that deletes all the replicated configuration and then have node3
+leave the cluster. When node3 has left the cluster the example run a
+NETCONF <edit-config> operation towards node1 that now populates the
+replicated configuration and then a NETCONF <get-config> is issued
+towards node2 to read the configuration to verify that the
+configuration indeed was replicated to the other ConfD nodes in the
+cluster.
+
+More things to try
+~~~~~~~~~~~~~~~~~~
+
+Turn on trace output by in run.sh setting DO_DEBUG_LOG=1
+
+Study the Makefile to see how you can play with changing the
+configuration through for example NETCONF, CLI, or MAAPI.
+How you can have nodes join and leave the cluster and how you dump
+the configuration from the nodes in the cluster over MAAPI, NETCONF,
+etc.
+
+Further Reading
+~~~~~~~~~~~~~~~
+
++ See attached pictures for a visualization of the example
++ ConfD User Guide: CDB - The ConfD XML Database
++ ConfD User Guide: High Availability
++ ConfD User Guide: The Management Agent API
++ man 3 confd_lib_maapi
++ man 3 confd_lib_cdb

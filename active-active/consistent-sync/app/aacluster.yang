@@ -1,0 +1,45 @@
+module aacluster {
+  namespace "http://tail-f.com/ns/example/aacluster/1.0";
+  prefix a;
+
+  import ietf-inet-types {
+    prefix inet;
+  }	
+
+  import routes {
+    prefix r;
+  }
+
+  import tailf-common {
+    prefix tailf;
+  }
+  
+  augment "/r:active-cfg" {
+    container aacluster {
+      tailf:hidden full;
+      leaf init-nodeid {
+      	type int32 {
+	  range "0..255";
+	}
+      }
+      list node {
+        key "nodeid";
+        unique "ip port";
+        max-elements 256;
+        leaf nodeid {
+      	  type int32 {
+	    range "0..255";
+	  }
+        }
+        leaf ip {
+          type inet:ipv4-address;
+	  mandatory true;
+        }
+        leaf port {
+          type inet:port-number;
+	  mandatory true;
+        }
+      }
+    }
+  }
+}
