@@ -1,0 +1,50 @@
+module routes {
+  namespace "http://tail-f.com/ns/example/routes/1.0";
+  prefix r;
+
+  import tailf-common { prefix tailf; }
+
+  container active-cfg {
+    tailf:callpoint write-hook {
+      tailf:transaction-hook subtree {
+        tailf:invocation-mode per-transaction;
+      }	
+    }	
+
+    container routes {
+      list route {
+        key "id";
+        leaf id {
+	  type string {
+	    length "7";
+	    pattern "[0-9]{7}";
+	  }
+        }
+        leaf leaf1 {
+	  type int32 {
+	    range 0..max;
+	  }
+	  mandatory true;
+        }
+        leaf leaf2 {
+	  type int32 {
+	    range 0..max;
+	  }
+	  mandatory true;
+        }
+        leaf leaf3 {
+	  type int32 {
+	    range 0..max;
+	  }
+	  mandatory true;
+        }
+        leaf leaf4 {
+	  type int32 {
+	    range 0..max;
+	  }
+	  mandatory true;
+        }
+      }
+    }
+  }
+}
