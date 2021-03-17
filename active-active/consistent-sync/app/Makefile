@@ -1,6 +1,5 @@
 ######################################################################
-# Simple active-active example
-# (C) 2006 Tail-f Systems
+# Simple active-active demo
 #
 # See the README file for more information
 ######################################################################
