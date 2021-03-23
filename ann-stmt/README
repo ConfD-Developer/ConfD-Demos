@@ -28,6 +28,9 @@ o In this demo we use the powerful Python Beautiful Soup Python (bs4)
 o After the tailf extension XML nodes have been extracted to 
   tailf:annotate-(module|statement) variants, pyang is used to convert
   the new annotation module and the original YIN module back to YANG modules.
+o Optionally "must" and "when" statements can be moved to the annotation
+  module. See flags used with the Python script for options. This can be
+  useful when debugging XPath evaluation issues.
 
 See YANG RFC 7950 section 13 "YIN" for details on the YIN XML format
 
