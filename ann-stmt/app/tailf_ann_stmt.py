@@ -42,7 +42,7 @@ def add_stmt(node, ann_node, ann_soup):
     return add_stmt(node.parent, parent_ann_node, ann_soup)
 
 
-def tailf_ann_stmt(yang_file):
+def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_callpoint_stmt, parse_validate_stmt, yang_file):
     confd_dir = os.environ['CONFD_DIR']
     yang_file_path = yang_file.rsplit('/', 1)
     yang_path = yang_file_path[0]
@@ -67,29 +67,66 @@ def tailf_ann_stmt(yang_file):
                                          yin_soup.submodule["xmlns_{}".format(prefix)],
                                          prefix)
     else:
-        print("Error: Unknown module type. Neither a YANG module or submodule ")
+        print("Error: Unknown module type. Neither a YANG module or submodule")
         return
     ann_soup = BeautifulSoup(annotate_module, "xml")
-    for tailf_extension in yin_soup.find_all(re.compile('tailf_prefix_')):
-        if tailf_extension.parent is not None and tailf_extension.parent.name.startswith('tailf_prefix_') == False:
-            annotate_statements = add_stmt(tailf_extension, copy.copy(tailf_extension), ann_soup)
-            ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
-            tailf_extension.decompose()
-    tailf_import = yin_soup.find('import', module='tailf-common')
-    if tailf_import is None:
+    tailf_extension = None
+    must_stmt = None
+    when_stmt = None
+    callpoint_stmt = None
+    validate_stmt = None
+    if parse_must_stmt is True:
+        for must_stmt in yin_soup.find_all('must'):
+            if must_stmt.parent is not None:
+                annotate_statements = add_stmt(must_stmt, copy.copy(must_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                must_stmt.decompose()
+    if parse_when_stmt is True:
+        for when_stmt in yin_soup.find_all('when'):
+            if when_stmt.parent is not None:
+                annotate_statements = add_stmt(when_stmt, copy.copy(when_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                when_stmt.decompose()
+    if parse_tailf_stmt is True:
+        for tailf_extension in yin_soup.find_all(re.compile('tailf_prefix_')):
+            if tailf_extension.parent is not None and tailf_extension.parent.name.startswith('tailf_prefix_') == False:
+                annotate_statements = add_stmt(tailf_extension, copy.copy(tailf_extension), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                tailf_extension.decompose()
+    else:
+        if parse_callpoint_stmt is True:
+            for callpoint_stmt in yin_soup.find_all('tailf_prefix_callpoint'):
+                if callpoint_stmt.parent is not None:
+                    annotate_statements = add_stmt(callpoint_stmt, copy.copy(callpoint_stmt), ann_soup)
+                    ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                    callpoint_stmt.decompose()
+        if parse_validate_stmt is True:
+            for validate_stmt in yin_soup.find_all('tailf_prefix_validate'):
+                if validate_stmt.parent is not None:
+                    annotate_statements = add_stmt(validate_stmt, copy.copy(validate_stmt), ann_soup)
+                    ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                    validate_stmt.decompose()
+
+
+    if tailf_extension is None and must_stmt is None and when_stmt is None and callpoint_stmt is None and validate_stmt is None:
         create_ann_module = False
     else:
         create_ann_module = True
-        tailf_import.decompose()
+        tailf_extension = yin_soup.find(re.compile('tailf_prefix_'))
+        if tailf_extension is None:
+            tailf_import = yin_soup.find('import', module='tailf-common')
+            tailf_import.decompose()
     tailf_ann_import = ann_soup.find('import', module='tailf-common')
     if yin_soup.module is not None:
         ann_soup.module.attrs = copy.copy(yin_soup.module.attrs)
         for module_import in yin_soup.module.find_all('import', recursive=False):
-            tailf_ann_import.insert_before(copy.copy(module_import))
+            if module_import['module'] != "tailf-common":
+                tailf_ann_import.insert_before(copy.copy(module_import))
     else:
         ann_soup.module.attrs = copy.copy(yin_soup.submodule.attrs)
         for module_import in yin_soup.submodule.find_all('import', recursive=False):
-            tailf_ann_import.insert_before(copy.copy(module_import))
+            if module_import['module'] != "tailf-common":
+                tailf_ann_import.insert_before(copy.copy(module_import))
     ann_soup.module['yname'] = "{}-ann".format(ann_soup.module['yname'])
     yin_soup_str = str(yin_soup)
     yin_soup_str = yin_soup_str.replace('tailf_prefix_', 'tailf:')
@@ -128,7 +165,17 @@ if __name__ == "__main__":
         description="",
         formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.add_argument('-m', '--must', action='store_true',
+                        help='remove all must statements')
+    parser.add_argument('-w', '--when', action='store_true',
+                        help='remove all when startements')
+    parser.add_argument('-t', '--tailf', action='store_true',
+                        help='remove all tailf extensions')
+    parser.add_argument('-c', '--callpoint', action='store_true',
+                        help='remove tailf:callpoint extensions')
+    parser.add_argument('-v', '--validate', action='store_true',
+                        help='remove tailf:validate extensions')
     parser.add_argument('filename', nargs=1, type=str,
                         help='<file> YANG module to be sanitized')
     args = parser.parse_args()
-    tailf_ann_stmt(args.filename[0])
+    tailf_ann_stmt(args.must, args.when, args.tailf, args.callpoint, args.validate, args.filename[0])

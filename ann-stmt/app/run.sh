@@ -2,11 +2,11 @@
 rm -rf yang
 mkdir -p yang
 
-echo "Create a tailf:annotate-module/statement module and sanitize the original YANG module"
+echo "Create a tailf:annotate-module/statement module and move over tailf extensions from original YANG module"
 for f in yang-orig/*.yang
 do
     echo "Processing $f"
-    python3 tailf_ann_stmt.py $f
+    python3 tailf_ann_stmt.py -t $f
 done
 
 make stop clean all start

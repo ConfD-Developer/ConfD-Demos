@@ -18,6 +18,7 @@ module test {
   container test {
     uses test-valid;
     container si-test {
+      when "../testmod1";
       list interface {
         tailf:secondary-index "my-index" {
           tailf:index-leafs "if-index";
@@ -38,6 +39,8 @@ module test {
       type empty;
     }
     container testmod1 {
+      presence "";
+      must "count(../nomode/dummy) > 0";
       tailf:cli-mode-name "testMOD";
       tailf:cli-add-mode;
       leaf dummy {
@@ -45,6 +48,8 @@ module test {
       }
     }
     container testmod2 {
+      presence "";
+      must "../testmod1";
       tailf:cli-mode-name-actionpoint "mode_name";
       tailf:cli-add-mode;
       leaf dummy {
@@ -305,6 +310,7 @@ module test {
         }
       }
       leaf type {
+        when "../sub2";
         type string;
       }
     }
