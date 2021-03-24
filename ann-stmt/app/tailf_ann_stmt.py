@@ -42,7 +42,7 @@ def add_stmt(node, ann_node, ann_soup):
     return add_stmt(node.parent, parent_ann_node, ann_soup)
 
 
-def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_callpoint_stmt, parse_validate_stmt, yang_file):
+def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_callpoint_stmt, parse_validate_stmt, sanitize, yang_file):
     confd_dir = os.environ['CONFD_DIR']
     yang_file_path = yang_file.rsplit('/', 1)
     yang_path = yang_file_path[0]
@@ -108,14 +108,15 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_cal
                     validate_stmt.decompose()
 
 
-    if tailf_extension is None and must_stmt is None and when_stmt is None and callpoint_stmt is None and validate_stmt is None:
+    if sanitize is True or (tailf_extension is None and must_stmt is None and when_stmt is None and callpoint_stmt is None and validate_stmt is None):
         create_ann_module = False
     else:
         create_ann_module = True
-        tailf_extension = yin_soup.find(re.compile('tailf_prefix_'))
-        if tailf_extension is None:
-            tailf_import = yin_soup.find('import', module='tailf-common')
-            tailf_import.decompose()
+    tailf_extension = yin_soup.find(re.compile('tailf_prefix_'))
+    if tailf_extension is None:
+      tailf_import = yin_soup.find('import', module='tailf-common')
+      if tailf_import is not None:
+        tailf_import.decompose()
     tailf_ann_import = ann_soup.find('import', module='tailf-common')
     if yin_soup.module is not None:
         ann_soup.module.attrs = copy.copy(yin_soup.module.attrs)
@@ -175,7 +176,9 @@ if __name__ == "__main__":
                         help='remove tailf:callpoint extensions')
     parser.add_argument('-v', '--validate', action='store_true',
                         help='remove tailf:validate extensions')
+    parser.add_argument('-s', '--sanitize', action='store_true',
+                        help='sanitize only without creating an annotation file')
     parser.add_argument('filename', nargs=1, type=str,
                         help='<file> YANG module to be sanitized')
     args = parser.parse_args()
-    tailf_ann_stmt(args.must, args.when, args.tailf, args.callpoint, args.validate, args.filename[0])
+    tailf_ann_stmt(args.must, args.when, args.tailf, args.callpoint, args.validate, args.sanitize, args.filename[0])
