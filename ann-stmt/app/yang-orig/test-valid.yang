@@ -13,6 +13,7 @@ submodule test-valid {
 
   grouping test-valid {
     container valid {
+      tailf:callpoint testcp;
       leaf a-number {
         type int64;
         default 42;
