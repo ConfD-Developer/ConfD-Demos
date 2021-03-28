@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/poll.h>
+#include <inttypes.h>
+#include <limits.h>
 
 #include <confd_lib.h>
 #include <confd_dp.h>
@@ -67,26 +69,27 @@ static int write_tag_value(struct pr_doc *document, confd_tag_value_t *tag_val,
     switch (tag_val->v.type) {
         // start a container/list entry creation/modification
         case C_XMLBEGIN:
-            snprintf(buff, sizeof(buff), "%*s<%s:%s>\n", *indent, INDENT_STR, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)),
-                    tag_str);
+            snprintf(buff, sizeof(buff), "%*s<%s:%s>\n", *indent, INDENT_STR,
+                    confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
             *indent += INDENT_SIZE;
             break;
         // start a container/list entry creation/modification based on index
         case C_CDBBEGIN:
-            snprintf(buff, sizeof(buff), "%*s<%s:%s>\n", *indent, INDENT_STR, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)),
-                    tag_str);
+            snprintf(buff, sizeof(buff), "%*s<%s:%s>\n", *indent, INDENT_STR,
+                    confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
             *indent += INDENT_SIZE;
             break;
         // exit from a processing of container/list entry creation/modification
         case C_XMLEND:
             *indent -= INDENT_SIZE;
-            snprintf(buff, sizeof(buff), "%*s</%s:%s>\n", *indent, INDENT_STR, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)),
-                    tag_str);
+            snprintf(buff, sizeof(buff), "%*s</%s:%s>\n", *indent, INDENT_STR,
+                    confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
             break;
         // deletion of a leaf
         case C_NOEXISTS:
             snprintf(buff, sizeof(buff), "%*s<%s:%s operation=\"noexists\">\n",
-                    *indent, INDENT_STR, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
+                    *indent, INDENT_STR,
+                    confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
             break;
         // deletion of a list entry / container
         case C_XMLBEGINDEL:
@@ -103,7 +106,9 @@ static int write_tag_value(struct pr_doc *document, confd_tag_value_t *tag_val,
         default:
             confd_pp_value(value_buff, sizeof(value_buff), &tag_val->v);
             snprintf(buff, sizeof(buff), "%*s<%s:%s>%s</%s:%s>\n", *indent,
-                    INDENT_STR, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str, value_buff, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
+                    INDENT_STR, confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)),
+                    tag_str, value_buff,
+                    confd_ns2prefix(CONFD_GET_TAG_NS(tag_val)), tag_str);
     }
 
     int chars_written = doc_append(document, buff);
@@ -123,7 +128,7 @@ static void print_tag_value_array(confd_tag_value_t *tvs, int tvs_cnt,
     for (i = 0; i <tvs_cnt; i++) {
         write_tag_value(&doc, &tvs[i], &indent);
     }
-    fprintf(estream, "\n%s\n", doc.data);
+    fprintf(estream, "\n%s\n", doc.data);fflush(estream);
 }
 #endif
 
@@ -134,7 +139,8 @@ static int ctlsock;
 static int workersock;
 static int cdbsock;
 
-static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char *kpmod)
+static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath,
+                      char *kpmod)
 {
   int kp_len = keypath->len - 1;
   confd_value_t *v = &(keypath->v[keypath->len - 1][0]);
@@ -149,7 +155,9 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
   for(i = kp_len; i >= 0; i--) {
     v = &(keypath->v[i][0]);
     if (v->type == C_XMLTAG) {
-      confd_format_keypath(&kp_str[kp_strlen], bufsiz - kp_strlen, "/%s%s:%x", confd_ns2prefix(v->val.xmltag.ns), kpmod, v);
+      confd_format_keypath(&kp_str[kp_strlen], bufsiz - kp_strlen,
+                          "/%s%s:%x", confd_ns2prefix(v->val.xmltag.ns), kpmod,
+                          v);
     } else {
       cs_node = confd_cs_node_cd(NULL, &kp_str[0]);
       if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
@@ -158,15 +166,17 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
         cs_node = cs_node->children;
         type = cs_node->info.type;
       }
-      if (cs_node->parent->info.keys == NULL && cs_node->parent->info.flags & CS_NODE_IS_LIST) {
+      if (cs_node->parent->info.keys == NULL &&
+          cs_node->parent->info.flags & CS_NODE_IS_LIST) {
         /* keyless list - get the pseudo key */
         pseudo_key = CONFD_GET_INT64(&(keypath->v[i][0]));
-        snprintf(&(tmpbuf[0][0]), BUFSIZ, "%ld", pseudo_key);
+        snprintf(&(tmpbuf[0][0]), BUFSIZ, "%" PRIu64"", pseudo_key);
         j = 1;
       } else {
         for (j = 0; keypath->v[i][j].type != C_NOEXISTS; j++) {
           confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][0]), BUFSIZ);
-          if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0 && cs_node->next != NULL) {
+          if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0 &&
+              cs_node->next != NULL) {
             cs_node = cs_node->next;
             type = cs_node->info.type;
           }
@@ -174,7 +184,8 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath, char 
       }
       strcpy(&kp_str[kp_strlen], "{"); kp_strlen++;
       for (k = 0; k < j; k++) {
-        snprintf(&kp_str[kp_strlen], bufsiz - kp_strlen, "%s ", &(tmpbuf[k][0]));
+        snprintf(&kp_str[kp_strlen], bufsiz - kp_strlen, "%s ",
+                 &(tmpbuf[k][0]));
         kp_strlen = strlen(kp_str);
       }
       strcpy(&kp_str[kp_strlen - 1], "}");
@@ -189,7 +200,8 @@ static int s_init(struct confd_trans_ctx *tctx)
   return CONFD_OK;
 }
 
-static int exists_optional(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath)
+static int exists_optional(struct confd_trans_ctx *tctx,
+                           confd_hkeypath_t *keypath)
 {
   char kp_str[BUFSIZ];
   int ret;
@@ -208,18 +220,21 @@ static int get_case(struct confd_trans_ctx *tctx,
 {
   confd_value_t rcase;
   char kp_str[BUFSIZ];
-  int ret; //,i;
+  char choice_str[BUFSIZ];
+  int ret, i, len = 0;
 
   mk_kp_str(&kp_str[0], BUFSIZ, kp, KP_MOD);
 
-  /*
-  // TODO: NESTED CHOICES
-  for(i = 0; &(v[i])->type != C_NOEXISTS; i++) {
-    //handle
+  choice_str[0] = '\0';
+  for(len = 0; choice[len].type != C_NOEXISTS; len++);
+  for(i = len-1; i >= 0; i--) {
+    strcat(&choice_str[0], confd_hash2str(CONFD_GET_XMLTAG(&choice[i])));
+    if (i > 0) {
+      strcat(&choice_str[0], "/");
+    }
   }
-  */
 
-  if ((ret = cdb_get_case(cdbsock, confd_hash2str(CONFD_GET_XMLTAG(choice)),
+  if ((ret = cdb_get_case(cdbsock, &choice_str[0],
                           &rcase, &kp_str[0])) != CONFD_OK ) {
     confd_data_reply_not_found(tctx);
   } else {
@@ -242,7 +257,8 @@ static int num_instances(struct confd_trans_ctx *tctx,
   return CONFD_OK;
 }
 
-static int traverse_cs_nodes(struct confd_cs_node *curr_cs_node, confd_tag_value_t *itv, int j)
+static int traverse_cs_nodes(struct confd_cs_node *curr_cs_node,
+                             confd_tag_value_t *itv, int j)
 {
   struct confd_cs_node *cs_node;
   int lmask = (CS_NODE_IS_ACTION|CS_NODE_IS_PARAM|CS_NODE_IS_RESULT|
@@ -250,11 +266,9 @@ static int traverse_cs_nodes(struct confd_cs_node *curr_cs_node, confd_tag_value
   int cmask = (CS_NODE_IS_CONTAINER);
   for (cs_node = curr_cs_node; cs_node != NULL; cs_node = cs_node->next) {
     if (cs_node->info.flags & cmask) {
-      //if (cs_node->info.minOccurs == 1) { // Skip presence containers
       CONFD_SET_TAG_XMLBEGIN(&itv[j], cs_node->tag, cs_node->ns); j++;
       j = traverse_cs_nodes(cs_node->children, itv, j);
       CONFD_SET_TAG_XMLEND(&itv[j], cs_node->tag, cs_node->ns); j++;
-      //}
     } else if ((cs_node->info.flags & lmask) == 0) {
       CONFD_SET_TAG_NOEXISTS(&itv[j], cs_node->tag);
       CONFD_SET_TAG_NS(&itv[j], cs_node->ns); j++;
@@ -263,7 +277,8 @@ static int traverse_cs_nodes(struct confd_cs_node *curr_cs_node, confd_tag_value
   return j;
 }
 
-static int format_object(confd_tag_value_t *tv, confd_tag_value_t *itv, int n_itv, struct confd_cs_node *start)
+static int format_object(confd_tag_value_t *tv, confd_tag_value_t *itv,
+                         int n_itv, struct confd_cs_node *start)
 {
   struct confd_cs_node *cs_node;
   char *prefix;
@@ -284,8 +299,10 @@ static int format_object(confd_tag_value_t *tv, confd_tag_value_t *itv, int n_it
           start = start->parent;
         }
       }
-      cs_node = confd_cs_node_cd(start, "%s:%s", prefix, confd_hash2str(CONFD_GET_TAG_TAG(&itv[i])));
-      CONFD_SET_TAG_VALUE(&tv[n], CONFD_GET_TAG_TAG(&itv[i]), CONFD_GET_TAG_VALUE(&itv[i]));
+      cs_node = confd_cs_node_cd(start, "%s:%s", prefix,
+                                 confd_hash2str(CONFD_GET_TAG_TAG(&itv[i])));
+      CONFD_SET_TAG_VALUE(&tv[n], CONFD_GET_TAG_TAG(&itv[i]),
+                          CONFD_GET_TAG_VALUE(&itv[i]));
       CONFD_SET_TAG_NS(&tv[n], cs_node->ns);
       if (CONFD_GET_TAG_VALUE(&itv[i])->type == C_XMLBEGIN) {
         start = cs_node;
@@ -298,17 +315,17 @@ static int format_object(confd_tag_value_t *tv, confd_tag_value_t *itv, int n_it
 
 static char* strrstr(const char *haystack, const char *needle)
 {
-	char *r = NULL;
+  char *r = NULL;
 
-	if (!needle[0])
-		return (char*)haystack + strlen(haystack);
-	while (1) {
-		char *p = strstr(haystack, needle);
-		if (!p)
-			return r;
-		r = p;
-		haystack = p + 1;
-	}
+  if (!needle[0])
+    return (char*)haystack + strlen(haystack);
+  while (1) {
+    char *p = strstr(haystack, needle);
+    if (!p)
+      return r;
+    r = p;
+    haystack = p + 1;
+  }
 }
 
 static int get_object(struct confd_trans_ctx *tctx,
@@ -317,13 +334,14 @@ static int get_object(struct confd_trans_ctx *tctx,
   confd_tag_value_t *itv, *tv;
   int pos, j = 0, n;
   struct confd_cs_node *cs_node, *start;
-  char kp_str[BUFSIZ], *lastslash, *lastprefix, *lastcurly_start, *lastcurly_end, tmpc;
+  char kp_str[BUFSIZ], *lastcurly_start, *lastcurly_end;
 
   start = confd_find_cs_node(keypath, keypath->len);
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   cs_node = confd_cs_node_cd(NULL, kp_str);
-  itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
-  if (cs_node->info.flags & CS_NODE_IS_LIST) { /* list */
+  itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 *
+                                     (1 + confd_max_object_size(cs_node)));
+  if (cs_node->info.flags & CS_NODE_IS_LIST) {
     if (cs_node->info.keys == NULL) { /* keyless list */
       lastcurly_start = strrchr(kp_str, '{');
       lastcurly_end = strrchr(kp_str, '}');
@@ -338,27 +356,16 @@ static int get_object(struct confd_trans_ctx *tctx,
         return CONFD_OK;
       }
     }
-    CONFD_SET_TAG_CDBBEGIN(&itv[j], cs_node->tag, cs_node->ns, pos); j++;
     j = traverse_cs_nodes(cs_node->children, &itv[0], j);
-    CONFD_SET_TAG_XMLEND(&itv[j], cs_node->tag, cs_node->ns); j++;
   } else { /* container */
     j = traverse_cs_nodes(cs_node->children, &itv[0], j);
   }
-  if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
-    tmpc = *lastprefix;
-    *lastprefix = 0;
-    if((lastslash = strrchr(kp_str, '/')) != NULL) {
-      if (lastslash != &kp_str[0]) {
-        *lastslash = 0;
-      } else {
-        *lastprefix = tmpc;
-      }
-    }
-  }
+
   if (cdb_get_values(cdbsock, itv, j, kp_str) != CONFD_OK) {
     confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
   }
-  tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 * (1 + confd_max_object_size(cs_node)));
+  tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 *
+                                    (1 + confd_max_object_size(cs_node)));
   if (start->info.flags & CS_NODE_IS_CONTAINER) {
     n = format_object(tv, &itv[0], j, start);
   } else {
@@ -381,7 +388,7 @@ static int find_next(struct confd_trans_ctx *tctx,
   int pos = -1, i, j, real_nkeys = 0;
   u_int32_t *keyptr;
   struct confd_cs_node *cs_node;
-  char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ], *lastprefix, tmpc;
+  char kp_str[BUFSIZ], stars[BUFSIZ];
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
 
@@ -450,22 +457,12 @@ static int find_next(struct confd_trans_ctx *tctx,
 
   /* get the key */
   j = 0;
-  CONFD_SET_TAG_CDBBEGIN(&tv[j], cs_node->tag, cs_node->ns, pos); j++;
+  ssize_t bufsz = snprintf(NULL, 0, "[%d]", pos);
+  char tmp_str[bufsz];
+  snprintf(&tmp_str[0], sizeof(tmp_str), "[%d]", pos);
+  strcat(&kp_str[0], &tmp_str[0]);
   for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
     CONFD_SET_TAG_NOEXISTS(&tv[j], *keyptr); j++;
-  }
-  CONFD_SET_TAG_XMLEND(&tv[j], cs_node->tag, cs_node->ns); j++;
-
-  if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
-    tmpc = *lastprefix;
-    *lastprefix = 0;
-    if((lastslash = strrchr(kp_str, '/')) != NULL) {
-      if (lastslash != &kp_str[0]) {
-        *lastslash = 0;
-      } else {
-        *lastprefix = tmpc;
-      }
-    }
   }
 
   if (cdb_get_values(cdbsock, tv, j, kp_str) != CONFD_OK) {
@@ -475,12 +472,12 @@ static int find_next(struct confd_trans_ctx *tctx,
     return CONFD_OK;
   }
 
-  for (i = 0; i < j-2; i++) {
+  for (i = 0; i < j; i++) {
     v[i].type = tv[i+1].v.type;
     v[i].val = tv[i+1].v.val;
   }
   /* reply */
-  confd_data_reply_next_key(tctx, &v[0], j-2, pos+1);
+  confd_data_reply_next_key(tctx, &v[0], j, pos);
   return CONFD_OK;
 }
 
@@ -489,12 +486,14 @@ static int find_next_object(struct confd_trans_ctx *tctx,
                             enum confd_find_next_type type,
                             confd_value_t *keys, int nkeys)
 {
-  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0;
+  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0, skip_begin_end = 0;
   confd_tag_value_t *tv, *itv;
   struct confd_tag_next_object *tobj;
   struct confd_cs_node *cs_node, *start;
   char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ], *lastprefix, tmpc;
   u_int32_t *keyptr;
+  ssize_t bufsz = snprintf(NULL, 0, "%s[%d]", &kp_str[0], INT_MAX);
+  char tmp_str[bufsz];
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   start = confd_find_cs_node(keypath, keypath->len);
@@ -502,12 +501,13 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
     confd_value_t v;
     confd_value_t *list;
-    int n_list, pos, ret;
+    int n_list, pos;
 
-    if ((ret = cdb_get(cdbsock, &v, kp_str)) != CONFD_OK) {
+    if (cdb_exists(cdbsock, kp_str) != 1) {
       confd_data_reply_next_key(tctx, NULL, -1, -1);
     } else {
-    list = CONFD_GET_LIST(&v);
+      cdb_get(cdbsock, &v, kp_str);
+      list = CONFD_GET_LIST(&v);
       n_list = CONFD_GET_LISTSIZE(&v);
       if (nkeys == 0) {
         confd_data_reply_next_object_array(tctx, list, 1, -1);
@@ -560,7 +560,8 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     }
   }
 
-  if (pos < 0 || (n_list_entries = cdb_num_instances(cdbsock, kp_str)) <= pos) {
+  if (pos < 0 || (n_list_entries = cdb_num_instances(cdbsock, kp_str)) <= pos)
+  {
     /* we have reached the end of the list */
     confd_data_reply_next_key(tctx, NULL, -1, -1);
     return CONFD_OK;
@@ -573,32 +574,48 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   }
 
   /* get the list entries */
-  itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * nobj * 2 * (1 + confd_max_object_size(cs_node)));
+  itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * nobj * 2 *
+                                     (1 + confd_max_object_size(cs_node)));
   j = 0;
-  for (i = 0; i < nobj; i++) {
-    CONFD_SET_TAG_CDBBEGIN(&itv[j], cs_node->tag, cs_node->ns, pos+i); j++;
-    j = traverse_cs_nodes(cs_node->children, &itv[0], j);
-    CONFD_SET_TAG_XMLEND(&itv[j], cs_node->tag, cs_node->ns); j++;
-  }
-
-  if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
-    tmpc = *lastprefix;
-    *lastprefix = 0;
-    if((lastslash = strrchr(kp_str, '/')) != NULL) {
-      if (lastslash != &kp_str[0]) {
-        *lastslash = 0;
-      } else {
-        *lastprefix = tmpc;
+  if (cs_node->info.flags & CS_NODE_IS_LIST && cs_node->parent == NULL) {
+    /* list at root, need to do one get_values per list entry */
+    for (i = 0; i < nobj; i++) {
+      j = traverse_cs_nodes(cs_node->children, &itv[j*i], 0);
+      snprintf(&tmp_str[0], sizeof(tmp_str), "%s[%d]", &kp_str[0], pos+i);
+      fprintf(estream, ">>>>>\ntmp_str %s kp_str %s nobj %d\n", tmp_str,kp_str,nobj); fflush(estream);
+      if (cdb_get_values(cdbsock, &itv[j*i], j, &tmp_str[0]) != CONFD_OK) {
+        confd_fatal("cdb_get_values() from path %s failed\n", tmp_str);
       }
+    }
+    j = j*nobj;
+  } else {
+    /* generic, more memory but less wall clock time with a single get_values */
+    for (i = 0; i < nobj; i++) {
+      CONFD_SET_TAG_CDBBEGIN(&itv[j], cs_node->tag, cs_node->ns, pos+i); j++;
+      j = traverse_cs_nodes(cs_node->children, &itv[0], j);
+      CONFD_SET_TAG_XMLEND(&itv[j], cs_node->tag, cs_node->ns); j++;
+    }
+    skip_begin_end = 1;
+
+    if((lastprefix = strrstr(kp_str, confd_hash2str(cs_node->tag))) != NULL) {
+      tmpc = *lastprefix;
+      *lastprefix = 0;
+      if((lastslash = strrchr(kp_str, '/')) != NULL) {
+        if (lastslash != &kp_str[0]) {
+          *lastslash = 0;
+        } else {
+          *lastprefix = tmpc;
+        }
+      }
+    }
+    if (cdb_get_values(cdbsock, &itv[0], j, kp_str) != CONFD_OK) {
+      confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
     }
   }
 
-  if (cdb_get_values(cdbsock, &itv[0], j, kp_str) != CONFD_OK) {
-    confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
-  }
-
   tobj = malloc(sizeof(struct confd_tag_next_object) * (max_nobjs + 1));
-  tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * max_nobjs * 2 * (1 + 1 + confd_max_object_size(cs_node)));
+  tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * max_nobjs * 2 *
+                                    (1 + 1 + confd_max_object_size(cs_node)));
 
   /* create reply */
   int n_itv = j/nobj;
@@ -607,15 +624,18 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   for (i = 0; i < nobj; i++) {
     tobj[i].tv = &tv[n_tv];
     if (real_nkeys > 0) {
-      n = format_object(tobj[i].tv, &itv[n_itv*i+1], n_itv-2, start); /* +1 and -2 to skip begin and end tags for each object */
+      /* +1 and -2 to skip begin and end tags for each object */
+      n = format_object(tobj[i].tv, &itv[n_itv*i+skip_begin_end], n_itv-(skip_begin_end*2), start);
     } else { /* keyless list - add pseudo key */
       CONFD_SET_TAG_INT64(&(tobj[i].tv)[0], 0, i);
-      n = format_object(&(tobj[i].tv)[1], &itv[n_itv*i+1], n_itv-2, start); /* +1 and -2 to skip begin and end tags for each object */
+      /* +1 and -2 to skip begin and end tags for each object */
+      n = format_object(&(tobj[i].tv)[1], &itv[n_itv*i+skip_begin_end], n_itv-(skip_begin_end*2), start);
       n++;
     }
     n_tv += n;
     tobj[i].n = n;
-    tobj[i].next = -1; /* -1 is ok here since we are not using get_next* callbacks, else next can be (long)pos+i+1; */
+    tobj[i].next = -1; /* -1 is ok here since we are not implementing get_next*
+                          callbacks, else next can be (long)pos+i+1; */
     //print_tag_value_array(tobj[i].tv, n, NULL, 0);
   }
   if (pos + i >= n_list_entries) {
@@ -670,8 +690,8 @@ static void libconfd_logger(int syslogprio, const char *fmt, va_list ap) {
   strftime(tbuf, 80, "%Y-%m-%d %H:%M:%S", localtime(&curTime.tv_sec));
 
   char currentTime[84] = "";
-  sprintf(currentTime, "%s:%03d", tbuf, milli);
-  sprintf(buf, "%s ", currentTime);
+  snprintf(currentTime, sizeof(currentTime),"%s:%03d", tbuf, milli);
+  snprintf(buf, sizeof(buf), "%s ", currentTime);
   strcat(buf, fmt);
   vfprintf(estream, buf, ap);
 }

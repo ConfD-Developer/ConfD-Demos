@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFD_VERSION="7.4"
+CONFD_VERSION="7.5.1"
 IMG_NAME="perf-dp"
 
 function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
