@@ -83,7 +83,7 @@ node "gNMI Adapter\nServer" {
     GnmiServerAdapter <-le- GnmiConfDApiServerAdapter
     GnmiServerAdapter <.up. GnmiNetconfServerAdapter
     ConfDgNMIServicer "1" *-- GnmiServerAdapter
-    GnmiServerAdapter "1" *-- SubscriptionHandler
+    GnmiServerAdapter "1..n" *-- SubscriptionHandler
 
     GnmiConfDApiServerAdapter <..> ConfD
     GnmiConfDApiServerAdapter.SubscriptionHandler <..> ConfD

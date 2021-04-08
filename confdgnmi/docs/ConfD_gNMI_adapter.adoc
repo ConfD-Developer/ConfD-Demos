@@ -67,7 +67,7 @@ pip install grpcio-tools
 
 NOTE: make sure all commands have executed - confirm last command with kbd:[ENTER], if needed.
 If viewed on https://github.com[GitHub], you may find following
-browser https://github.com/zenorocha/codecopy[extension] useful (oyt of the box *copy to clipboard* button).
+browser https://github.com/zenorocha/codecopy[extension] useful (out-of-the-box *copy to clipboard* button).
 
 The output of the shell CLI commands or file content will be displayed
 with following block style:
@@ -746,7 +746,7 @@ This not all gNMI functionality are currently supported. They may be added in th
 * `Get`, `Set` and `Subscribe` works only on `the leaf`, list` entries and `lists`
 * `Set` works only on `leaf` elements
 * `Subscribe`
-** Not all subscription parameters are supported
+** not all subscription parameters are supported
 ** `updates_only` not supported
 ** `heartbeat_interval` not supported
 * * `sync_response` not generated

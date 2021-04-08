@@ -3,11 +3,9 @@ import select
 import sys
 import threading
 import xml.etree.ElementTree as ET
-from socket import socket, AF_INET, SOCK_STREAM
+from socket import socket
 
 import _confd
-# TODO replace maapi_low with high level MAAPI
-from _confd import maapi as maapi_low
 from confd import maapi, maagic
 from confd.cdb import cdb
 
@@ -27,7 +25,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         self.port: int = 0
         self.username: str = ""
         self.password: str = ""
-        self.maapisock = None
         self.mp_inst = None
 
     # call only once!
@@ -74,21 +71,20 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         def get_monitored_changes(self) -> []:
             # TODO reuse with demo adapter ?
-            self.change_db_lock.acquire()
-            log.debug("==> self.change_db=%s", self.change_db)
-            assert len(self.change_db) > 0
-            update = []
-            for c in self.change_db:
-                prefix_str = make_xpath_path(
-                    gnmi_prefix=self.subscription_list.prefix)
-                p = c[0]
-                if c[0].startswith(prefix_str):
-                    p = c[0][len(prefix_str):]
-                update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                              val=gnmi_pb2.TypedValue(
-                                                  string_val=c[1])))
-            self.change_db = []
-            self.change_db_lock.release()
+            with self.change_db_lock:
+                log.debug("==> self.change_db=%s", self.change_db)
+                assert len(self.change_db) > 0
+                update = []
+                for c in self.change_db:
+                    prefix_str = make_xpath_path(
+                        gnmi_prefix=self.subscription_list.prefix)
+                    p = c[0]
+                    if c[0].startswith(prefix_str):
+                        p = c[0][len(prefix_str):]
+                    update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
+                                                  val=gnmi_pb2.TypedValue(
+                                                      string_val=c[1])))
+                self.change_db = []
             log.debug("<== update=%s", update)
             return update
 
@@ -113,6 +109,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             xpath = _confd.xpath_pp_kpath(kp)
             xpath = xpath.replace('"', '')
             # for now, remove possible prefix
+            # (TODO for now handled only prefix in first elem)
             starts_slash = xpath.startswith('/')
             xplist = xpath.split(':', 1)
             if len(xplist) == 2:
@@ -133,10 +130,9 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     # TODO CREATE not handled for now
                 if op == _confd.MOP_VALUE_SET:
                     log.debug("_confd.MOP_VALUE_SET")
-                    self.change_db_lock.acquire()
-                    xpath = self.kp_to_xpath(kp)
-                    self.change_db.append((xpath, str(newv)))
-                    self.change_db_lock.release()
+                    with self.change_db_lock:
+                        xpath = self.kp_to_xpath(kp)
+                        self.change_db.append((xpath, str(newv)))
                     # TODO MOP_VALUE_SET implement
                 elif op == _confd.MOP_DELETED:
                     log.debug("_confd.MOP_DELETED")
@@ -158,55 +154,53 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         def process_changes(self):
             log.debug("==>")
             # make subscription for all self.monitored_paths
-            sub_sock = socket(AF_INET, SOCK_STREAM, 0)
-            prio = 10
+            with socket() as sub_sock:
+                prio = 10
+                cdb.connect(sub_sock, cdb.SUBSCRIPTION_SOCKET, '127.0.0.1',
+                            _confd.CONFD_PORT)
+                for p in self.monitored_paths:
+                    log.debug("subscribing config p=%s", p)
+                    # TODO hash - breaks generic usage
+                    # TODO for now we subscribe path for both, config and oper,
+                    # TODO subscribe only for paths that exist
+                    # it may be more efficient to find out type of path and subscribe
+                    # only for one type
+                    cdb.subscribe2(sub_sock, cdb.SUB_RUNNING, 0, prio,
+                                   0, p)
+                    log.debug("subscribing operational p=%s", p)
+                    cdb.subscribe2(sub_sock, cdb.SUB_OPERATIONAL, 0, prio,
+                                   0, p)
+                cdb.subscribe_done(sub_sock)
+                log.debug("subscribe_done")
+                assert self.stop_pipe is not None
+                rlist = [sub_sock, self.stop_pipe[0]]
+                wlist = elist = []
+                try:
+                    while True:
+                        log.debug("rlist=%s", rlist)
+                        r, w, e = select.select(rlist, wlist, elist)
+                        log.debug("r=%s", r)
+                        if self.stop_pipe[0] in r:
+                            v = os.read(self.stop_pipe[0], 1)
+                            assert v == b'x'
+                            log.debug("Stopping ConfD loop")
+                            break
+                        if sub_sock in r:
+                            try:
+                                sub_info = cdb.read_subscription_socket2(sub_sock)
+                                for s in sub_info[2]:
+                                    self.process_subscription(sub_sock, s)
+                                cdb.sync_subscription_socket(sub_sock,
+                                                             cdb.DONE_PRIORITY)
+                            except _confd.error.Error as e:
+                                # Callback error
+                                if e.confd_errno is _confd.ERR_EXTERNAL:
+                                    log.exception(e)
+                                else:
+                                    raise e
 
-            cdb.connect(sub_sock, cdb.SUBSCRIPTION_SOCKET, '127.0.0.1',
-                        _confd.CONFD_PORT)
-            for p in self.monitored_paths:
-                log.debug("subscribing config p=%s", p)
-                # TODO hash - breaks generic usage
-                # TODO for now we subscribe path for both, config and oper,
-                # TODO subscribe only for paths that exist
-                # it may be more efficient to find out type of path and subscribe
-                # only for one type
-                cdb.subscribe2(sub_sock, cdb.SUB_RUNNING, 0, prio,
-                               0, p)
-                log.debug("subscribing operational p=%s", p)
-                cdb.subscribe2(sub_sock, cdb.SUB_OPERATIONAL, 0, prio,
-                               0, p)
-            cdb.subscribe_done(sub_sock)
-            log.debug("subscribe_done")
-            assert self.stop_pipe is not None
-            _r = [sub_sock, self.stop_pipe[0]]
-            _w = []
-            _e = []
-            try:
-                while True:
-                    log.debug("_r=%s", _r)
-                    r, w, e = select.select(_r, _w, _e)
-                    log.debug("r=%s", r)
-                    if self.stop_pipe[0] in r:
-                        v = os.read(self.stop_pipe[0], 1)
-                        assert v == b'x'
-                        log.debug("Stopping ConfD loop")
-                        break
-                    if sub_sock in r:
-                        try:
-                            list = cdb.read_subscription_socket2(sub_sock)
-                            for s in list[2]:
-                                self.process_subscription(sub_sock, s)
-                            cdb.sync_subscription_socket(sub_sock,
-                                                         cdb.DONE_PRIORITY)
-                        except _confd.error.Error as e:
-                            # Callback error
-                            if e.confd_errno is _confd.ERR_EXTERNAL:
-                                log.exception(e)
-                            else:
-                                raise e
-
-            except Exception as e:
-                log.exception(e)
+                except Exception as e:
+                    log.exception(e)
 
             log.debug("<==")
 
@@ -232,6 +226,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             self.change_thread.join()
             log.debug("** change_thread joined")
             self.change_thread = None
+            os.close(self.stop_pipe[0])
+            os.close(self.stop_pipe[1])
             self.stop_pipe = None
             self.monitored_paths = []
             log.debug("<==")
@@ -258,16 +254,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         # TODO parallel processing
         self.username = username
         self.password = password
-        self.maapisock = socket()
-        maapi_low.connect(sock=self.maapisock, ip=self.addr, port=self.port)
-        maapi_low.load_schemas(self.maapisock)
         log.info(
             "<==  self.addr=%s self.port=%i self.username=%s self.password=:-)",
             self.addr, self.port, self.username)
 
     def disconnect(self):
         log.info("==>")
-        self.maapisock.close()
         log.info("<==")
 
     # https://tools.ietf.org/html/rfc6022#page-8
@@ -328,25 +320,23 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             with maapi.single_read_trans(self.username, context, groups,
                                          src_ip=self.addr) as t:
                 save_id = t.save_config(save_flags, path_str)
-                save_sock = socket()
-                _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
-                                      ip=self.addr, port=self.port)
-
-                # based on
-                # https://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
-                fragments = []
-                max_msg_size = 1024
-                while True:
-                    chunk = save_sock.recv(max_msg_size)
-                    if not chunk:
-                        break
-                    fragments.append(chunk)
-                save_str = b''.join(fragments)
-                log.debug("save_str=%s", save_str)
-                save_result = t.maapi.save_config_result(save_id)
-                log.debug("save_result=%s", save_result)
-                assert save_result == 0
-                save_sock.close()
+                with socket() as save_sock:
+                    _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
+                                          ip=self.addr, port=self.port)
+                    # based on
+                    # https://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
+                    fragments = []
+                    max_msg_size = 1024
+                    while True:
+                        chunk = save_sock.recv(max_msg_size)
+                        if not chunk:
+                            break
+                        fragments.append(chunk)
+                    save_str = b''.join(fragments)
+                    log.debug("save_str=%s", save_str)
+                    save_result = t.maapi.save_config_result(save_id)
+                    log.debug("save_result=%s", save_result)
+                    assert save_result == 0
         except Exception as e:
             log.exception(e)
 
@@ -370,8 +360,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             if len(elem) > 1:
                 if elem[0].text is not None:
                     parent_path_cand2 = parent_path_cand + "[{}={}]".format(
-                        elem[0].tag.split("}")[-1],
-                        elem[0].text)
+                        elem[0].tag.split("}")[-1], elem[0].text)
                     if parent_path_cand2.startswith(
                             orig_path_str) or orig_path_str.startswith(
                         parent_path_cand2):

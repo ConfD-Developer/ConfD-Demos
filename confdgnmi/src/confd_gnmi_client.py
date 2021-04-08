@@ -198,7 +198,7 @@ if __name__ == '__main__':
     subscription_mode = get_sub_mode(opt.submode)
     poll_interval: float = opt.pollinterval
     poll_count: int = opt.pollcount
-    read_count = opt.readcount
+    read_count: int = opt.readcount
 
     log.debug("datatype=%s subscription_mode=%s poll_interval=%s "
               "poll_count=%s read_count=%s",
@@ -230,7 +230,7 @@ if __name__ == '__main__':
             ConfDgNMIClient.print_notification(n)
     elif opt.operation == "set":
         if len(paths) != len(vals):
-            log.warnig("len(paths) != len(vals); %i != %i", len(paths),
+            log.warning("len(paths) != len(vals); %i != %i", len(paths),
                        len(vals))
             print(
                 "Number of paths (--path) must be the same as number of vals (--val)!")

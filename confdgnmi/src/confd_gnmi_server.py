@@ -205,9 +205,8 @@ class ConfDgNMIServicer(gNMIServicer):
         # `yield from` can be used, but to allow altering (e.g. path conversion)
         # response later on we use `for`
         for response in handler.read():
-            log.debug("response received")
+            log.debug("response received, calling yield")
             yield response
-            log.debug("response yield")
 
         if thr is not None:
             thr.join()

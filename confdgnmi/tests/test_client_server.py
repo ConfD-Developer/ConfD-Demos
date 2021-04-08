@@ -351,39 +351,34 @@ class TestGrpc(object):
         ]
         if data_type == "STATE" and adapter_type == AdapterType.API:
             # TODO state `confd_cmd` is not transactional, so we need to check
-            # every item - add 'send' after each item (fix checking method?)
+            # every item - add 'send' after each item (or fix checking method?)
             new_change_list = []
-            must_send = True
-            for c in changes_list:
-                if c == "send":
-                    must_send = False
+            for c in [x for x in changes_list if x != "send"]:
                 new_change_list.append(c)
-                if must_send:
-                    new_change_list.append("send")
-                    must_send = False
-                else:
-                    must_send = True
+                new_change_list.append("send")
             changes_list = new_change_list
         log.info("change_list=%s", changes_list)
 
-        # create  config string
-        if adapter_type == AdapterType.DEMO:
+        def changes_list_to_pv(changes_list):
+            path_value = [[]]  # empty means no check
+            pv_idx = 1
+            for c in changes_list:
+                if isinstance(c, str):
+                    if c == "send":
+                        pv_idx += 1
+                else:
+                    if len(path_value) == pv_idx:
+                        path_value.append([])
+                    path_value[pv_idx].append((make_gnmi_path(c[0]), c[1]))
+            log.debug("path_value=%s", path_value)
+            return path_value
+
+        def changes_list_to_xml(changes_list):
             demo = ET.Element("demo")
             sub = ET.SubElement(demo, "subscription")
             stream = ET.SubElement(sub, "STREAM")
             changes = ET.SubElement(stream, "changes")
-
-        path_value = [[]]  # empty means no check
-        pv_idx = 1
-        for c in changes_list:
-            if isinstance(c, str):
-                if c == "send":
-                    pv_idx += 1
-            else:
-                if len(path_value) == pv_idx:
-                    path_value.append([])
-                path_value[pv_idx].append((make_gnmi_path(c[0]), c[1]))
-            if adapter_type == AdapterType.DEMO:
+            for c in changes_list:
                 el = ET.SubElement(changes, "element")
                 if isinstance(c, str):
                     el.text = c
@@ -391,12 +386,14 @@ class TestGrpc(object):
                     ET.SubElement(el, "path").text = "{}/{}".format(prefix_str,
                                                                     c[0])
                     ET.SubElement(el, "val").text = c[1]
-
-        if adapter_type == AdapterType.DEMO:
             xml_str = ET.tostring(demo, encoding='unicode')
             log.debug("xml_str=%s", xml_str)
-            log.debug("path_value=%s", path_value)
-            GnmiDemoServerAdapter.load_config_string(xml_str)
+            return xml_str
+
+        path_value = changes_list_to_pv(changes_list)
+        if adapter_type == AdapterType.DEMO:
+            GnmiDemoServerAdapter.load_config_string(
+                changes_list_to_xml(changes_list))
 
         kwargs = {"assert_fun": TestGrpc.assert_in_updates}
         kwargs["prefix"] = prefix

@@ -1,9 +1,10 @@
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
 
-from confd_gnmi_common import *
+import gnmi_pb2
 
 log = logging.getLogger('confd_gnmi_adapter')
 
@@ -69,6 +70,8 @@ class GnmiServerAdapter(ABC):
             self.adapter = adapter
             self.subscription_list = subscription_list
             self.read_queue: Queue = None
+            if not self.is_once():
+                self.read_queue = Queue()
 
         @abstractmethod
         def get_sample(self, path, prefix) -> []:
@@ -81,7 +84,6 @@ class GnmiServerAdapter(ABC):
             """
             pass
 
-        # SubscriptionHandler abstract methods - start
         @abstractmethod
         def add_path_for_monitoring(self, path, prefix):
             """
@@ -96,8 +98,7 @@ class GnmiServerAdapter(ABC):
         @abstractmethod
         def get_monitored_changes(self) -> []:
             """
-            Get gNMI subscription updates for changed values (indicated by
-            self.SubscriptionEvent.PROCESS_CHANGES)
+            Get gNMI subscription updates for changed values
             :return: gNMI update array
             #TODO should we also return delete array
             """
@@ -120,8 +121,6 @@ class GnmiServerAdapter(ABC):
             :return:
             """
             pass
-
-        # SubscriptionHandler abstract methods - end
 
         def is_once(self):
             """
@@ -150,7 +149,7 @@ class GnmiServerAdapter(ABC):
 
         def put_event(self, event):
             """
-            Put event to queue of `read` function
+            Put event to queue of `read` function.
             :param event:
             :return:
             """
@@ -175,7 +174,8 @@ class GnmiServerAdapter(ABC):
             """
             Get current sample of subscribed paths according to
             `self.subscription_list`.
-            :param start_monitoring: if True, the will be monitored for changes
+            :param start_monitoring: if True, the paths will be monitored
+            for future changes
             TODO `delete` is processed and `delete` array is empty
             TODO `alias` is dummy string, atomic is always False
             TODO timestamp is 0
@@ -236,7 +236,7 @@ class GnmiServerAdapter(ABC):
             # TODO exceptions
             assert self.subscription_list is not None
             if not self.is_once():
-                self.read_queue = Queue()
+                assert self.read_queue is not None
             event = None
             first_sample = True
             while True:
@@ -289,7 +289,7 @@ class GnmiServerAdapter(ABC):
     def get_inst(cls):
         """
         Get adapter instance
-        We use this, since we want to have adapter as singleton.
+        We use this, since we want to have some adapter variants as singleton.
         :return: adapter instance
         """
         pass
