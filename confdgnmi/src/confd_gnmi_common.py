@@ -2,7 +2,7 @@ import logging
 
 import gnmi_pb2
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 HOST = "localhost"
 PORT = 50061
 logging.basicConfig(
@@ -170,7 +170,7 @@ def get_data_type(datatype_str):
 
 def get_sub_mode(mode_str):
     mode_map = {
-        "ONCE":gnmi_pb2.SubscriptionList.ONCE,
+        "ONCE": gnmi_pb2.SubscriptionList.ONCE,
         "POLL": gnmi_pb2.SubscriptionList.POLL,
         "STREAM": gnmi_pb2.SubscriptionList.STREAM,
     }

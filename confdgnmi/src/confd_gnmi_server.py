@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
+import logging
 import optparse
 import threading
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
-from confd_gnmi_api_adapter import GnmiConfDApiServerAdapter
-from confd_gnmi_common import *
-from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
-from gnmi_pb2_grpc import *
+import grpc
+
+import gnmi_pb2
+from confd_gnmi_common import PORT, common_optparse_options, \
+    common_optparse_process, VERSION
+from gnmi_pb2_grpc import gNMIServicer, add_gNMIServicer_to_server
 
 log = logging.getLogger('confd_gnmi_server')
 
@@ -35,29 +38,21 @@ class ConfDgNMIServicer(gNMIServicer):
         log.debug("<= username=%s password=:-)", username)
         return username, password
 
-    def get_adapter(self):
-        log.debug("==> self.adapter_type=%s", self.adapter_type)
+    def get_and_connect_adapter(self, username, password):
+        log.debug("==> self.adapter_type=%s username=%s password=:-)",
+                  self.adapter_type, username)
         adapter = None
         if self.adapter_type == AdapterType.DEMO:
-            adapter = GnmiDemoServerAdapter.get_inst()
+            from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
+            adapter = GnmiDemoServerAdapter.get_adapter()
         elif self.adapter_type == AdapterType.API:
-            adapter = GnmiConfDApiServerAdapter.get_inst()
-        log.debug("<== adapter=%s", adapter)
-        return adapter
-
-    @staticmethod
-    def connect_adapter(adapter, username, password):
-        log.debug("==> adapter=%s username=%s password=:-)", adapter, username)
-        if isinstance(adapter, GnmiConfDApiServerAdapter):
+            from confd_gnmi_api_adapter import GnmiConfDApiServerAdapter
+            adapter = GnmiConfDApiServerAdapter.get_adapter()
             adapter.connect(addr=GnmiConfDApiServerAdapter.confd_addr,
                             port=GnmiConfDApiServerAdapter.confd_port,
                             username=username, password=password)
-        log.debug("<==")
-
-    @staticmethod
-    def disconnect_adapter(adapter):
-        if isinstance(adapter, GnmiConfDApiServerAdapter):
-            adapter.disconnect()
+        log.debug("<== adapter=%s", adapter)
+        return adapter
 
     def get_connected_adapter(self, context):
         """
@@ -69,8 +64,8 @@ class ConfDgNMIServicer(gNMIServicer):
         """
         log.debug("==>")
         (username, password) = self.extract_user_metadata(context)
-        adapter = self.get_adapter()
-        self.connect_adapter(adapter, username=username, password=password)
+        adapter = self.get_and_connect_adapter(username=username,
+                                               password=password)
         log.debug("<== adapter=%s", adapter)
         return adapter
 
@@ -102,7 +97,6 @@ class ConfDgNMIServicer(gNMIServicer):
         # context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         # context.set_details('Method not implemented!')
         # raise NotImplementedError('Method not implemented!')
-        self.disconnect_adapter(adapter)
         log.info("<== response=%s", response)
         return response
 
@@ -121,7 +115,6 @@ class ConfDgNMIServicer(gNMIServicer):
                                     request.type, request.use_models)
         response = gnmi_pb2.GetResponse(notification=notifications)
 
-        self.disconnect_adapter(adapter)
         log.info("<== response=%s", response)
         return response
 
@@ -143,7 +136,6 @@ class ConfDgNMIServicer(gNMIServicer):
 
         response = gnmi_pb2.SetResponse(prefix=request.prefix,
                                         response=response, timestamp=0)
-        self.disconnect_adapter(adapter)
 
         log.info("<== response=%s", response)
         return response
@@ -211,7 +203,6 @@ class ConfDgNMIServicer(gNMIServicer):
         if thr is not None:
             thr.join()
         log.info("")
-        self.disconnect_adapter(adapter)
         log.info("<==")
 
     @staticmethod
@@ -227,6 +218,8 @@ class ConfDgNMIServicer(gNMIServicer):
 
 
 if __name__ == '__main__':
+    from confd_gnmi_api_adapter import GnmiConfDApiServerAdapter
+
     parser = optparse.OptionParser(version="%prog {}".format(VERSION))
     parser.add_option("-t", "--type", action="store", dest="type",
                       help="gNMI server type  [api, netconf, demo]",
@@ -243,6 +236,14 @@ if __name__ == '__main__':
                       help="ConfD port (default is {})".format(
                           GnmiConfDApiServerAdapter.confd_port),
                       default=GnmiConfDApiServerAdapter.confd_port)
+    parser.add_option("--monitor-external-changes", action="store_true",
+                      dest="monitor_external_changes",
+                      help="start external changes service",
+                      default=GnmiConfDApiServerAdapter.monitor_external_changes)
+    parser.add_option("--external-port", action="store", dest="external_port",
+                      help="Port of external changes service (default is {})".format(
+                          GnmiConfDApiServerAdapter.external_port),
+                      default=GnmiConfDApiServerAdapter.external_port)
     parser.add_option("--cfg", action="store", dest="cfg",
                       help="config file")
     (opt, args) = parser.parse_args()
@@ -252,7 +253,9 @@ if __name__ == '__main__':
         adapter_type = AdapterType.API
         GnmiConfDApiServerAdapter.set_confd_debug_level(opt.confd_debug)
         GnmiConfDApiServerAdapter.set_confd_addr(opt.confd_addr)
-        GnmiConfDApiServerAdapter.set_confd_port(int(opt.confd_port))
+        GnmiConfDApiServerAdapter.set_external_port(int(opt.external_port))
+        GnmiConfDApiServerAdapter.set_monitor_external_changes(
+            bool(opt.monitor_external_changes))
     # elif opt.type == "netconf":
     #     adapter_type = AdapterType.NETCONF
     elif opt.type == "demo":
@@ -262,6 +265,8 @@ if __name__ == '__main__':
             with open(opt.cfg, "r") as cfg_file:
                 cfg = cfg_file.read()
             log.debug("cfg=%s", cfg)
+            from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
+
             GnmiDemoServerAdapter.load_config_string(cfg)
     else:
         log.warning("Unknown server type %s", opt.type)

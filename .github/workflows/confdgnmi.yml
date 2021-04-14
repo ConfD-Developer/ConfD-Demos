@@ -5,15 +5,19 @@ name: Confd gNMI Apdaper
 
 on:
   push:
-    branches: [ master confdgnmi confdgnmi-adapter]
+    branches:
+      - master
+      - confdgnmi
+      - confdgnmi-develop
   pull_request:
-    branches: [ master ]
-
+    branches:
+      - master
 jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    env:
+      CONFDGNMI_DIR: ./confdgnmi
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.9
@@ -23,14 +27,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest grpcio-tools
+          python -m pip install flake8 pytest grpcio-tools
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          #flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 ${CONFDGNMI_DIR}/src --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          #flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 ${CONFDGNMI_DIR}/src --exclude=gnmi_*pb2*.py --ignore=C901,F841 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Build gNMI stubs
+        run:
+          python -m grpc_tools.protoc -I${CONFDGNMI_DIR}/src/proto --python_out=${CONFDGNMI_DIR}/src --grpc_python_out=${CONFDGNMI_DIR}/src ${CONFDGNMI_DIR}/src/proto/gnmi.proto ${CONFDGNMI_DIR}/src/proto/gnmi_ext.proto
       - name: Test with pytest
-        run: |
-          PYTHONPATH=./confdgnmi/src:./confdgnmi/tests:${PYTHONPATH} pytest  -s -v -m "not confd" confdgnmi/tests
+        run:
+          PYTHONPATH=${CONFDGNMI_DIR}/src:${CONFDGNMI_DIR}/tests:${PYTHONPATH} pytest -s -v -m "not confd" ${CONFDGNMI_DIR}/tests/test_common.py ${CONFDGNMI_DIR}/tests/test_client_server_demo.py

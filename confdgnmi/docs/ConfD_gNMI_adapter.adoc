@@ -7,6 +7,7 @@
 
 ifdef::env-github[]
 //https://github.com/DBuret/journal/blob/master/github-adoc-puml.adoc
+//do not use dashes, underscores and any other special characters in names!
 :gitplant: http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/ConfD-Developer/ConfD-Demos/master/confdgnmi/docs
 :gitplant-develop: http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/micnovak/ConfD-Demos/confdgnmi-develop/confdgnmi/docs
 :caution-caption: :fire:
@@ -22,16 +23,18 @@ endif::[]
 :Author:    Michal Novák
 :email:     micnovak@cisco.com
 :URL:       https://www.tail-f.com/
-:Date:      2021-03-23
-:Revision:  0.1.0
+:Date:      2021-04-27
+:Revision:  0.2.0
 
 == Version history
 
 [options="header", cols="1s,10,^2s,2e"]
 |======
 | Document version     | Notes                                                  | Date        | Author
-| 0.0.1           | Initial document version                       | 2021-02-09      | {author} {email}
-| {revision}           | Run options updated, added seq. diagrams for Subscribe operation                      | {date}      | {author} {email}
+| 0.0.1           | Initial document version.                       | 2021-02-09      | {author} {email}
+| 0.1.0          | Run options updated, added seq. diagrams for Subscribe operation.                      |  2021-03-23     | {author} {email}
+| {revision}   | External data provider description, fixes, documentation update.                      | {date}      | {author} {email}
+
 |======
 
 toc::[]
@@ -48,17 +51,17 @@ https://www.tail-f.com/management-agent/[ConfD] is configuration management agen
 * CLI
 
 https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md[gNMI] is another popular north bound interface, which is not implemented by ConfD.
-In this demo project we will implement gNMI adapter over existing ConfD interfaces to make (at least partial) gNMI support.
+In this demo project we will implement gNMI Adapter over existing ConfD interfaces to make (at least partial) gNMI support.
 In the beginning, we will provide basic functionality, for most common operations, later on we will add more.
 This demo focuses on functionality and simplicity, we have chosen Python as implementation language.
 
-We try general approach, so the demo can be adapted for other tools as well.
+We use general approach, so the demo can be adapted for other management agents and tools as well.
 
 This demo is still work in progress, see <<Limitations and TODOs>> section.
 
 === Copy/Paste and Output blocks
 
-In this note you can find script and code examples, that can be directly pasted into shell or CLI terminal. We will use following block style for the copy/paste ready text:
+In this note you can find script and code examples, that can be directly pasted into the shell or CLI terminal. We will use following block style for the copy/paste ready text:
 
 [source,shell,role="acopy"]
 ----
@@ -88,6 +91,10 @@ Options:
                         ConfD IP address (default is 127.0.0.1)
   --confd-port=CONFD_PORT
                         ConfD port (default is 4565)
+  --monitor-external-changes
+                        start external changes service
+  --external-port=EXTERNAL_PORT
+                        Port of external changes service (default is 5055)
   --cfg=CFG             config file
 ----
 
@@ -95,7 +102,7 @@ Options:
 
 === Python3
 
-We expect https://www.python.org/[Python3] to be installed and `python` nad `pip` commands are from Python3 environment. If not, use `python3` or `pip3` instead (or use e.g. `sudo apt-get install python-is-python3`)
+We expect https://www.python.org/[Python3] to be installed. The `python` and `pip` commands are from Python3 environment. If not, use `python3` or `pip3` instead (or use e.g. `sudo apt-get install python-is-python3`)
 
 TIP: For package installation and development, you may consider creating https://docs.python.org/3/tutorial/venv.html[python virtual environment].
 
@@ -150,11 +157,13 @@ TIP: See https://info.tail-f.com/confd-evaluation-kick-start-guide[ConfD Kick St
 
 === Build environment
 
-We will use https://www.gnu.org/software/make/[GNU Make] for building and running the tests. It should be available in most Linux distributions (e.g. `apt-get install build-essential`).
+We will use https://www.gnu.org/software/make/[GNU Make] for building application and for running the tests. It should be available in most Linux distributions (e.g. `apt-get install build-essential`).
 
 === gNMI `proto` files
 
 We have downloaded gNMI `proto` files https://github.com/openconfig/gnmi/blob/master/proto/gnmi/gnmi.proto[`gnmi.proto`] and https://github.com/openconfig/gnmi/blob/master/proto/gnmi_ext/gnmi_ext.proto[`gnmi_ext.proto`] into `src/proto` directory.
+
+NOTE: In `gnmi.proto` we have updated `import "gnmi_ext.proto"`
 
 == gNMI overview
 
@@ -192,10 +201,10 @@ NOTE: There is a `Makefile` target `gnmi_proto` that performs this build.
 
 === ConfD datamodel binary files (`fxs`) and initial configuration
 
-The `Makefile` can build ConfD datamodel binary file (`fxs`) for
-https://tools.ietf.org/html/rfc8343[`ietf-interfaces.yang`] and its dependencies. It can also prepare some initial configuration (`interfaces.xml`). See `Makefile` target `all`.
+The `Makefile` can build ConfD datamodel binary files (`fxs`) (e.g. for
+https://tools.ietf.org/html/rfc8343[`ietf-interfaces.yang`] and its dependencies). It can also prepare some initial configuration (`interfaces.xml`). See `Makefile` target `all`.
 
-NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<Examples against `examples.confd/intro/5-c_stats`,`5-c_stats`>> and <<Examples against `examples.confd/cdb_subscription/iter_c`, `iter-c`>>.
+NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI Adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<Examples against `examples.confd/intro/5-c_stats`,`5-c_stats`>> and <<Examples against `examples.confd/cdb_subscription/iter_c`, `iter-c`>>.
 
 == Running gNMI Adapter demo
 
@@ -209,14 +218,14 @@ make clean all
 
 The adapter can be run in _demo_ and _api_ mode.
 
-In _demo_ mode it does not require running ConfD, it partly emulates `ietf-interfaces.yang` data model and initial configuration. This mode is useful for testing, development, etc.
+In the _demo_ mode it does not require running ConfD, it partly emulates `ietf-interfaces.yang` data model and initial configuration. This mode is useful for testing, development, etc.
 
 In case we want to run adapter against ConfD (_api_ mode), we can use `Makefile` `start` target to start ConfD with initial demo configuration.
 
-.start ConfD and load demo configuration
+.rebuild everything and start ConfD and load demo configuration
 [source, shell, role="acopy"]
 ----
-make clean all
+make stop clean all start
 ----
 
 === Server
@@ -245,16 +254,20 @@ Options:
                         ConfD IP address (default is 127.0.0.1)
   --confd-port=CONFD_PORT
                         ConfD port (default is 4565)
+  --monitor-external-changes
+                        start external changes service
+  --external-port=EXTERNAL_PORT
+                        Port of external changes service (default is 5055)
   --cfg=CFG             config file
 ----
 
 We can run server in demo mode type (pass `-t demo`) or in API (`maapi`) mode against ConfD (pass `-t api`). Other modes (like `netconf` are currently not supported). For `demo` mode type, it may be necessary to pass config file (e.g. for `STREAM` subscriptions, `--cfg=data/demo.xml)
 
-NOTE: Other parameters (e.g. port, host) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
+NOTE: Other parameters (e.g. gRPC port and host) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
 
 === Client
 
-Client is run with `./src/confd_gnmi_client.py` python script.
+Client is implemented by `./src/confd_gnmi_client.py` python script.
 
 .display gNMI client options
 [source, shell, role="acopy"]
@@ -300,7 +313,7 @@ NOTE: Other parameters (e.g. username, password, encoding) are currently hardcod
 
 ==== Examples
 
-===== Adapter examples
+===== gNMI Adapter examples
 
 .get capabilities
 [source, shell, role="acopy"]
@@ -353,13 +366,13 @@ NOTE: Other parameters (e.g. username, password, encoding) are currently hardcod
 .STREAM subscribe for `leaf` elements
 [source, shell, role="acopy"]
 ----
-/src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
 ----
 
 NOTE: Following subscribe examples use `ONCE` (default) subscription mode. It is possible to use `POLL` (with `--poll-count` and `--poll-interval`) and `STREAM` (with `--read-count`) mode as well.
 
 NOTE: To test `STREAM` subscriptions, one can use `confd_cmd`. +
-Examples for configuration data: +
+For configuration data: +
  +
 `confd_cmd -c "mset /interfaces/interface{if_8}/type gigabitEthernet"` +
  +
@@ -370,7 +383,7 @@ Examples for configuration data: +
 `confd_cmd -c "mset /interfaces/interface{if_7}/type gigabitEthernet; mset /interfaces/interface{if_8}/type gigabitEthernet;"`
  +
  +
-Examples for operational data: +
+For operational data: +
  +
 `confd_cmd -o -fr -c "set /interfaces-state/interface{state_if_8}/type fastEther"` +
  +
@@ -408,7 +421,7 @@ Examples for operational data: +
 ./src/confd_gnmi_client.py -o subscribe --path /interfaces-state/interface --path /interfaces/interface
 ----
 
-===== Examples against `examples.confd/intro/5-c_stats`
+===== Against running `examples.confd/intro/5-c_stats`
 
 .get values of state `list` (with prefix)
 [source, shell, role="acopy"]
@@ -428,15 +441,7 @@ Examples for operational data: +
 ./src/confd_gnmi_client.py -o subscribe --prefix /arpentries --path arpe
 ----
 
-===== Examples against `examples.confd/cdb_subscription/iter_c`
-
-
-.Start the example
-[source, shell, role="acopy"]
-----
-make clean all start
-----
-
+===== Against running `examples.confd/cdb_subscription/iter_c`
 
 .Set example initial configuration
 [source, shell, role="acopy"]
@@ -497,6 +502,109 @@ E.g.:  `./src/confd_gnmi_client.py -o set --path /root/node-b/rf-head[dn=10]/sec
 NOTE: Changes to configuration are also visible in the console of started example `examples.confd/cdb_subscription/iter_c` as it uses under ConfD subscriber. It is interesting to compare
 both type of subscriptions.
 
+[#ext_change]
+=== External ConfD data provider and monitoring of changes
+
+State (operational) data can be stored in the ConfD CDB, or they can be provided
+to ConfD by external application (called data provider).
+In the first case (data stored in the CDB) the ConfD can monitor itself the
+changes to the values and inform the gNMI Adapter server about subscription changes.
+In the second case (data provided by data provider) the ConfD cannot
+monitor changes. The data provider application has to provide such information.
+
+NOTE: New ConfD api provides data callback functions
+(PUSH ON-CHANGE CALLBACKS) that can be used by the data provider application
+to inform ConfD  about changes. Currently, these callback functions work
+only with NETCONF  YANG Push callbacks. They cannot be used with standard CDB Subscription.
+
+Since data provider application has all information about changes, it can inform
+the gNMI Adapter directly. We have added simple socket based protocol to the
+gNMI Adapter server. For implementation details see sub-section
+<<ext_change_impl, Monitoring of external changes>> inside <<Implementation>> section.
+
+NOTE: This functionality is implemented only for ConfD API adapter type (use `-t api` when starting the gNMI Adapter server).
+
+==== Examples of data provider and external monitoring usage
+
+With gNMI Adapter source code comes example implementation of
+a simple data provider (`route-status.yang` and `src/route_status.py`).
+
+The data provider provides data for `route-status.yang` data model and
+randomly generates changes.  Data provider is source of the data, not ConfD CDB.
+
+TIP: It's convenient to start following components in separate terminal shells.
+
+.Build project and start ConfD.
+[source, shell, role="acopy"]
+----
+make stop clean all start
+----
+
+.Start data provider
+[source, shell, role="acopy"]
+----
+./src/route_status.py
+----
+
+The data provider will be running for specific number of seconds (`RUN_FOR_TIME`),
+after that it will finish. By default, this value is large enough.
+
+TIP: In the beginning of the `route_status.py` source code you can adjust
+some parameters, like: `EXTERNAL_PORT`, `LOG_LEVEL`, `RUN_FOR_TIME`
+
+NOTE: The data provider tries to periodically connect to the external change server.
+Since this server is running (in the gNMI Adapter) only when there is a `STREAM`
+subscription request, you can see messages like `Cannot connect to the change server!`.
+This is normal.
+
+.Start gNMI Adapter server (with support for external monitoring)
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_server.py -t api --monitor-external-changes
+----
+
+.Get `route-status` (state) data
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o  get -t STATE --path /route-status
+----
+
+.Run POLL subscription over `route-status` (state) data
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe -s POLL --poll-count=2 -t STATE --path /route-status
+----
+
+.Run STREAM subscription over `route-status` (state) data
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=10 -t STATE --path /route-status
+----
+
+NOTE: At this moment you can see the data provider displays `Connected to the change server`
+and remains connect for the period of time the subscription is running (until `read_count` number of changes is received).
+
+Generated changes are displayed. They can be confirmed  in the gNMI Adapter client terminal.
+
+.[.small]_Data provider (log) output_
+[.output]
+----
+generate_changes  msg=mod
+/route-status[route=95rt1]/leaf1
+5
+mod
+/route-status[route=84rt8]/leaf1
+1
+----
+
+.[.small]_gNMI Adapter client output_
+[.output]
+----
+Updates:
+path: /route-status[route=95rt1]/leaf1 value string_val: "5"
+path: /route-status[route=84rt8]/leaf1 value string_val: "1"
+----
+
 == Implementation
 
 === Deployment and components
@@ -505,21 +613,21 @@ Following diagram shows deployment context of the
 gNMI Adapter.
 
 ifdef::env-github[]
-image::{gitplant}/deployment.puml[]
+image::{gitplant-develop}/deployment.puml[]
 endif::[]
 ifndef::env-github[]
 plantuml::deployment.puml[format="svg", align="center"]
 endif::[]
 
-* *gNMI Adapter server* - connects to ConfD and uses its northbound interfaces (currently only MAAPI) to provide gNMI functionality. We aim for design that could be adapted to other devices (not only ConfD) with known management interfaces, e.g. devices supporting NETCONF, RESTCONF or mixed interfaces.
+* *gNMI Adapter server* - connects to the ConfD and uses its northbound interfaces (currently only MAAPI) to provide gNMI functionality. We aim for design that could be adapted to other devices with known management interfaces (not only ConfD), e.g. devices supporting NETCONF, RESTCONF or mixed interfaces.
 * *gNMI Adapter client* - gNMI client developed in this project for testing and presentation of the functionality
 
-=== gNMI adapter server sub-components
+=== gNMI Adapter server sub-components
 
-Following class/component diagram shows main structure of the gNMI adapter server
+Following class/component diagram shows main structure of the gNMI Adapter server
 
 ifdef::env-github[]
-image::{gitplant-develop}/component.puml[]
+image::{gitplant}/component.puml[]
 endif::[]
 ifndef::env-github[]
 plantuml::component.puml[format="svg", align="center"]
@@ -540,25 +648,33 @@ endif::[]
 * GnmiDemoServerAdapter - adapter using demo data (for testing, development, presentation)
 ** GnmiDemoServerAdapter.SubscriptionHandler
 
-=== gNMI Operations
+NOTE: It's important to distinguish between *gNMI Adapter* (name of the project) and individual adapter components/sub-classes which have also *Adapter* word in a name (e.g. `GnmiServerAdapter`, `GnmiConfDApiServerAdapter`, `GnmiConfDApiServerAdapter`).
 
-==== Capabilities
+=== Capabilities
 
 `rpc Capabilities(CapabilityRequest) returns (CapabilityResponse);`
 
 `Capability` returns list of `supported_models` and list of `encodings`.
-It can also return list of gNMI extensions.
+
 
 Each model has following attributes:
 
 `name` (string), `organization` (string), `version`
 
-===== Implementation
+NOTE: The `Capability` message does not return full data model information
+(e.g. full YANG file). In this way this operation may seem to be limited
+(compared to NETCONF), especially in case the datamodel is not fully known
+to the client. gNMI Extension may be used to fix this, but this would
+implementation specific (as the gNMI Extension would not be https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-extensions.md#well-known-and-registered-extensions[well-known extension]).
+
+
+
+==== ConfD API Implementation
 
 Capability information can be fetched from `"/ncm:netconf-state/ncm:capabilities/ncm:capability"`
 datamodel, found in the `ietf-netconf-monitoring.yang`.
 
-==== Get
+=== Get
 
 `rpc Get(GetRequest) returns (GetResponse);`
 
@@ -568,11 +684,11 @@ list of models to be used (`use_models`)
 
 Get in response list of `notifications`.
 
-===== Implementation
+==== ConfD API Implementation
 
 `maapi_save_config`  - can be used, get subtree as XML, parse XML and create response. Operational data is supported (` MAAPI_CONFIG_WITH_OPER`).
 
-===== TODO
+==== Get TODO
 
 * the `notification` contains list of updated paths with values and deleted paths.
 What should be returned? We return only `updated` paths.
@@ -586,7 +702,7 @@ we have to find out, which elements are keys and add them to the Path(s).
 
 * what value type should be for empty or presence container ??? (bool ???)
 
-==== Set
+=== Set
 
 `rpc Set(SetRequest) returns (SetResponse);`
 
@@ -595,20 +711,20 @@ be replaced (`replace`) and list of paths and values to be updated (`update`).
 
 Get in response list of Paths and what was done for each path (`response`).
 
-Each gNMI `Set` call should be treated as transaction.
+Each gNMI `Set` call should be treated as one transaction.
 
-===== Implementation
+==== ConfD API Implementation
 
 We can use `MAAPI` operations, like `set_elem`.
 
-===== TODO:
+==== Set TODO:
 
 * difference between replace and update.  -> gnNMI specification 3.4.4.
 * should `replace` be supported?
 * currently, only `leaf` elements are supported
 * `delete` not supported
 
-==== Subscribe
+=== Subscribe
 
 `rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse);`
 
@@ -633,55 +749,98 @@ Only updated values are sent:
 
 There are many combinations how subscription response should behave.
 More description is in
-https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#35-subscribing-to-telemetry-updates
+https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#35-subscribing-to-telemetry-updates.
 
-===== Implementation
+==== ConfD API Implementation
 
 For `ONCE`, `POLL` and first `STREAM` response, the implementation from <<Get,`Get`>> is reused.
-Changes for `STREAM` subscription are collected as they occur and are sent as response.
+Changes for `STREAM` subscription are collected as they occur and are sent as response. We use ConfD CDB Subscriber mechanism for this. For operational data not stored in the
+CDB we can use external change protocol, that was added to `GnmiConfDApiServerAdapter` (see <<ext_change_impl,later>>).
 
 Current implementation can be described with help of following diagrams.
 
-====== ONCE Subscription diagram
+===== ONCE Subscription diagram
 
 ifdef::env-github[]
-image::{gitplant-develop}/subscribe_once.puml[]
+image::{gitplant-develop}/subscribeonce.puml[]
 endif::[]
 ifndef::env-github[]
-plantuml::subscribe_once.puml[format="svg", align="center"]
+plantuml::subscribeonce.puml[format="svg", align="center"]
 endif::[]
 
-
-====== POLL Subscription diagram
+===== POLL Subscription diagram
 
 ifdef::env-github[]
-image::{gitplant-develop}/subscribe_poll.puml[]
+image::{gitplant-develop}/subscribepoll.puml[]
 endif::[]
 ifndef::env-github[]
-plantuml::subscribe_poll.puml[format="svg", align="center"]
+plantuml::subscribepoll.puml[format="svg", align="center"]
 endif::[]
 
-====== STREAM Subscription diagram
+===== STREAM Subscription diagram
 
 ifdef::env-github[]
-image::{gitplant-develop}/subscribe_stream.puml[]
+image::{gitplant-develop}/subscribestream.puml[]
 endif::[]
 ifndef::env-github[]
-plantuml::subscribe_stream.puml[format="svg", align="center"]
+plantuml::subscribestream.puml[format="svg", align="center"]
 endif::[]
 
 
-===== TODO
+[#ext_change_impl]
+=== Monitoring of external changes
 
-* see <<Get, Get TODO>>
-* several subscription parameters are not supported, see <<Limitations and TODOs>>.
+As described in the section <<ext_change,External ConfD data provider and monitoring of changes>>, the gNMI Adapter server can receive information about changes from the other source than ConfD. For this we start the gNMI Adapter server with `--monitor-external-changes` option.
+
+NOTE: Currently, this functionality is implemented only in ConfD API Adapter subcomponent
+(`-t api`).
+
+In this case, the ConfD API component (GnmiConfDApiServerAdapter`) of the gNMI Adapter server listens not only for ConfD events, but also for events on standard TCP socket (opened on port passed in `--external-port` option - default 5055).
+
+==== Socket protocol for external changes
+
+Application (data provider) should send changes to the opened external change socket in form of simple protocol.
+
+The byte string stream (in Python decodes it to string) contains words
+ separated with `\n`  Each three words represent change information
+triple - operation, xpath, value.
+
+E.g.:
+
+.[.small]_String send as external change_
+[.output]
+----
+mod\n/route-status[route=61rt2]/leaf1\n9\nmod\n/route-status[route=45rt1]/leaf1\n6\n
+----
+
+represents following two changes (tripples)
+
+[options="header", cols="^2,^7,^2"]
+|======
+| Op. | xpath  | value
+| mod | `/route-status[route=61rt2]/leaf1`  | 9
+| mod | `/route-status[route=45rt1]/leaf1`  | 6
+|======
+
+NOTE: Currently, only supported operation value is `mod` - modified
+
+The sequence diagram for STREAM subscription with external changes:
+
+ifdef::env-github[]
+image::{gitplant-develop}/subscribedpstream.puml[]
+endif::[]
+ifndef::env-github[]
+plantuml::subscribedpstream.puml[format="svg", align="center"]
+endif::[]
 
 === Automated tests
 
-`pytest` tests are found in `tests` directory.
+`pytest` tests are found in the `tests` directory.
 
 Currently, there are only few unit tests and gRPC tests (testing gNMI operations
 via gRPC in single process).
+
+NOTE: All gRPC API tests require ConfD running (`make start`)
 
 TIP: See `tests/pytest.ini` for available pytest markers.
 
@@ -723,17 +882,6 @@ Examples:
 
 TIP: To list-only tests, use  `./test.sh --collect-only -q  tests/`
 
-
-==== Unit tests
-
-==== gRPC tests
-
-NOTE: All gRPC API tests require ConfD running (`make start`)
-
-==== Integration tests
-
-_Not yet implemented_.
-
 === Limitations and TODOs
 
 The implementation of the adapter (still in early phase) is demo reference implementation that shows how to add gNMI support to existing ConfD interfaces.
@@ -764,10 +912,11 @@ This not all gNMI functionality are currently supported. They may be added in th
 * add more command line options to client
 * converting XPath to ConfD formatted path/keypath and back is simple string manipulation - cannot handle complex keys (`cs_nodes` have to be used)
 * TODO: Pass yang file content as extension in `Capabilities` call?
+* `-t STATE` type is not reflected in subscriptions
 
 == Conclusion
 
-gNMI Adapter Demo can provide initial gNMI functionality.
+gNMI Adapter Demo can provide initial gNMI functionality to ConfD.
 
 == References
 

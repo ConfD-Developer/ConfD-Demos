@@ -1,3 +1,4 @@
+import logging
 import random
 import threading
 import xml.etree.ElementTree as ET
@@ -5,8 +6,9 @@ from enum import Enum
 from queue import Queue, Empty
 from random import randint
 
+import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
-from confd_gnmi_common import *
+from confd_gnmi_common import make_xpath_path, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_demo_adapter')
 
@@ -66,7 +68,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                   GnmiDemoServerAdapter.config)
 
     @classmethod
-    def get_inst(cls):
+    def get_adapter(cls):
         if cls._instance is None:
             cls._instance = GnmiDemoServerAdapter()
         return cls._instance
@@ -83,7 +85,8 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                 self.demo_db["{}/name".format(path)] = if_name
                 self.demo_state_db["{}/name".format(state_path)] = state_if_name
                 self.demo_db["{}/type".format(path)] = "gigabitEthernet"
-                self.demo_state_db["{}/type".format(state_path)] = "gigabitEthernet"
+                self.demo_state_db[
+                    "{}/type".format(state_path)] = "gigabitEthernet"
         log.debug("<== self.demo_db=%s self.demo_state_db=%s", self.demo_db,
                   self.demo_state_db)
 
@@ -203,39 +206,37 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                     log.debug("event=%s", event)
                     if event == self.ChangeEvent.ADD:
                         # generate modifications and add them
-                        with self.change_db_lock:
-                            with self.adapter.db_lock:
-                                if "changes" in GnmiDemoServerAdapter.config:
-                                    changes = self._get_config_changes()
+                        with self.change_db_lock, self.adapter.db_lock:
+                            if "changes" in GnmiDemoServerAdapter.config:
+                                changes = self._get_config_changes()
+                            else:
+                                changes = self._get_random_changes()
+                            send = False
+                            for c in changes:
+                                log.debug("processing change c=%s", c)
+                                if isinstance(c, str):
+                                    assert c == "send" or c == "break"
+                                    if c == "send":
+                                        send = True
+                                    break
                                 else:
-                                    changes = self._get_random_changes()
-                                send = False
-                                for c in changes:
-                                    log.debug("processing change c=%s", c)
-                                    if isinstance(c, str):
-                                        assert c == "send" or c == "break"
-                                        if c == "send":
-                                            send = True
-                                        break
-                                    else:
-                                        log.info("c=%s self.monitored_paths=%s",
-                                                 c, self.monitored_paths)
-                                        if any(c[0].startswith(elem) for elem in
-                                               self.monitored_paths):
-                                            log.info("appending c=%s", c)
-                                            self.change_db.append(c)
-                                            if c[0] in self.adapter.demo_db:
-                                                self.adapter.demo_db[c[0]] = c[
-                                                    1]
-                                            elif c[
-                                                0] in self.adapter.demo_state_db:
-                                                self.adapter.demo_state_db[
-                                                    c[0]] = c[1]
-                                            else:
-                                                assert False
+                                    log.info("c=%s self.monitored_paths=%s",
+                                             c, self.monitored_paths)
+                                    if any(c[0].startswith(elem) for elem in
+                                           self.monitored_paths):
+                                        log.info("appending c=%s", c)
+                                        self.change_db.append(c)
+                                        if c[0] in self.adapter.demo_db:
+                                            self.adapter.demo_db[c[0]] = c[1]
+                                        elif c[0] in self.adapter.demo_state_db:
+                                            self.adapter.demo_state_db[
+                                                c[0]] = c[1]
+                                        else:
+                                            assert False
                         if send:
                             if len(self.change_db):
-                                self.change_event_queue.put(self.ChangeEvent.SEND)
+                                self.change_event_queue.put(
+                                    self.ChangeEvent.SEND)
                     elif event == self.ChangeEvent.SEND:
                         # send all modified paths
                         self.put_event(self.SubscriptionEvent.SEND_CHANGES)
@@ -277,14 +278,18 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
 
         def stop_monitoring(self):
             log.debug("==>")
-            assert self.change_thread is not None
-            log.debug("** stopping change_thread")
-            self.change_event_queue.put(self.ChangeEvent.FINISH)
-            self.change_thread.join()
-            log.debug("** change_thread joined")
-            assert self.change_event_queue.empty()
-            self.change_thread = None
-            self.change_event_queue = None
+            # if there is an error during fetch of first subs. sample,
+            # we do not start change thread
+            if self.change_thread is None:
+                log.warning("Cannot stop change thread! Not started?")
+            else:
+                log.debug("** stopping change_thread")
+                self.change_event_queue.put(self.ChangeEvent.FINISH)
+                self.change_thread.join()
+                log.debug("** change_thread joined")
+                assert self.change_event_queue.empty()
+                self.change_thread = None
+                self.change_event_queue = None
             self.monitored_paths = []
             log.debug("<==")
 

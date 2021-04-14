@@ -6,7 +6,8 @@ logging.basicConfig(
     format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s  %(message)s',
     level=logging.DEBUG)
 log = logging.getLogger('pytest')
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
+
 
 def nodeid_to_path(nodeid):
     log.debug("==> nodeid_to_path nodeid=%s" % nodeid)
@@ -16,5 +17,3 @@ def nodeid_to_path(nodeid):
     nodeid = nodeid.replace("/", "_")
     log.debug("<== nodeid_to_path nodeid=%s" % nodeid)
     return nodeid
-
-
