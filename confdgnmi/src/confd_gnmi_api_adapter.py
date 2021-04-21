@@ -1,11 +1,13 @@
+import os
+import select
 import sys
+import threading
 import xml.etree.ElementTree as ET
 from socket import socket
 
 import _confd
-# TODO replace maapi_low with high level MAAPI
-from _confd import maapi as maapi_low
 from confd import maapi, maagic
+from confd.cdb import cdb
 
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_common import *
@@ -23,7 +25,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         self.port: int = 0
         self.username: str = ""
         self.password: str = ""
-        self.maapisock = None
         self.mp_inst = None
 
     # call only once!
@@ -59,32 +60,182 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
     class SubscriptionHandler(GnmiServerAdapter.SubscriptionHandler):
 
-        def make_subscription_response(self) -> gnmi_pb2.SubscribeResponse:
-            log.debug("==>")
-            assert self.subscription_list != None
-            # for now we only process GET type (fetch and return everything)
-            assert self.subscription_stream_event_type == self.SubscriptionStreamEventType.GET
+        def __init__(self, adapter, subscription_list):
+            super().__init__(adapter, subscription_list)
+            # TODO reuse with demo adapter?
+            self.monitored_paths = []
+            self.change_db = []
+            self.change_db_lock = threading.Lock()
+            self.change_thread = None
+            self.stop_pipe = None
 
+        def get_monitored_changes(self) -> []:
+            # TODO reuse with demo adapter ?
+            with self.change_db_lock:
+                log.debug("==> self.change_db=%s", self.change_db)
+                assert len(self.change_db) > 0
+                update = []
+                for c in self.change_db:
+                    prefix_str = make_xpath_path(
+                        gnmi_prefix=self.subscription_list.prefix)
+                    p = c[0]
+                    if c[0].startswith(prefix_str):
+                        p = c[0][len(prefix_str):]
+                    update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
+                                                  val=gnmi_pb2.TypedValue(
+                                                      string_val=c[1])))
+                self.change_db = []
+            log.debug("<== update=%s", update)
+            return update
+
+        def get_sample(self, path, prefix,
+                       start_change_processing=False):
             update = []
-            for s in self.subscription_list.subscription:
-                update.extend(self.adapter.get_updates_with_maapi_save(s.path,
-                                                                       self.subscription_list.prefix,
-                                                                       gnmi_pb2.GetRequest.DataType.ALL))
-            # TODO delete
-            delete = []
-            notif = gnmi_pb2.Notification(timestamp=0,
-                                          prefix=self.subscription_list.prefix,
-                                          alias="/alias", update=update,
-                                          delete=delete,
-                                          atomic=False)
+            log.debug("==>")
+            update.extend(self.adapter.get_updates_with_maapi_save(path,
+                                                                   prefix,
+                                                                   gnmi_pb2.GetRequest.DataType.ALL))
+            log.debug("<== update=%s", update)
+            return update
 
-            response = gnmi_pb2.SubscribeResponse(update=notif)
-            log.debug("<== response=%s", response)
-            return response
+        def add_path_for_monitoring(self, path, prefix):
+            log.debug("==>")
+            path_with_prefix_str = make_formatted_path(path, prefix)
+            self.monitored_paths.append(path_with_prefix_str)
+            log.debug("<==")
 
-    def get_subscription_handler(self) -> SubscriptionHandler:
+        def kp_to_xpath(self, kp):
+            log.debug("==> kp=%s", kp)
+            xpath = _confd.xpath_pp_kpath(kp)
+            xpath = xpath.replace('"', '')
+            # for now, remove possible prefix
+            # (TODO for now handled only prefix in first elem)
+            starts_slash = xpath.startswith('/')
+            xplist = xpath.split(':', 1)
+            if len(xplist) == 2:
+                xpath = xplist[1]
+                if starts_slash:
+                    xpath = '/' + xpath
+            log.debug("<== xpath=%s", xpath)
+            return xpath
+
+        def process_subscription(self, sub_sock, sub_point):
+            log.debug("==>")
+
+            def iter(kp, op, oldv, newv, state):
+                log.debug("==> kp=%s, op=%r, oldv=%s, newv=%s, state=%r", kp,
+                          op, oldv, newv, state)
+                if op == _confd.MOP_CREATED:
+                    log.debug("_confd.MOP_CREATED")
+                    # TODO CREATE not handled for now
+                if op == _confd.MOP_VALUE_SET:
+                    log.debug("_confd.MOP_VALUE_SET")
+                    with self.change_db_lock:
+                        xpath = self.kp_to_xpath(kp)
+                        self.change_db.append((xpath, str(newv)))
+                    # TODO MOP_VALUE_SET implement
+                elif op == _confd.MOP_DELETED:
+                    log.debug("_confd.MOP_DELETED")
+                    # TODO DELETE not handled for now
+                elif op == _confd.MOP_MODIFIED:
+                    log.debug("_confd.MOP_MODIFIED")
+                    # TODO MODIFIED not handled for now
+                else:
+                    log.warning(
+                        "Operation op=%d is not expected, kp=%s. Skipping!"
+                        , op, kp)
+                return _confd.ITER_RECURSE
+
+            cdb.diff_iterate(sub_sock, sub_point, iter, 0, None)
+            self.put_event(self.SubscriptionEvent.SEND_CHANGES)
+            log.debug("self.change_db=%s", self.change_db)
+            log.debug("<==")
+
+        def process_changes(self):
+            log.debug("==>")
+            # make subscription for all self.monitored_paths
+            with socket() as sub_sock:
+                prio = 10
+                cdb.connect(sub_sock, cdb.SUBSCRIPTION_SOCKET, '127.0.0.1',
+                            _confd.CONFD_PORT)
+                for p in self.monitored_paths:
+                    log.debug("subscribing config p=%s", p)
+                    # TODO hash - breaks generic usage
+                    # TODO for now we subscribe path for both, config and oper,
+                    # TODO subscribe only for paths that exist
+                    # it may be more efficient to find out type of path and subscribe
+                    # only for one type
+                    cdb.subscribe2(sub_sock, cdb.SUB_RUNNING, 0, prio,
+                                   0, p)
+                    log.debug("subscribing operational p=%s", p)
+                    cdb.subscribe2(sub_sock, cdb.SUB_OPERATIONAL, 0, prio,
+                                   0, p)
+                cdb.subscribe_done(sub_sock)
+                log.debug("subscribe_done")
+                assert self.stop_pipe is not None
+                rlist = [sub_sock, self.stop_pipe[0]]
+                wlist = elist = []
+                try:
+                    while True:
+                        log.debug("rlist=%s", rlist)
+                        r, w, e = select.select(rlist, wlist, elist)
+                        log.debug("r=%s", r)
+                        if self.stop_pipe[0] in r:
+                            v = os.read(self.stop_pipe[0], 1)
+                            assert v == b'x'
+                            log.debug("Stopping ConfD loop")
+                            break
+                        if sub_sock in r:
+                            try:
+                                sub_info = cdb.read_subscription_socket2(sub_sock)
+                                for s in sub_info[2]:
+                                    self.process_subscription(sub_sock, s)
+                                cdb.sync_subscription_socket(sub_sock,
+                                                             cdb.DONE_PRIORITY)
+                            except _confd.error.Error as e:
+                                # Callback error
+                                if e.confd_errno is _confd.ERR_EXTERNAL:
+                                    log.exception(e)
+                                else:
+                                    raise e
+
+                except Exception as e:
+                    log.exception(e)
+
+            log.debug("<==")
+
+        def start_monitoring(self):
+            log.debug("==>")
+            assert self.change_thread is None
+            assert self.stop_pipe is None
+            log.debug("** creating change_thread")
+            self.stop_pipe = os.pipe()
+            self.change_thread = threading.Thread(target=self.process_changes)
+            log.debug("** starting change_thread")
+            self.change_thread.start()
+            log.debug("** change_thread started")
+            log.debug("<==")
+
+        def stop_monitoring(self):
+            log.debug("==>")
+            assert self.change_thread is not None
+            assert self.stop_pipe is not None
+            log.debug("** stopping change_thread")
+            # https://stackoverflow.com/a/4661284
+            os.write(self.stop_pipe[1], b'x')
+            self.change_thread.join()
+            log.debug("** change_thread joined")
+            self.change_thread = None
+            os.close(self.stop_pipe[0])
+            os.close(self.stop_pipe[1])
+            self.stop_pipe = None
+            self.monitored_paths = []
+            log.debug("<==")
+
+    def get_subscription_handler(self,
+                                 subscription_list) -> SubscriptionHandler:
         log.debug("==>")
-        handler = self.SubscriptionHandler(self)
+        handler = self.SubscriptionHandler(self, subscription_list)
         log.debug("<== handler=%s", handler)
         return handler
 
@@ -103,16 +254,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         # TODO parallel processing
         self.username = username
         self.password = password
-        self.maapisock = socket()
-        maapi_low.connect(sock=self.maapisock, ip=self.addr, port=self.port)
-        maapi_low.load_schemas(self.maapisock)
         log.info(
             "<==  self.addr=%s self.port=%i self.username=%s self.password=:-)",
             self.addr, self.port, self.username)
 
     def disconnect(self):
         log.info("==>")
-        self.maapisock.close()
         log.info("<==")
 
     # https://tools.ietf.org/html/rfc6022#page-8
@@ -173,25 +320,23 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             with maapi.single_read_trans(self.username, context, groups,
                                          src_ip=self.addr) as t:
                 save_id = t.save_config(save_flags, path_str)
-                save_sock = socket()
-                _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
-                                      ip=self.addr, port=self.port)
-
-                # based on
-                # https://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
-                fragments = []
-                max_msg_size = 1024
-                while True:
-                    chunk = save_sock.recv(max_msg_size)
-                    if not chunk:
-                        break
-                    fragments.append(chunk)
-                save_str = b''.join(fragments)
-                log.debug("save_str=%s", save_str)
-                save_result = t.maapi.save_config_result(save_id)
-                log.debug("save_result=%s", save_result)
-                assert save_result == 0
-                save_sock.close()
+                with socket() as save_sock:
+                    _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
+                                          ip=self.addr, port=self.port)
+                    # based on
+                    # https://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
+                    fragments = []
+                    max_msg_size = 1024
+                    while True:
+                        chunk = save_sock.recv(max_msg_size)
+                        if not chunk:
+                            break
+                        fragments.append(chunk)
+                    save_str = b''.join(fragments)
+                    log.debug("save_str=%s", save_str)
+                    save_result = t.maapi.save_config_result(save_id)
+                    log.debug("save_result=%s", save_result)
+                    assert save_result == 0
         except Exception as e:
             log.exception(e)
 
@@ -199,7 +344,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         return save_str
 
     def get_xml_paths(self, elem, orig_path_str, parent_path_cand=""):
-        log.debug("==> elem=%s", elem)
+        log.debug("==> elem=%s orig_path_str=%s parent_path_cand=%s", elem,
+                  orig_path_str, parent_path_cand)
         path_vals = []
         # skip top level 'config' element
         if not (parent_path_cand == "" and
@@ -212,13 +358,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             # in this way we can detect some (non list) paths incorrectly, we try to fix
             # by comparing original path
             if len(elem) > 1:
-                if elem[0].text != None:
+                if elem[0].text is not None:
                     parent_path_cand2 = parent_path_cand + "[{}={}]".format(
-                        elem[0].tag.split("}")[-1],
-                        elem[0].text)
+                        elem[0].tag.split("}")[-1], elem[0].text)
                     if parent_path_cand2.startswith(
                             orig_path_str) or orig_path_str.startswith(
-                            parent_path_cand2):
+                        parent_path_cand2):
                         parent_path_cand = parent_path_cand2
 
             for e in elem:
@@ -227,13 +372,13 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         else:
             # check if this is path for exact key
             keypath_cand = None
-            if elem.text != None:
+            if elem.text is not None:
                 val = elem.text.split(":")[-1]
                 path_list = parent_path_cand.split('/')
                 if len(path_list) >= 2:
                     keypath_cand = "/".join(path_list[:-1]) + "[{}={}]".format(
                         path_list[-1], val) + "/" + path_list[-1]
-                if keypath_cand != None and orig_path_str == keypath_cand:
+                if keypath_cand is not None and orig_path_str == keypath_cand:
                     path = keypath_cand
                     parent_path_cand = path
                 else:
@@ -281,11 +426,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
     def get(self, prefix, paths, data_type, use_models):
         log.info("==> prefix=%s, paths=%s, data_type=%s, use_models=%s",
-                 prefix, paths, data_type, use_models);
+                 prefix, paths, data_type, use_models)
         notifications = []
         update = []
         for path in paths:
-            update.extend(self.get_updates_with_maapi_save(path, prefix, data_type))
+            update.extend(
+                self.get_updates_with_maapi_save(path, prefix, data_type))
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
                                       update=update,
                                       delete=[],
@@ -295,10 +441,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         return notifications
 
     def set(self, prefix, path, val):
-        log.info("==> prefix=%s, path=%s, val=%s",
-                 prefix, path, val);
+        log.info("==> prefix=%s, path=%s, val=%s", prefix, path, val)
         path_str = make_formatted_path(path, prefix)
-        op = gnmi_pb2.UpdateResult.INVALID
         context = "maapi"
         groups = [self.username]
         if hasattr(val, "string_val"):

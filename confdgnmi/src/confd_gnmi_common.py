@@ -2,11 +2,11 @@ import logging
 
 import gnmi_pb2
 
-VERSION = "0.0.2"
+VERSION = "0.1.0"
 HOST = "localhost"
 PORT = 50061
 logging.basicConfig(
-    format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s',
+    format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s [%(threadName)s]',
     level=logging.WARNING)
 log = logging.getLogger('confd_gnmi_common')
 
@@ -29,6 +29,10 @@ def common_optparse_process(opt, log):
         level = logging.DEBUG
     else:
         log.warning("Unknown logging level %s", opt.logging)
+    set_logging_level(level)
+
+
+def set_logging_level(level):
     if level is not None:
         # Thanks https://stackoverflow.com/a/53250066
         [logging.getLogger(name).setLevel(level) for name in
@@ -54,7 +58,7 @@ def make_name_keys(elem_string) -> (str, str):
                 key = k.replace("]", '').split('=')
                 keys[key[0]] = key[1]
     log.debug("<== name=%s keys=%s", name, keys)
-    return (name, keys)
+    return name, keys
 
 
 # Crate gNMI Path object from string representation of path
@@ -152,3 +156,22 @@ def make_formatted_path(gnmi_path, gnmi_prefix=None, quote_val=False) -> str:
 
     log.debug("<== path_str=%s", path_str)
     return path_str
+
+
+def get_data_type(datatype_str):
+    datatype_map = {
+        "ALL": gnmi_pb2.GetRequest.DataType.ALL,
+        "CONFIG": gnmi_pb2.GetRequest.DataType.CONFIG,
+        "STATE": gnmi_pb2.GetRequest.DataType.STATE,
+        "OPERATIONAL": gnmi_pb2.GetRequest.DataType.OPERATIONAL,
+    }
+    return datatype_map[datatype_str]
+
+
+def get_sub_mode(mode_str):
+    mode_map = {
+        "ONCE":gnmi_pb2.SubscriptionList.ONCE,
+        "POLL": gnmi_pb2.SubscriptionList.POLL,
+        "STREAM": gnmi_pb2.SubscriptionList.STREAM,
+    }
+    return mode_map[mode_str]

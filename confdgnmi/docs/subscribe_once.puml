@@ -1,0 +1,64 @@
+@startuml
+hide footbox
+autonumber
+title ONCE subscription
+skinparam BackgroundColor #FFFFFF-#EEEBDC
+skinparam SequenceParticipantBackgroundColor #FFFFFF-#DDEBDC
+skinparam DatabaseBackgroundColor #FFFFFF-#DDEBDC
+skinparam SequenceBoxFontStyle plain
+skinparam SequenceGroupFontStyle plain
+skinparam SequenceDividerFontStyle plain
+box "    gNMI Adapter client    " #FFEB99
+  participant client as " <size:20><&terminal></size> gNMI Client "
+  participant sub_read as "Subscription reader\nthread "
+end box
+box "    gNMI Adapter server     " #E6F3F8
+  participant server as " <size:20><&wrench></size> gNMI Server "
+  participant adapter as " <size:20><&list></size>  gNMI Adapter "
+  participant device_adapter as " <size:20><&list></size>  gNMI Device Adapter\n(ConfD Adapter) "
+end box
+box "    Device     " #FFEB99
+  participant device as " <size:20><&tablet></size> ConfD\n(device) "
+end box
+== Subscription ==
+[-> client : <size:24><&person></size> ""subscribe""
+activate client
+  note right of client : Subscription invoked. Request iterator (""SubscribeRequest"") is sent to the server, response iterator (""SubscribeResponse"") is returned to the client.
+  client -> server : Subscribe(stream SubscribeRequest)
+  activate server
+  server --> client : stream SubscribeResponse
+  note right of client : The client starts reading responses in dedicated thread (""read_subscribe_responses"").
+  client -> sub_read : start thread\n""read_subscribe_responses(responseIterator)""
+  activate sub_read
+  sub_read -> sub_read : iterate over responseIterator
+  activate sub_read
+    server -> server : subscription processing
+    activate server
+      note right of client : The server gets next element from ""SubscribeRequest"" stream (calls ""next(request_iterator)"").
+      server -> client : next SubscribeRequest\n(""generate_subscriptions"")
+      activate client
+      client --> server : ""yield SubscribeRequest"" item
+      deactivate client
+      note right of client : The client uses ""generate_subscriptions"" generator function to return next ""SubscribeRequest"" in the stream.
+      server -> adapter : read
+      activate adapter
+        note right of server : Get current sample (all values).
+        adapter -> device_adapter : get_sample
+        activate device_adapter
+          device_adapter <--> device
+        device_adapter --> adapter
+        deactivate device_adapter
+      adapter --> server : current sample
+      server --> sub_read : SubscribeResponse\n(returned in response stream)
+        sub_read -> sub_read : process response
+        activate sub_read
+        deactivate sub_read
+    deactivate server
+  deactivate sub_read
+  deactivate server
+  deactivate adapter
+  sub_read --> client : end response thread
+  deactivate sub_read
+[<-- client
+deactivate client
+@enduml

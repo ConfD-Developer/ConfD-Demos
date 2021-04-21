@@ -1,0 +1,113 @@
+class Subscriber {
+
+    static def subHead = { mode ->
+        UmlCommon.makeHeader(delegate, "${mode} subscription",
+                [skipList: [UmlCommon.user]])
+    }
+
+    enum SubMode {
+        ONCE, POLL, STREAM
+    }
+
+    static def subscrCl = { mode ->
+        divider "Subscription"
+        msgAd "[", to: UmlCommon.client, text: '<size:24><&person></size> ""subscribe""', {
+            note 'Subscription invoked. Request iterator (""SubscribeRequest"") is sent to the server, response iterator (""SubscribeResponse"") is returned to the client.', pos: "right of $UmlCommon.client"
+            msg UmlCommon.client, to: UmlCommon.server, text: "Subscribe(stream SubscribeRequest)", returnText: "stream SubscribeResponse", activate: true
+            note 'The client starts reading responses in dedicated thread (""read_subscribe_responses"").', pos: "right of $UmlCommon.client"
+            msg UmlCommon.client, to: UmlCommon.sub_read, text: 'start thread\\n""read_subscribe_responses(responseIterator)""', activate: true, noReturn: true
+            msgAd UmlCommon.sub_read, text: "iterate over responseIterator", {
+                msgAd UmlCommon.server, text: "subscription processing", {
+
+                    def yieldText = '""yield SubscribeRequest"" item'
+                    note 'The server gets next element from ""SubscribeRequest"" stream (calls ""next(request_iterator)"").', pos: "right of $UmlCommon.client"
+                    msgAd UmlCommon.server, to: UmlCommon.client, text: 'next SubscribeRequest\\n(""generate_subscriptions"")', returnText: yieldText
+                    note 'The client uses ""generate_subscriptions"" generator function to return next ""SubscribeRequest"" in the stream.', pos: "right of $UmlCommon.client"
+                    msg UmlCommon.server, to: UmlCommon.adapter, text: "read", activate: true, returnText: "current sample", {
+                        note 'Get current sample (all values).', pos: "right of $UmlCommon.server"
+                        msgAd UmlCommon.adapter, to: UmlCommon.device_adapter, text: "get_sample", {
+                            msg UmlCommon.device_adapter, to: UmlCommon.device, noReturn: true, type: UmlCommon.arrowBi
+                        }
+                        if (mode == SubMode.STREAM) {
+                            msg  UmlCommon.adapter, to: UmlCommon.device_adapter, text: "start_monitoring", activate: true
+                            msg UmlCommon.device_adapter, text: "monitoring thread", activate: true
+                        }
+                    }
+                    def response = {
+                        msg UmlCommon.server, to: UmlCommon.sub_read, text: 'SubscribeResponse\\n(returned in response stream)', activate: false, noReturn: true, type: UmlCommon.arrowReturn, {
+                            msgAd UmlCommon.sub_read, text: "process response"
+                        }
+                    }
+                    delegate << response
+
+                    if (mode == SubMode.POLL) {
+                        loop '""poll_count"" times', {
+                            yieldText = '""yield SubscribeRequest"" item with ""poll"" element'
+                            note 'The server gets next element from ""SubscribeRequest"" stream (calls ""next(request_iterator)"").', pos: "right of $UmlCommon.client"
+                            msgAd UmlCommon.server, to: UmlCommon.client, text: 'next SubscribeRequest\\n(""generate_subscriptions"")', returnText: yieldText
+                            note 'When ""poll"" request comes, get current values and return them in response stream.', pos: "right of $UmlCommon.server"
+                            msg UmlCommon.server, to: UmlCommon.adapter, text: "poll", type: UmlCommon.arrowReturn, noReturn: true
+                            msgAd UmlCommon.adapter, to: UmlCommon.device_adapter, text: "get_sample", {
+                                msg UmlCommon.device_adapter, to: UmlCommon.device, noReturn: true, type: UmlCommon.arrowBi
+                            }
+                            msg UmlCommon.adapter, to: UmlCommon.server, text: "current (poll) sample", type: UmlCommon.arrowReturn, noReturn: true
+                            delegate << response
+                        }
+                    }
+
+                    if (mode == SubMode.STREAM) {
+                        loop '""read_count - 1 "" times', {
+                            note 'Send message that changes are available.', pos: "left of $UmlCommon.device_adapter"
+                            msg UmlCommon.device_adapter, to: UmlCommon.adapter, text: "SEND_CHANGES", type: UmlCommon.arrowReturn, noReturn: true
+                            note 'get changes', pos: "right of $UmlCommon.adapter"
+                            msgAd UmlCommon.adapter, to: UmlCommon.device_adapter, text: "get_monitored_changes"
+                            msg UmlCommon.adapter, to: UmlCommon.server, text: "current changes", type: UmlCommon.arrowReturn, noReturn: true
+                            note 'return changes in the response stream', pos: "right of $UmlCommon.server"
+                            delegate << response
+                        }
+                    }
+                }
+            }
+            deactivate UmlCommon.server
+            if (mode == SubMode.POLL || mode == SubMode.STREAM) {
+                note 'Client or Servewr stops Request/Response stream.', pos: "right of $UmlCommon.server"
+                msgAd UmlCommon.sub_read, to: UmlCommon.server, type: UmlCommon.arrowReturn, text: 'reading ended\\n(""subscribe_rpc_done"")', {
+                    msgAd UmlCommon.server, to: UmlCommon.adapter, text: "stop", {
+                        if (mode == SubMode.STREAM) {
+                            msgAd UmlCommon.adapter, to: UmlCommon.device_adapter, text: "stop_monitoring"
+                        }
+                    }
+
+                }
+                deactivate UmlCommon.device_adapter
+                deactivate UmlCommon.device_adapter
+            }
+            deactivate UmlCommon.adapter
+            msg UmlCommon.sub_read, to: UmlCommon.client, type: UmlCommon.arrowReturn, text: "end response thread", noReturn: true
+            deactivate UmlCommon.sub_read
+        }
+    }
+
+    static def makeSubscriberOnceSeq(builder) {
+        builder.plantuml {
+            delegate << subHead.curry(SubMode.ONCE)
+            delegate << subscrCl.curry(SubMode.ONCE)
+        }
+    }
+
+    static def makeSubscriberPollSeq(builder) {
+        builder.plantuml {
+            delegate << subHead.curry(SubMode.POLL)
+            delegate << subscrCl.curry(SubMode.POLL)
+        }
+    }
+
+    static def makeSubscriberStreamSeq(builder) {
+        builder.plantuml {
+            delegate << subHead.curry(SubMode.STREAM)
+            delegate << subscrCl.curry(SubMode.STREAM)
+        }
+    }
+
+
+}

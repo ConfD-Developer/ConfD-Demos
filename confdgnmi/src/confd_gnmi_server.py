@@ -25,17 +25,19 @@ class ConfDgNMIServicer(gNMIServicer):
         self.adapter_type = adapter_type
         assert isinstance(self.adapter_type, AdapterType)
 
-    def extract_user_metadata(self, context):
+    @staticmethod
+    def extract_user_metadata(context):
         log.debug("=>")
         log.debug("metadata=%s", context.invocation_metadata())
         metadict = dict(context.invocation_metadata())
         username = metadict["username"]
         password = metadict["password"]
         log.debug("<= username=%s password=:-)", username)
-        return (username, password)
+        return username, password
 
     def get_adapter(self):
         log.debug("==> self.adapter_type=%s", self.adapter_type)
+        adapter = None
         if self.adapter_type == AdapterType.DEMO:
             adapter = GnmiDemoServerAdapter.get_inst()
         elif self.adapter_type == AdapterType.API:
@@ -43,7 +45,8 @@ class ConfDgNMIServicer(gNMIServicer):
         log.debug("<== adapter=%s", adapter)
         return adapter
 
-    def connect_adapter(self, adapter, username, password):
+    @staticmethod
+    def connect_adapter(adapter, username, password):
         log.debug("==> adapter=%s username=%s password=:-)", adapter, username)
         if isinstance(adapter, GnmiConfDApiServerAdapter):
             adapter.connect(addr=GnmiConfDApiServerAdapter.confd_addr,
@@ -51,7 +54,8 @@ class ConfDgNMIServicer(gNMIServicer):
                             username=username, password=password)
         log.debug("<==")
 
-    def disconnect_adapter(self, adapter):
+    @staticmethod
+    def disconnect_adapter(adapter):
         if isinstance(adapter, GnmiConfDApiServerAdapter):
             adapter.disconnect()
 
@@ -103,8 +107,9 @@ class ConfDgNMIServicer(gNMIServicer):
         return response
 
     def Get(self, request, context):
-        """Retrieve a snapshot of data from the target. A Get RPC requests that the
-        target snapshots a subset of the data tree as specified by the paths
+        """
+        Retrieve a snapshot of data from the target. A Get RPC requests that
+        the target snapshots a subset of the data tree as specified by the paths
         included in the message and serializes this to be returned to the
         client using the specified encoding.
         Reference: gNMI Specification Section 3.3
@@ -143,6 +148,31 @@ class ConfDgNMIServicer(gNMIServicer):
         log.info("<== response=%s", response)
         return response
 
+    @staticmethod
+    def _read_sub_request(request_iterator, handler, stop_on_end=False):
+        log.debug("==> stop_on_end=%s", stop_on_end)
+        try:
+            for req in request_iterator:
+                # TODO check req mode is POLL
+                log.debug("req=%s", req)
+                if hasattr(req, "poll"):
+                    handler.poll()
+                elif hasattr(req, "alias"):
+                    # TODO exception, "alias: request not yet implemented
+                    assert False
+                else:
+                    # TODO exception, not expected other type of request
+                    assert False
+        except grpc.RpcError as e:
+            # check if this is end of Poll sending
+            if handler.is_poll():
+                log.exception(e)
+        log.debug("Request loop ended.")
+        if stop_on_end:
+            log.debug("stopping handler")
+            handler.stop()
+        log.debug("<==")
+
     def Subscribe(self, request_iterator, context):
         """Subscribe allows a client to request the target to send it values
         of particular paths within the data tree. These values may be streamed
@@ -153,37 +183,29 @@ class ConfDgNMIServicer(gNMIServicer):
         log.info(
             "==> request_iterator=%s context=%s", request_iterator, context)
 
-        def read_sub_request(request_iterator, handler):
-            for req in request_iterator:
-                # TODO check req mode is POLL
-                if hasattr(req, "poll"):
-                    handler.poll()
-                elif hasattr(req, "alias"):
-                    # TODO exception, "alias: request not yet implemented
-                    assert (False)
-                else:
-                    # TODO exception, not expected other type of request
-                    assert (False)
-            handler.stop()
+        def subscribe_rpc_done():
+            log.info("==>")
+            if not handler.is_once():
+                handler.stop()
+            log.info("<==")
 
-        adapter = self.get_connected_adapter(context)
-        handler = adapter.get_subscription_handler()
-        # first request, should contain subscription list (`subscribe`)
         request = next(request_iterator)
-        # TODO exception
+        adapter = self.get_connected_adapter(context)
+        context.add_callback(subscribe_rpc_done)
+        # first request, should contain subscription list (`subscribe`)
         assert hasattr(request, "subscribe")
-        handler.add_subscription_list(request.subscribe)
+        handler = adapter.get_subscription_handler(request.subscribe)
+
         thr = None
-        streaming = (
-                            request.subscribe.mode == gnmi_pb2.SubscriptionList.POLL) or (
-                            request.subscribe.mode == gnmi_pb2.SubscriptionList.STREAM)
-        if streaming:
-            thr = threading.Thread(target=read_sub_request,
-                                   args=(request_iterator, handler,))
+        if not handler.is_once():
+            thr = threading.Thread(target=ConfDgNMIServicer._read_sub_request,
+                                   args=(request_iterator, handler,
+                                         handler.is_poll()))
             thr.start()
         # `yield from` can be used, but to allow altering (e.g. path conversion)
         # response later on we use `for`
-        for response in handler.read(streaming=streaming):
+        for response in handler.read():
+            log.debug("response received, calling yield")
             yield response
 
         if thr is not None:
@@ -193,7 +215,7 @@ class ConfDgNMIServicer(gNMIServicer):
         log.info("<==")
 
     @staticmethod
-    def serve(port = PORT, adapter_type=AdapterType.DEMO):
+    def serve(port=PORT, adapter_type=AdapterType.DEMO):
         log.info("==> port=%s adapter_type=%s", port, adapter_type)
 
         server = grpc.server(ThreadPoolExecutor(max_workers=10))
@@ -221,6 +243,8 @@ if __name__ == '__main__':
                       help="ConfD port (default is {})".format(
                           GnmiConfDApiServerAdapter.confd_port),
                       default=GnmiConfDApiServerAdapter.confd_port)
+    parser.add_option("--cfg", action="store", dest="cfg",
+                      help="config file")
     (opt, args) = parser.parse_args()
     common_optparse_process(opt, log)
     adapter_type = AdapterType.DEMO
@@ -233,6 +257,12 @@ if __name__ == '__main__':
     #     adapter_type = AdapterType.NETCONF
     elif opt.type == "demo":
         adapter_type = AdapterType.DEMO
+        if opt.cfg:
+            log.info("processing config file opt.cfg=%s", opt.cfg)
+            with open(opt.cfg, "r") as cfg_file:
+                cfg = cfg_file.read()
+            log.debug("cfg=%s", cfg)
+            GnmiDemoServerAdapter.load_config_string(cfg)
     else:
         log.warning("Unknown server type %s", opt.type)
 

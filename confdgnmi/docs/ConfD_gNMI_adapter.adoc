@@ -7,7 +7,8 @@
 
 ifdef::env-github[]
 //https://github.com/DBuret/journal/blob/master/github-adoc-puml.adoc
-:gitplant: http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/micnovak/ConfD-Demos/confdgnmi-develop/confdgnmi/docs
+:gitplant: http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/ConfD-Developer/ConfD-Demos/master/confdgnmi/docs
+:gitplant-develop: http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/micnovak/ConfD-Demos/confdgnmi-develop/confdgnmi/docs
 :caution-caption: :fire:
 :important-caption: :exclamation:
 :note-caption: :information_source:
@@ -21,15 +22,16 @@ endif::[]
 :Author:    Michal Novák
 :email:     micnovak@cisco.com
 :URL:       https://www.tail-f.com/
-:Date:      2021-02-09
-:Revision:  0.0.1
+:Date:      2021-03-23
+:Revision:  0.1.0
 
 == Version history
 
 [options="header", cols="1s,10,^2s,2e"]
 |======
 | Document version     | Notes                                                  | Date        | Author
-| {revision}           | Initial document version                       | {date}      | {author} {email}
+| 0.0.1           | Initial document version                       | 2021-02-09      | {author} {email}
+| {revision}           | Run options updated, added seq. diagrams for Subscribe operation                      | {date}      | {author} {email}
 |======
 
 toc::[]
@@ -47,14 +49,16 @@ https://www.tail-f.com/management-agent/[ConfD] is configuration management agen
 
 https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md[gNMI] is another popular north bound interface, which is not implemented by ConfD.
 In this demo project we will implement gNMI adapter over existing ConfD interfaces to make (at least partial) gNMI support.
-In the beginning we will provide basic functionality, for most common operations, later on we will add more.
+In the beginning, we will provide basic functionality, for most common operations, later on we will add more.
 This demo focuses on functionality and simplicity, we have chosen Python as implementation language.
 
-This demo is still work in progress, see <<_limitations_and_todos>> section.
+We try general approach, so the demo can be adapted for other tools as well.
+
+This demo is still work in progress, see <<Limitations and TODOs>> section.
 
 === Copy/Paste and Output blocks
 
-In this note you will find script and code examples, that can be directly pasted into shell or CLI terminal. We will use following block style for copy/paste ready text:
+In this note you can find script and code examples, that can be directly pasted into shell or CLI terminal. We will use following block style for the copy/paste ready text:
 
 [source,shell,role="acopy"]
 ----
@@ -63,7 +67,7 @@ pip install grpcio-tools
 
 NOTE: make sure all commands have executed - confirm last command with kbd:[ENTER], if needed.
 If viewed on https://github.com[GitHub], you may find following
-browser https://github.com/zenorocha/codecopy[extension] useful, to get out of the box copy to clipboard button.
+browser https://github.com/zenorocha/codecopy[extension] useful (out-of-the-box *copy to clipboard* button).
 
 The output of the shell CLI commands or file content will be displayed
 with following block style:
@@ -74,6 +78,7 @@ with following block style:
 Usage: confd_gnmi_server.py [options]
 
 Options:
+  --version             show program's version number and exit
   -h, --help            show this help message and exit
   -t TYPE, --type=TYPE  gNMI server type  [api, netconf, demo]
   --logging=LOGGING     Logging level [error, warning, info, debug]
@@ -83,13 +88,14 @@ Options:
                         ConfD IP address (default is 127.0.0.1)
   --confd-port=CONFD_PORT
                         ConfD port (default is 4565)
+  --cfg=CFG             config file
 ----
 
 == Dependencies
 
 === Python3
 
-We expect https://www.python.org/[Python3] to be installed and that `python` nad `pip` are from Python3 environment. If not, use `python3` or `pip3` instead (or use e.g. `sudo apt-get install python-is-python3`)
+We expect https://www.python.org/[Python3] to be installed and `python` nad `pip` commands are from Python3 environment. If not, use `python3` or `pip3` instead (or use e.g. `sudo apt-get install python-is-python3`)
 
 TIP: For package installation and development, you may consider creating https://docs.python.org/3/tutorial/venv.html[python virtual environment].
 
@@ -128,11 +134,11 @@ pip install pytest
 pip install --upgrade pytest
 ----
 
-NOTE: pytest may be available also as package in your distribution (e.g. `apt-get install python3-pytest`). We still recommend to use `pip` to get the latest version.
+NOTE: `pytest` may be available also as package in your distribution (e.g. `apt-get install python3-pytest`). We still recommend to use `pip` to get the latest version.
 
 === ConfD
 
-Install https://www.tail-f.com/management-agent/[ConfD Premium] or https://www.tail-f.com/confd-basic/[ConfD Basic] according to the description in the package (`README`). To set-up ConfD environment, source `confdrc`.
+Install https://www.tail-f.com/management-agent/[ConfD Premium] or https://www.tail-f.com/confd-basic/[ConfD Basic] according to the description in the package (`README`). To set up ConfD environment, source `confdrc`.
 
 .set-up ConfD envrionment
 [source, shell, role="acopy"]
@@ -189,7 +195,7 @@ NOTE: There is a `Makefile` target `gnmi_proto` that performs this build.
 The `Makefile` can build ConfD datamodel binary file (`fxs`) for
 https://tools.ietf.org/html/rfc8343[`ietf-interfaces.yang`] and its dependencies. It can also prepare some initial configuration (`interfaces.xml`). See `Makefile` target `all`.
 
-NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<Examples against `examples.confd/intro/5-c_stats`,`5-c_stats`>> and <<Examples against `examples.confd/intro/6-c_config`, `6-c_config`>>.
+NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<Examples against `examples.confd/intro/5-c_stats`,`5-c_stats`>> and <<Examples against `examples.confd/cdb_subscription/iter_c`, `iter-c`>>.
 
 == Running gNMI Adapter demo
 
@@ -226,6 +232,8 @@ Server is started by running  `./src/confd_gnmi_server.py` python script.
 .output
 [source, shell]
 ----
+Usage: confd_gnmi_server.py [options]
+
 Options:
   --version             show program's version number and exit
   -h, --help            show this help message and exit
@@ -237,9 +245,10 @@ Options:
                         ConfD IP address (default is 127.0.0.1)
   --confd-port=CONFD_PORT
                         ConfD port (default is 4565)
+  --cfg=CFG             config file
 ----
 
-We can run server in demo mode (pass `-t demo`) or in API (`maapi`) mode against ConfD (pass `-t api`). Other modes (like `netconf` are currently not supported).
+We can run server in demo mode type (pass `-t demo`) or in API (`maapi`) mode against ConfD (pass `-t api`). Other modes (like `netconf` are currently not supported). For `demo` mode type, it may be necessary to pass config file (e.g. for `STREAM` subscriptions, `--cfg=data/demo.xml)
 
 NOTE: Other parameters (e.g. port, host) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
 
@@ -274,9 +283,20 @@ Options:
                         STATE, OPERATIONAL  (default 'CONFIG')
   -v VALS, --val=VALS   'value' for set operation, can be repeated (empty by
                         default)
+  -s SUBMODE, --sub-mode=SUBMODE
+                        subscription mode, can be ONCE, POLL, STREAM (default
+                        'ONCE')
+  --poll-count=POLLCOUNT
+                        Number of POLLs (default 5)
+  --poll-interval=POLLINTERVAL
+                        Interval (in seconds) between POLL requests (default
+                        0.5)
+  --read-count=READCOUNT
+                        Number of read requests for STREAM subscription
+                        (default 4)
 ----
 
-NOTE: Other parameters (e.g. username, password, subscription parameter, data type) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_client.py`).
+NOTE: Other parameters (e.g. username, password, encoding) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_client.py`).
 
 ==== Examples
 
@@ -318,11 +338,44 @@ NOTE: Other parameters (e.g. username, password, subscription parameter, data ty
 ./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_8]/type --val fastEther
 ----
 
-.subscribe for `leaf` elements
+.ONCE subscribe for `leaf` elements
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+./src/confd_gnmi_client.py -o subscribe -s ONCE --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
 ----
+
+.POLL subscribe for `leaf` elements
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe -s POLL --poll-count=2 --poll-interval=1.5 --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+----
+
+.STREAM subscribe for `leaf` elements
+[source, shell, role="acopy"]
+----
+/src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+----
+
+NOTE: Following subscribe examples use `ONCE` (default) subscription mode. It is possible to use `POLL` (with `--poll-count` and `--poll-interval`) and `STREAM` (with `--read-count`) mode as well.
+
+NOTE: To test `STREAM` subscriptions, one can use `confd_cmd`. +
+Examples for configuration data: +
+ +
+`confd_cmd -c "mset /interfaces/interface{if_8}/type gigabitEthernet"` +
+ +
+`confd_cmd -c "mset /interfaces/interface{if_8}/type fastEther"` +
+ +
+(in one transaction) +
+ +
+`confd_cmd -c "mset /interfaces/interface{if_7}/type gigabitEthernet; mset /interfaces/interface{if_8}/type gigabitEthernet;"`
+ +
+ +
+Examples for operational data: +
+ +
+`confd_cmd -o -fr -c "set /interfaces-state/interface{state_if_8}/type fastEther"` +
+ +
+`confd_cmd -o -fr -c "set /interfaces-state/interface{state_if_8}/type gigabitEthernet"`
+
 
 .subscribe for `list` entry
 [source, shell, role="acopy"]
@@ -375,41 +428,74 @@ NOTE: Other parameters (e.g. username, password, subscription parameter, data ty
 ./src/confd_gnmi_client.py -o subscribe --prefix /arpentries --path arpe
 ----
 
-===== Examples against `examples.confd/intro/6-c_config`
+===== Examples against `examples.confd/cdb_subscription/iter_c`
 
-(`make clean all start` and `netconf-console cmd-create-woody.xml`)
 
-.get `list` entries
+.Start the example
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --path /hosts/host[name=woody]/interfaces/interface
+make clean all start
 ----
 
-.get `list` entries with prefix
-[source, shell, role="acopy"]
-----
-./src/confd_gnmi_client.py -o  get --prefix /hosts/host[name=woody]/interfaces  --path interface
-----
 
-.get one `list` entry
+.Set example initial configuration
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --prefix /hosts/host[name=woody]/interfaces  --path interface[name=eth0]
+confd_cmd -c "mcreate /root/node-b/rf-head{10}; mset /root/node-b/rf-head{10}/sector-id id0"
+confd_cmd -c "mcreate /root/node-b/rf-head{11}; mset /root/node-b/rf-head{11}/sector-id id1"
+confd_cmd -c "mcreate /root/node-b/rf-head{12}; mset /root/node-b/rf-head{12}/sector-id id2"
 ----
 
 .get specific `leaf`
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --prefix /hosts/host[name=woody]/interfaces  --path interface[name=eth0]/ip
+./src/confd_gnmi_client.py -o get --path /root/node-b/rf-head[dn=10]/sector-id
 ----
+
+.get `leaf` with prefix
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o get --prefix /root/node-b/rf-head[dn=10] --path sector-id
+----
+
+.get one `list` entry
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o get --prefix /root/node-b --path rf-head[dn=10]
+----
+
+.get  `list`
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o get --path /root/node-b/rf-head
+----
+
+.set specific `leaf`
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o set --path /root/node-b/rf-head[dn=10]/sector-id --val id100
+----
+
+NOTE: `set` is supported only with CDB RUNNING - see <<Limitations and TODOs>>)
 
 .subscribe for `list` entries
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe  --prefix /hosts --path host[name=woody]/interfaces/interface
+./src/confd_gnmi_client.py -o subscribe --prefix /root --path node-b/rf-head[dn=10]
 ----
 
-NOTE: As `examples.confd/intro/6-c_config` uses CANDIDATE DB, `set` is not shown (currently we only support RUNNING DB - see <<_limitations_and_todos>>)
+.subscribe for `list` entries as `STREAM` subscription
+[source, shell, role="acopy"]
+----
+./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /root --path node-b/rf-head[dn=10]
+----
+
+TIP: Use gNMI `set` operation or `confd_cmd -c "mset ..."` to invoke changes visible in the STREAMing subscription. +
+E.g.:  `./src/confd_gnmi_client.py -o set --path /root/node-b/rf-head[dn=10]/sector-id --val id1000` or
+`confd_cmd -c "mset /root/node-b/rf-head{10}/sector-id id10000"`
+
+NOTE: Changes to configuration are also visible in the console of started example `examples.confd/cdb_subscription/iter_c` as it uses under ConfD subscriber. It is interesting to compare
+both type of subscriptions.
 
 == Implementation
 
@@ -428,13 +514,12 @@ endif::[]
 * *gNMI Adapter server* - connects to ConfD and uses its northbound interfaces (currently only MAAPI) to provide gNMI functionality. We aim for design that could be adapted to other devices (not only ConfD) with known management interfaces, e.g. devices supporting NETCONF, RESTCONF or mixed interfaces.
 * *gNMI Adapter client* - gNMI client developed in this project for testing and presentation of the functionality
 
-
 === gNMI adapter server sub-components
 
 Following class/component diagram shows main structure of the gNMI adapter server
 
 ifdef::env-github[]
-image::{gitplant}/component.puml[]
+image::{gitplant-develop}/component.puml[]
 endif::[]
 ifndef::env-github[]
 plantuml::component.puml[format="svg", align="center"]
@@ -494,7 +579,7 @@ What should be returned? We return only `updated` paths.
 
 * the `notification` should contain whole subtree for each request path.
 This means, for each request path there will be list of paths in
-`update`, each with value (currently only `leafs` and last `lists` are supported)
+the `update`, each with value (currently only `leafs` and last `lists` are supported)
 
 * since there is a path associated with each value, for requests on nested lists
 we have to find out, which elements are keys and add them to the Path(s).
@@ -527,19 +612,22 @@ We can use `MAAPI` operations, like `set_elem`.
 
 `rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse);`
 
-Stream subscription requests and get stream of subscription responses.
+Send a stream of subscription requests and get stream of subscription responses.
 
-Subscription response is similar to `Get`, this means all data in
-given sub-tree is returned in response.
+In many cases, Subscription response is similar to `Get`, this means all data in
+given sub-tree is returned in response (at least first response).
 
-`ONCE`, `POLL` mode of the `SubscriptionList`:
+All values are sent:
+
+`ONCE`, `POLL` mode of the `SubscriptionList`
 
 * responses according to `heartbeat_interval`,
 * responses to `SAMPLE` mode in the `Subscription` element
 
 Only updated values are sent:
 
-* `STREAM` mode of the `SubscriptionList`
+`STREAM` mode of the `SubscriptionList`
+
 * when `updates_only` is set for `STREAM` mode,
 * when `suppress_redundant` is set for `SAMPLE` mode
 
@@ -549,13 +637,44 @@ https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.
 
 ===== Implementation
 
-Currently, implementation from <<Get,`Get`>> is reused.
+For `ONCE`, `POLL` and first `STREAM` response, the implementation from <<Get,`Get`>> is reused.
+Changes for `STREAM` subscription are collected as they occur and are sent as response.
+
+Current implementation can be described with help of following diagrams.
+
+====== ONCE Subscription diagram
+
+ifdef::env-github[]
+image::{gitplant-develop}/subscribe_once.puml[]
+endif::[]
+ifndef::env-github[]
+plantuml::subscribe_once.puml[format="svg", align="center"]
+endif::[]
+
+
+====== POLL Subscription diagram
+
+ifdef::env-github[]
+image::{gitplant-develop}/subscribe_poll.puml[]
+endif::[]
+ifndef::env-github[]
+plantuml::subscribe_poll.puml[format="svg", align="center"]
+endif::[]
+
+====== STREAM Subscription diagram
+
+ifdef::env-github[]
+image::{gitplant-develop}/subscribe_stream.puml[]
+endif::[]
+ifndef::env-github[]
+plantuml::subscribe_stream.puml[format="svg", align="center"]
+endif::[]
+
 
 ===== TODO
 
 * see <<Get, Get TODO>>
-* only `ONCE` and `POLL` mode is supported
-* many parameters are not supported, see <<Limitations and TODOs>>.
+* several subscription parameters are not supported, see <<Limitations and TODOs>>.
 
 === Automated tests
 
@@ -613,7 +732,7 @@ NOTE: All gRPC API tests require ConfD running (`make start`)
 
 ==== Integration tests
 
-_Not yet implmented_.
+_Not yet implemented_.
 
 === Limitations and TODOs
 
@@ -624,15 +743,16 @@ This not all gNMI functionality are currently supported. They may be added in th
 *Limitations*
 
 * only `BYTES` are used as `encoding`
-* `Get`, `Set` and `Subscribe` works only on `leaf` and last `list` elements
+* `Get`, `Set` and `Subscribe` works only on `the leaf`, list` entries and `lists`
 * `Set` works only on `leaf` elements
 * `Subscribe`
-** only `ONCE` anf `POLL` subscription mode is supported
+** not all subscription parameters are supported
 ** `updates_only` not supported
 ** `heartbeat_interval` not supported
 * * `sync_response` not generated
 * all values `TypedValues` are used as strings (`string_val`)
 * gNMI Path is converted to XPath or formatted path with simple string operations (no datamodel knowledge used)
+* only `lists` with one `key` are supported
 * current implementation works only against RUNNING DB
 * list of models (e.g. `Get`) is not supported
 * `leaf-lists` not supported

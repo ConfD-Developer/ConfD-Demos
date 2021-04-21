@@ -57,19 +57,24 @@ node "gNMI Adapter\nServer" {
     }
 
     abstract class SubscriptionHandler {
+        {abstract} get_sample()
+        {abstract) get_monitored_changes()
+        {abstract} start_monitoring()
+        {abstract} stop_monitoring()
+        {abstract} add_path_for_monitoring()
+        ---
         add_subscription_list()
-        {abstract} make_subscription_response()
+        sample()
+        changes()
         stop()
         read()
         poll()
     }
 
     class GnmiConfDApiServerAdapter.SubscriptionHandler {
-        make_subscription_response()
     }
 
     class GnmiDemoServerAdapter.SubscriptionHandler {
-        make_subscription_response()
     }
 
     SubscriptionHandler <-- GnmiConfDApiServerAdapter.SubscriptionHandler
@@ -78,7 +83,7 @@ node "gNMI Adapter\nServer" {
     GnmiServerAdapter <-le- GnmiConfDApiServerAdapter
     GnmiServerAdapter <.up. GnmiNetconfServerAdapter
     ConfDgNMIServicer "1" *-- GnmiServerAdapter
-    GnmiServerAdapter "1" *-- SubscriptionHandler
+    GnmiServerAdapter "1..n" *-- SubscriptionHandler
 
     GnmiConfDApiServerAdapter <..> ConfD
     GnmiConfDApiServerAdapter.SubscriptionHandler <..> ConfD

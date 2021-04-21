@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<demo>
+  <subscription>
+    <STREAM>
+      <changes>
+        <element>
+          <path>/interfaces/interface[name=if_5]/type</path>
+          <val>fastEther</val>
+        </element>
+        <element>
+          <path>/interfaces-state/interface[name=state_if_5]/type</path>
+          <val>fastEther</val>
+        </element>
+        <element>
+          <path>/interfaces/interface[name=if_6]/type</path>
+          <val>fastEther</val>
+        </element>
+        <element>
+          <path>/interfaces-state/interface[name=state_if_6]/type</path>
+          <val>fastEther</val>
+        </element>
+        <element>send</element>
+        <element>
+          <path>/interfaces/interface[name=if_5]/type</path>
+          <val>gigabitEthernet</val>
+        </element>
+        <element>
+          <path>/interfaces-state/interface[name=state_if_5]/type</path>
+          <val>gigabitEthernet</val>
+        </element>
+        <element>send</element>
+        <element>
+          <path>/interfaces/interface[name=if_6]/type</path>
+          <val>gigabitEthernet</val>
+        </element>
+        <element>
+          <path>/interfaces-state/interface[name=state_if_6]/type</path>
+          <val>gigabitEthernet</val>
+        </element>
+        <element>send</element>
+      </changes>
+    </STREAM>
+  </subscription>
+</demo>
