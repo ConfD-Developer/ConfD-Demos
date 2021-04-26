@@ -485,7 +485,7 @@ static int find_next_object(struct confd_trans_ctx *tctx,
                             enum confd_find_next_type type,
                             confd_value_t *keys, int nkeys)
 {
-  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0
+  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0;
   int skip_begin_end = 0;
   confd_tag_value_t *tv, *itv;
   struct confd_tag_next_object *tobj;
