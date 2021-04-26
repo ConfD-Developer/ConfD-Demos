@@ -194,7 +194,7 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath,
   }
 }
 
-static int s_init(struct confd_trans_ctx *tctx)
+static int t_init(struct confd_trans_ctx *tctx)
 {
   confd_trans_set_fd(tctx, workersock);
   return CONFD_OK;
@@ -369,7 +369,8 @@ static int get_object(struct confd_trans_ctx *tctx,
   if (start->info.flags & CS_NODE_IS_CONTAINER) {
     n = format_object(tv, &itv[0], j, start);
   } else {
-    n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and end tags for each object */
+    n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and
+                                                   end tags for each object */
   }
   confd_data_reply_tag_value_array(tctx, tv, n);
 
@@ -394,15 +395,14 @@ static int find_next(struct confd_trans_ctx *tctx,
 
   cs_node = confd_cs_node_cd(NULL, kp_str);
   if (cs_node->info.flags & CS_NODE_IS_LEAF_LIST) {
-    confd_value_t v;
     confd_value_t *list;
     int n_list, pos, ret;
 
-    if ((ret = cdb_get(cdbsock, &v, kp_str)) != CONFD_OK) {
+    if ((ret = cdb_get(cdbsock, &v[0], kp_str)) != CONFD_OK) {
       confd_data_reply_next_key(tctx, NULL, -1, -1);
     } else {
-    list = CONFD_GET_LIST(&v);
-      n_list = CONFD_GET_LISTSIZE(&v);
+    list = CONFD_GET_LIST(&v[0]);
+      n_list = CONFD_GET_LISTSIZE(&v[0]);
       if (nkeys == 0) {
         confd_data_reply_next_key(tctx, list, 1, -1);
       } else {
@@ -458,13 +458,12 @@ static int find_next(struct confd_trans_ctx *tctx,
   /* get the key */
   j = 0;
   ssize_t bufsz = snprintf(NULL, 0, "[%d]", pos);
-  char tmp_str[bufsz];
+  char tmp_str[bufsz + 1];
   snprintf(&tmp_str[0], sizeof(tmp_str), "[%d]", pos);
   strcat(&kp_str[0], &tmp_str[0]);
   for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
     CONFD_SET_TAG_NOEXISTS(&tv[j], *keyptr); j++;
   }
-
   if (cdb_get_values(cdbsock, tv, j, kp_str) != CONFD_OK) {
     /* key not found in the unlikely event that it was deleted after our
        cdb_index() check */
@@ -473,8 +472,8 @@ static int find_next(struct confd_trans_ctx *tctx,
   }
 
   for (i = 0; i < j; i++) {
-    v[i].type = tv[i+1].v.type;
-    v[i].val = tv[i+1].v.val;
+    v[i].type = tv[i].v.type;
+    v[i].val = tv[i].v.val;
   }
   /* reply */
   confd_data_reply_next_key(tctx, &v[0], j, pos);
@@ -486,14 +485,15 @@ static int find_next_object(struct confd_trans_ctx *tctx,
                             enum confd_find_next_type type,
                             confd_value_t *keys, int nkeys)
 {
-  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0, skip_begin_end = 0;
+  int pos = -1, n_list_entries, nobj, i, j, n = 0, real_nkeys = 0
+  int skip_begin_end = 0;
   confd_tag_value_t *tv, *itv;
   struct confd_tag_next_object *tobj;
   struct confd_cs_node *cs_node, *start;
   char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ], *lastprefix, tmpc;
   u_int32_t *keyptr;
   ssize_t bufsz = snprintf(NULL, 0, "%s[%d]", &kp_str[0], INT_MAX);
-  char tmp_str[bufsz];
+  char tmp_str[bufsz + 1];
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   start = confd_find_cs_node(keypath, keypath->len);
@@ -582,7 +582,6 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     for (i = 0; i < nobj; i++) {
       j = traverse_cs_nodes(cs_node->children, &itv[j*i], 0);
       snprintf(&tmp_str[0], sizeof(tmp_str), "%s[%d]", &kp_str[0], pos+i);
-      fprintf(estream, ">>>>>\ntmp_str %s kp_str %s nobj %d\n", tmp_str,kp_str,nobj); fflush(estream);
       if (cdb_get_values(cdbsock, &itv[j*i], j, &tmp_str[0]) != CONFD_OK) {
         confd_fatal("cdb_get_values() from path %s failed\n", tmp_str);
       }
@@ -625,11 +624,13 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     tobj[i].tv = &tv[n_tv];
     if (real_nkeys > 0) {
       /* +1 and -2 to skip begin and end tags for each object */
-      n = format_object(tobj[i].tv, &itv[n_itv*i+skip_begin_end], n_itv-(skip_begin_end*2), start);
+      n = format_object(tobj[i].tv, &itv[n_itv*i+skip_begin_end],
+                        n_itv-(skip_begin_end*2), start);
     } else { /* keyless list - add pseudo key */
       CONFD_SET_TAG_INT64(&(tobj[i].tv)[0], 0, i);
       /* +1 and -2 to skip begin and end tags for each object */
-      n = format_object(&(tobj[i].tv)[1], &itv[n_itv*i+skip_begin_end], n_itv-(skip_begin_end*2), start);
+      n = format_object(&(tobj[i].tv)[1], &itv[n_itv*i+skip_begin_end],
+                       n_itv-(skip_begin_end*2), start);
       n++;
     }
     n_tv += n;
@@ -653,28 +654,54 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   return CONFD_OK;
 }
 
-static int set_elem(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath,
-                confd_value_t *newval)
+static int t_commit(struct confd_trans_ctx *tctx)
 {
+  struct confd_tr_item *item = tctx->accumulated;
+  confd_hkeypath_t *keypath;
   char kp_str[BUFSIZ];
-  mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
-  cdb_set_elem(cdbsock, newval, &kp_str[0]);
+
+  while (item) {
+    keypath = item->hkp;
+    mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
+    switch(item->op) {
+    case C_SET_ELEM:
+      cdb_set_elem(cdbsock, item->val, &kp_str[0]);
+      break;
+    case C_CREATE:
+      cdb_create(cdbsock, &kp_str[0]);
+      break;
+    case C_REMOVE:
+      cdb_delete(cdbsock, &kp_str[0]);
+      break;
+    default:
+      return CONFD_ERR;
+    }
+    item = item->next;
+  }
   return CONFD_OK;
+}
+
+/* We accumulate and write to the operational datastore in the commit phase */
+static int set_elem(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath,
+                    confd_value_t *newval)
+{
+  return CONFD_ACCUMULATE;
 }
 
 static int create_node(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath)
 {
-  char kp_str[BUFSIZ];
-  mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
-  cdb_create(cdbsock, &kp_str[0]);
-  return CONFD_OK;
+  return CONFD_ACCUMULATE;
 }
 
 static int remove_node(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath)
 {
-  char kp_str[BUFSIZ];
-  mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
-  cdb_delete(cdbsock, &kp_str[0]);
+  return CONFD_ACCUMULATE;
+}
+
+static int move_after(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath,
+                       confd_value_t *prevkeys)
+{
+  // Cannot be supported for "config false" data as we write to CDB operational
   return CONFD_OK;
 }
 
@@ -761,7 +788,7 @@ int main(int argc, char *argv[])
 
   if ((dctx = confd_init_daemon("static-dp")) == NULL)
     confd_fatal("Failed to initialize daemon\n");
-  flags = (CONFD_DAEMON_FLAG_BULK_GET_CONTAINER);
+  flags = CONFD_DAEMON_FLAG_BULK_GET_CONTAINER;
   if (confd_set_daemon_flags(dctx, flags) != CONFD_OK)
     confd_fatal("Failed to set daemon flags\n");
 
@@ -780,7 +807,9 @@ int main(int argc, char *argv[])
 
   /* Register callbacks */
   memset(&trans, 0, sizeof(trans));
-  trans.init = s_init;
+  trans.init = t_init;
+  trans.commit = t_commit;
+
   if (confd_register_trans_cb(dctx, &trans) == CONFD_ERR)
     confd_fatal("Failed to register trans cb\n");
 
@@ -797,6 +826,7 @@ int main(int argc, char *argv[])
   data.set_elem = set_elem;
   data.create = create_node;
   data.remove = remove_node;
+  data.move_after = move_after;
 
   strcpy(data.callpoint, callpoint);
   if (confd_register_data_cb(dctx, &data) == CONFD_ERR)
