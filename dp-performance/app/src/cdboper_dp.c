@@ -344,7 +344,7 @@ static int get_object(struct confd_trans_ctx *tctx,
   confd_tag_value_t *itv, *tv;
   int pos, j = 0, n;
   struct confd_cs_node *cs_node, *start;
-  char kp_str[BUFSIZ], *lastcurly_start, *lastcurly_end;
+  char kp_str[BUFSIZ];
 
   start = confd_find_cs_node(keypath, keypath->len);
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
@@ -352,15 +352,8 @@ static int get_object(struct confd_trans_ctx *tctx,
   itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 *
                                      (1 + confd_max_object_size(cs_node)));
   if (cs_node->info.flags & CS_NODE_IS_LIST) {
-    if (cs_node->info.keys == NULL) { /* keyless list */
-      lastcurly_start = strrchr(kp_str, '{');
-      lastcurly_end = strrchr(kp_str, '}');
-      *lastcurly_end = 0;
-      lastcurly_start++;
-      pos = atoi(lastcurly_start);
-    } else {
-      pos = cdb_index(cdbsock, kp_str);
-      if (pos < 0) {
+    if (cs_node->info.keys != NULL) { /* not a keyless list */
+      if (cdb_exists(cdbsock, kp_str) != 1) {
         /* No list entry with a maching key */
         confd_data_reply_not_found(tctx);
         return CONFD_OK;
@@ -430,7 +423,7 @@ static int find_next(struct confd_trans_ctx *tctx,
     return CONFD_OK;
   }
 
-  for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
+  for (keyptr = cs_node->info.keys; keyptr != NULL && *keyptr != 0; keyptr++) {
     real_nkeys++;
   }
   stars[0] = 0;
@@ -467,23 +460,26 @@ static int find_next(struct confd_trans_ctx *tctx,
 
   /* get the key */
   j = 0;
-  ssize_t bufsz = snprintf(NULL, 0, "[%d]", pos);
-  char tmp_str[bufsz + 1];
-  snprintf(&tmp_str[0], sizeof(tmp_str), "[%d]", pos);
-  strcat(&kp_str[0], &tmp_str[0]);
-  for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
-    CONFD_SET_TAG_NOEXISTS(&tv[j], *keyptr); j++;
-  }
-  if (cdb_get_values(cdbsock, tv, j, kp_str) != CONFD_OK) {
-    /* key not found in the unlikely event that it was deleted after our
-       cdb_index() check */
-    confd_data_reply_next_key(tctx, NULL, -1, -1);
-    return CONFD_OK;
-  }
-
-  for (i = 0; i < j; i++) {
-    v[i].type = tv[i].v.type;
-    v[i].val = tv[i].v.val;
+  if (real_nkeys == 0) { /* keyless list */
+    CONFD_SET_INT64(&v[0], pos); j++;
+  } else {
+    ssize_t bufsz = snprintf(NULL, 0, "[%d]", pos);
+    char tmp_str[bufsz + 1];
+    snprintf(&tmp_str[0], sizeof(tmp_str), "[%d]", pos);
+    strcat(&kp_str[0], &tmp_str[0]);
+    for (keyptr = cs_node->info.keys; keyptr != NULL && *keyptr != 0; keyptr++) {
+      CONFD_SET_TAG_NOEXISTS(&tv[j], *keyptr); j++;
+    }
+    if (cdb_get_values(cdbsock, tv, j, kp_str) != CONFD_OK) {
+      /* key not found in the unlikely event that it was deleted after our
+         cdb_index() check */
+      confd_data_reply_next_key(tctx, NULL, -1, -1);
+      return CONFD_OK;
+    }
+    for (i = 0; i < j; i++) {
+      v[i].type = tv[i].v.type;
+      v[i].val = tv[i].v.val;
+    }
   }
   /* reply */
   confd_data_reply_next_key(tctx, &v[0], j, pos);
