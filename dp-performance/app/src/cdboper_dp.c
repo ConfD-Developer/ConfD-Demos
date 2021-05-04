@@ -174,7 +174,17 @@ static void mk_kp_str(char *kp_str, int bufsiz, confd_hkeypath_t *keypath,
         j = 1;
       } else {
         for (j = 0; keypath->v[i][j].type != C_NOEXISTS; j++) {
-          confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][0]), BUFSIZ);
+          if (keypath->v[i][j].type == C_BUF) {
+            /* Double quote all keys values of type string in case of embedded
+               whitespace in key value */
+            tmpbuf[j][0] = '\"';
+            confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][1]), BUFSIZ);
+            k = strlen(&(tmpbuf[j][1]));
+            tmpbuf[j][k+1] = '\"';
+            tmpbuf[j][k+2] = '\0';
+          } else {
+            confd_val2str(type, &(keypath->v[i][j]), &(tmpbuf[j][0]), BUFSIZ);
+          }
           if ((cs_node->info.flags & CS_NODE_IS_LEAF_LIST) == 0 &&
               cs_node->next != NULL) {
             cs_node = cs_node->next;
@@ -492,8 +502,6 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   struct confd_cs_node *cs_node, *start;
   char kp_str[BUFSIZ], *lastslash, stars[BUFSIZ], *lastprefix, tmpc;
   u_int32_t *keyptr;
-  ssize_t bufsz = snprintf(NULL, 0, "%s[%d]", &kp_str[0], INT_MAX);
-  char tmp_str[bufsz + 1];
 
   mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
   start = confd_find_cs_node(keypath, keypath->len);
@@ -581,6 +589,8 @@ static int find_next_object(struct confd_trans_ctx *tctx,
     /* list at root, need to do one get_values per list entry */
     for (i = 0; i < nobj; i++) {
       j = traverse_cs_nodes(cs_node->children, &itv[j*i], 0);
+      ssize_t bufsz = snprintf(NULL, 0, "%s[%d]", &kp_str[0], INT_MAX);
+      char tmp_str[bufsz + 1];
       snprintf(&tmp_str[0], sizeof(tmp_str), "%s[%d]", &kp_str[0], pos+i);
       if (cdb_get_values(cdbsock, &itv[j*i], j, &tmp_str[0]) != CONFD_OK) {
         confd_fatal("cdb_get_values() from path %s failed\n", tmp_str);
