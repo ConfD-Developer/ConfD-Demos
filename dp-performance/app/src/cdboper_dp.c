@@ -482,7 +482,7 @@ static int find_next(struct confd_trans_ctx *tctx,
     }
   }
   /* reply */
-  confd_data_reply_next_key(tctx, &v[0], j, pos);
+  confd_data_reply_next_key(tctx, &v[0], j, -1);
   return CONFD_OK;
 }
 
