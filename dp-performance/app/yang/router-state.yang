@@ -598,8 +598,8 @@ module router-state {
     }
     list server {
       key "address";
-      /* ordered-by user; not supported for config false according to
-         RFC 7950 */
+      /* ordered-by user; not supported for config false data 
+         according to RFC 7950 */
       leaf address {
         type inet:ip-address;
       }
