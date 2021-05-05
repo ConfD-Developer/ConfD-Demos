@@ -7,8 +7,13 @@ import xml.etree.ElementTree as ET
 from enum import Enum
 from socket import socket
 
+import _confd
+from confd import maapi, maagic
+from confd.cdb import cdb
+
 import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
+from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
 from confd_gnmi_common import make_xpath_path, make_gnmi_path, \
     make_formatted_path
 
@@ -17,11 +22,10 @@ log.setLevel(logging.DEBUG)
 
 
 class GnmiConfDApiServerAdapter(GnmiServerAdapter):
-    import _confd
-    confd_addr: str = '127.0.0.1'
-    confd_port: int = _confd.CONFD_PORT
-    monitor_external_changes: bool = False
-    external_port: int = 5055
+    confd_addr: str = ApiAdapterDefaults.CONFD_ADDR
+    confd_port: int = ApiAdapterDefaults.CONFD_PORT if ApiAdapterDefaults.CONFD_PORT else _confd.CONFD_PORT
+    monitor_external_changes: bool = ApiAdapterDefaults.MONITOR_EXTERNAL_CHANGES
+    external_port: int = ApiAdapterDefaults.EXTERNAL_PORT
 
     def __init__(self):
         self.addr: str = ""
@@ -33,7 +37,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     # call only once!
     @staticmethod
     def set_confd_debug_level(level):
-        import _confd
         if level == "debug":
             confd_debug_level = _confd.DEBUG
         elif level == "trace":
@@ -53,6 +56,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
     @staticmethod
     def set_confd_port(port):
+        if port is None:
+            port = _confd.CONFD_PORT
         GnmiConfDApiServerAdapter.confd_port = port
 
     @staticmethod
@@ -118,7 +123,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         @staticmethod
         def kp_to_xpath(kp):
-            import _confd
             log.debug("==> kp=%s", kp)
             xpath = _confd.xpath_pp_kpath(kp)
             xpath = xpath.replace('"', '')
@@ -149,7 +153,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             log.debug("==>")
 
             def cdb_iter(kp, op, oldv, newv, state):
-                import _confd
                 log.debug("==> kp=%s, op=%r, oldv=%s, newv=%s, state=%r", kp,
                           op, oldv, newv, state)
                 if op == _confd.MOP_CREATED:
@@ -173,7 +176,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                         op, kp)
                 return _confd.ITER_RECURSE
 
-            from confd.cdb import cdb
             cdb.diff_iterate(sub_sock, sub_point, cdb_iter, 0, None)
             self.put_event(self.SubscriptionEvent.SEND_CHANGES)
             log.debug("self.change_db=%s", self.change_db)
@@ -203,8 +205,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             log.info("<==")
 
         def process_changes(self, external_changes=False):
-            from confd.cdb import cdb
-            import _confd
             log.debug("==>")
             # make subscription for all self.monitored_paths
             with socket() as sub_sock:
@@ -347,7 +347,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     # https://tools.ietf.org/html/rfc6022#page-8
     # TODO pass username from request context
     def get_netconf_capabilities(self):
-        from confd import maapi, maagic
         log.info("==>")
         context = "maapi"
         groups = [self.username]
@@ -395,8 +394,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         return models
 
     def get_maapi_save_string(self, path_str, save_flags):
-        import _confd
-        from confd import maapi
         log.debug("==> path_str=%s", path_str)
         save_str = ""
         context = "maapi"
@@ -478,7 +475,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         return path_vals
 
     def get_updates_with_maapi_save(self, path, prefix, data_type):
-        import _confd
         log.debug("==> path=%s prefix=%s data_type=%s", path, prefix, data_type)
         path_str = make_xpath_path(path, prefix, quote_val=False)
         # we need ariant with quoted values for maapi_save
@@ -527,7 +523,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         return notifications
 
     def set(self, prefix, path, val):
-        from confd import maapi
         log.info("==> prefix=%s, path=%s, val=%s", prefix, path, val)
         path_str = make_formatted_path(path, prefix)
         context = "maapi"

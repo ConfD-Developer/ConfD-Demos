@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+import argparse
 import logging
-import optparse
+import sys
 import threading
 from time import sleep
 
@@ -163,41 +164,52 @@ class ConfDgNMIClient:
         return response
 
 
-if __name__ == '__main__':
-    parser = optparse.OptionParser(version="%prog {}".format(VERSION))
-    parser.add_option("-o", "--oper", action="store", dest="operation",
-                      help="gNMI operation [capabilities, set, get, subscribe]",
-                      default="capabilities")
+def parse_args(args):
+    log.debug("==> args=%s", args)
+    parser = argparse.ArgumentParser(description="gNMI Adapter client")
+    parser.add_argument("--version", action="version",
+                        version="%(prog)s {}".format(VERSION))
+    parser.add_argument("-o", "--oper", action="store", dest="operation",
+                        choices=["capabilities", "set", "get", "subscribe"],
+                        help="gNMI operation",
+                        default="capabilities")
     common_optparse_options(parser)
-    parser.add_option("--prefix", action="store", dest="prefix",
-                      help="'prefix' path for set, get and subscribe operation (empty by default)",
-                      default="")
-    parser.add_option("-p", "--path", action="append", dest="paths",
-                      help="'path' for get, set and subscribe operation, can be repeated (empty by default)",
-                      default=[])
-    parser.add_option("-t", "--data-type", action="store", dest="datatype",
-                      help="'data type' for get operation, can be ALL, CONFIG, STATE, OPERATIONAL  (default 'CONFIG')",
-                      default="CONFIG")
-    parser.add_option("-v", "--val", action="append", dest="vals",
-                      help="'value' for set operation, can be repeated (empty by default)",
-                      default=[])
-    parser.add_option("-s", "--sub-mode", action="store", dest="submode",
-                      help="subscription mode, can be ONCE, POLL, STREAM (default 'ONCE')",
-                      default="ONCE")
-    parser.add_option("--poll-count", action="store", dest="pollcount",
-                      type=int,
-                      help="Number of POLLs (default 5)",
-                      default=5)
-    parser.add_option("--poll-interval", action="store", dest="pollinterval",
-                      type=float,
-                      help="Interval (in seconds) between POLL requests (default 0.5)",
-                      default=0.5)
-    parser.add_option("--read-count", action="store", dest="readcount",
-                      type=int,
-                      help="Number of read requests for STREAM subscription (default 4)",
-                      default=4)
+    parser.add_argument("--prefix", action="store", dest="prefix",
+                        help="'prefix' path for set, get and subscribe operation (empty by default)",
+                        default="")
+    parser.add_argument("-p", "--path", action="append", dest="paths",
+                        help="'path' for get, set and subscribe operation, can be repeated (empty by default)",
+                        default=[])
+    parser.add_argument("-t", "--data-type", action="store", dest="datatype",
+                        choices=["ALL", "CONFIG", "STATE", "OPERATIONAL"],
+                        help="'data type' for get operation (default 'CONFIG')",
+                        default="CONFIG")
+    parser.add_argument("-v", "--val", action="append", dest="vals",
+                        help="'value' for set operation, can be repeated (empty by default)",
+                        default=[])
+    parser.add_argument("-s", "--sub-mode", action="store", dest="submode",
+                        choices=["ONCE", "POLL", "STREAM"],
+                        help="subscription mode (default ONCE)",
+                        default="ONCE")
+    parser.add_argument("--poll-count", action="store", dest="pollcount",
+                        type=int,
+                        help="Number of POLLs (default 5)",
+                        default=5)
+    parser.add_argument("--poll-interval", action="store", dest="pollinterval",
+                        type=float,
+                        help="Interval (in seconds) between POLL requests (default 0.5)",
+                        default=0.5)
+    parser.add_argument("--read-count", action="store", dest="readcount",
+                        type=int,
+                        help="Number of read requests for STREAM subscription (default 4)",
+                        default=4)
+    (opt, args) = parser.parse_known_args(args=args)
+    log.debug("opt=%s", opt)
+    return opt
 
-    (opt, args) = parser.parse_args()
+
+if __name__ == '__main__':
+    opt = parse_args(args=sys.argv[1:])
     common_optparse_process(opt, log)
     log.debug("opt=%s", opt)
     log.info("paths=%s vals=%s", opt.paths, opt.vals)

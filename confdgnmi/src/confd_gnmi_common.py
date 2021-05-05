@@ -12,9 +12,10 @@ log = logging.getLogger('confd_gnmi_common')
 
 
 def common_optparse_options(parser):
-    parser.add_option("--logging", action="store", dest="logging",
-                      help="Logging level [error, warning, info, debug]",
-                      default="warning")
+    parser.add_argument("--logging", action="store", dest="logging",
+                        choices=["error", "warning", "info", "debug"],
+                        help="Logging level",
+                        default="warning")
 
 
 def common_optparse_process(opt, log):
@@ -40,7 +41,7 @@ def set_logging_level(level):
 
 
 # TODO tests
-def make_name_keys(elem_string) -> (str, str):
+def make_name_keys(elem_string) -> (str, {}):
     """
     Split element string to element name and keys.
     e.g. elem[key1=7][key2=aaa] => (elem, {key1:7, key2:aaa})

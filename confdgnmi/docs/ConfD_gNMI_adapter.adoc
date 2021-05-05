@@ -204,7 +204,7 @@ NOTE: There is a `Makefile` target `gnmi_proto` that performs this build.
 The `Makefile` can build ConfD datamodel binary files (`fxs`) (e.g. for
 https://tools.ietf.org/html/rfc8343[`ietf-interfaces.yang`] and its dependencies). It can also prepare some initial configuration (`interfaces.xml`). See `Makefile` target `all`.
 
-NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI Adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<Examples against `examples.confd/intro/5-c_stats`,`5-c_stats`>> and <<Examples against `examples.confd/cdb_subscription/iter_c`, `iter-c`>>.
+NOTE: The used datamodel and initial configuration is used for demonstration in this note. The gNMI Adapter can run against any other ConfD instance with different data model. In this case, paths and values will be different. See examples with ConfD example application <<c_stats, `5-c_stats`>> and <<iter-c, `iter_c`>>.
 
 == Running gNMI Adapter demo
 
@@ -311,9 +311,9 @@ Options:
 
 NOTE: Other parameters (e.g. username, password, encoding) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_client.py`).
 
-==== Examples
+=== Examples
 
-===== gNMI Adapter examples
+==== gNMI Adapter examples
 
 .get capabilities
 [source, shell, role="acopy"]
@@ -420,8 +420,8 @@ For operational data: +
 ----
 ./src/confd_gnmi_client.py -o subscribe --path /interfaces-state/interface --path /interfaces/interface
 ----
-
-===== Against running `examples.confd/intro/5-c_stats`
+[#c_stats]
+==== Against running `examples.confd/intro/5-c_stats`
 
 .get values of state `list` (with prefix)
 [source, shell, role="acopy"]
@@ -441,7 +441,8 @@ For operational data: +
 ./src/confd_gnmi_client.py -o subscribe --prefix /arpentries --path arpe
 ----
 
-===== Against running `examples.confd/cdb_subscription/iter_c`
+[#iter-c]
+==== Against running `examples.confd/cdb_subscription/iter_c`
 
 .Set example initial configuration
 [source, shell, role="acopy"]
@@ -891,7 +892,7 @@ This not all gNMI functionality are currently supported. They may be added in th
 *Limitations*
 
 * only `BYTES` are used as `encoding`
-* `Get`, `Set` and `Subscribe` works only on `the leaf`, list` entries and `lists`
+* `Get`, `Set` and `Subscribe` works only on `the leaf`, `list` entries and `lists`
 * `Set` works only on `leaf` elements
 * `Subscribe`
 ** not all subscription parameters are supported
