@@ -527,7 +527,7 @@ module router-state {
           path "../../key/name";
         }
       }
-      container status {
+      list status {
         uses ntpStatus;
       }
     }
@@ -540,7 +540,7 @@ module router-state {
         type ntpStratum;
         default "10";
       }
-      container status {
+      list status {
         uses ntpStatus;
       }
     }

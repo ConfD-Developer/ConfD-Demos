@@ -7,6 +7,7 @@ MAAPI_DS="-O"
 NETCONF_DS="operational"
 CALLPOINT="oper-cp"
 LIBCONFD_LOG="./libconfd.log"
+LOAD_DB="operational"
 
 echo "ID,NUM,TIME,HWM,RSS,TC"
 
@@ -17,21 +18,24 @@ else
 fi
 
 start() {
-    ${CONFD} --smp $(nproc) --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
-    ${CONFD} --start-phase1
+    confd --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
+    confd --start-phase1
     ./cdboper_dp -l $LIBCONFD_LOG -s -c $CALLPOINT &> /dev/null &
     ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
-    ${CONFD} --start-phase2
+    confd --start-phase2
 }
 
 for NUM in "${TC_NUMS[@]}"
 do
     make stop clean all &> /dev/null
     start
-    ./cdbgen.py gen $NUM > init.xml
-    confd_load -o -m -l init.xml
-    ./cdbgen.py gen-state $NUM > init.xml
-    confd_load -O -m -l init.xml
+    if [ $LOAD_DB == "candidate" ]; then # CDB running through candidate
+        ./cdbgen.py gen $NUM > init.xml
+        confd_load -o -m -l init.xml
+    else # CDB operational
+        ./cdbgen.py gen-state $NUM > init.xml
+        confd_load -O -m -l init.xml
+    fi
     make stop &> /dev/null
     for TYPE in "${TC_TYPE[@]}"
     do
@@ -50,6 +54,10 @@ do
             start
             START=$($DATE +%s)
             if [ $TC == "NCGETA" ]; then
+                #netconf-console --rpc=-<<<'<get><filter type="subtree"><sys xmlns="http://example.com/router"><routes><inet><route><next-hop><metric/></next-hop></route></inet></routes></sys></filter></get>'
+                #netconf-console --rpc=-<<<'<get><filter type="subtree"><sys xmlns="http://example.com/router"><dns><server/></dns></sys></filter></get>'
+                #netconf-console --rpc=-<<<'<get><filter type="subtree"><sys xmlns="http://example.com/router"><syslog><server><selector><facility/></selector></server></syslog></sys></filter></get>'
+                #netconf-console --rpc=-<<<'<get><filter type="subtree"><sys xmlns="http://example.com/router"><ntp><local-clock><status/></local-clock></ntp></sys></filter></get>'
                 netconf-console --rpc=-<<<'<get><filter type="subtree"><sys xmlns="http://example.com/router"/></filter></get>' &> /dev/null
             elif [ $TC == "NCGETO" ]; then
                 netconf-console --rpc=-<<<'<get-data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda"><datastore>ds:'"$NETCONF_DS"'</datastore><subtree-filter><sys xmlns="http://example.com/router"/></subtree-filter><config-filter>false</config-filter></get-data>' &> /dev/null

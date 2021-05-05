@@ -527,7 +527,7 @@ module router {
           path "../../key/name";
         }
       }
-      container status {
+      list status {
         config false;
         uses ntpStatus;
       }
@@ -541,7 +541,7 @@ module router {
         type ntpStratum;
         default "10";
       }
-      container status {
+      list status {
         config false;
         uses ntpStatus;
       }
@@ -624,7 +624,6 @@ module router {
       uses interfaces;
     }
     container routes {
-      config false;
       uses routes;
     }
     container syslog {
