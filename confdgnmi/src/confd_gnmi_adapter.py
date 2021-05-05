@@ -69,7 +69,7 @@ class GnmiServerAdapter(ABC):
         def __init__(self, adapter, subscription_list):
             self.adapter = adapter
             self.subscription_list = subscription_list
-            self.read_queue: Queue = None
+            self.read_queue = None
             if not self.is_once():
                 self.read_queue = Queue()
 
@@ -130,7 +130,6 @@ class GnmiServerAdapter(ABC):
             """
             return self.subscription_list.mode == gnmi_pb2.SubscriptionList.ONCE
 
-
         def is_poll(self):
             """
             Return True if subscription is of such type (POLL) that more requests
@@ -174,7 +173,7 @@ class GnmiServerAdapter(ABC):
             """
             Get current sample of subscribed paths according to
             `self.subscription_list`.
-            :param start_monitoring: if True, the paths will be monitored
+            :param: start_monitoring: if True, the paths will be monitored
             for future changes
             TODO `delete` is processed and `delete` array is empty
             TODO `alias` is dummy string, atomic is always False
@@ -286,7 +285,7 @@ class GnmiServerAdapter(ABC):
 
     @classmethod
     @abstractmethod
-    def get_inst(cls):
+    def get_adapter(cls):
         """
         Get adapter instance
         We use this, since we want to have some adapter variants as singleton.

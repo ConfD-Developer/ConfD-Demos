@@ -1,0 +1,32 @@
+module route-status {
+  namespace "http://tail-f.com/ns/example/route-status/1.0";
+  prefix rs;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  container route-status {
+    config false;
+    tailf:callpoint routestat;
+    list route {
+      key id;
+      leaf id {
+        type string;
+      }
+      leaf leaf1 {
+        type int32;
+      }
+      leaf leaf2 {
+        type int32;
+      }
+      leaf leaf3 {
+        type int32;
+      }
+      leaf leaf4 {
+        type int32;
+      }
+    }
+  }
+
+}

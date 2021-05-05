@@ -8,6 +8,7 @@ class UmlCommon {
     public static def adapter = 'adapter'
     public static def device_adapter = 'device_adapter'
     public static def device = 'device'
+    public static def dataprovider = 'dataprovider'
     public static def arrowReturn = '-->'
     public static def arrowBi = '<-->'
 
@@ -73,6 +74,9 @@ class UmlCommon {
         builder.box("    Device     ", color: colorBoxDevice) {
             if (!skipList.contains(device)) {
                 participant(device, as: '" <size:20><&tablet></size> ConfD\\n(device) "')
+            }
+            if (!skipList.contains(dataprovider)) {
+                participant(dataprovider, as: '" <size:20><&tablet></size> ConfD\\nData provider"')
             }
         }
     }

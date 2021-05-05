@@ -3,19 +3,37 @@ import threading
 import xml.etree.cElementTree as ET
 from time import sleep
 
+import gnmi_pb2
 import pytest
 
-import gnmi_pb2
 from confd_gnmi_client import ConfDgNMIClient
-from confd_gnmi_common import make_gnmi_path, get_data_type, make_formatted_path
+from confd_gnmi_common import make_gnmi_path, get_data_type, \
+    make_formatted_path
 from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
-from confd_gnmi_server import ConfDgNMIServicer, AdapterType
+from confd_gnmi_server import AdapterType, ConfDgNMIServicer
 from utils.utils import log, nodeid_to_path
 
 
 @pytest.mark.grpc
 @pytest.mark.usefixtures("fix_method")
-class TestGrpc(object):
+class GrpcBase(object):
+
+    @pytest.fixture
+    def fix_method(self, request):
+        log.debug("==> fixture method setup request={}".format(request))
+        # set_logging_level(logging.DEBUG)
+        nodeid_path = nodeid_to_path(request.node.nodeid)
+        log.debug("request.fixturenames=%s", request.fixturenames)
+        self.set_adapter_type()
+        self.server = ConfDgNMIServicer.serve(adapter_type=self.adapter_type)
+        self.client = ConfDgNMIClient()
+        log.debug("<== fixture method setup")
+        yield
+        log.debug("==> fixture method teardown (nodeid %s)" % nodeid_path)
+        self.client.close()
+        self.server.stop(0)
+        self.server.wait_for_termination()
+        log.debug("<== fixture method teardown")
 
     @pytest.fixture(autouse=True)
     def _setup(self):
@@ -25,35 +43,11 @@ class TestGrpc(object):
 
     @staticmethod
     def mk_gnmi_if_path(path_str, if_state_str="", if_id=None):
-        if if_id != None:
+        if if_id is not None:
             path_str = path_str.format(if_state_str, if_id)
         return make_gnmi_path(path_str)
 
-    @pytest.fixture
-    def fix_method(self, request):
-        log.debug("==> fixture method setup request={}".format(request))
-        # set_logging_level(logging.DEBUG)
-        nodeid_path = nodeid_to_path(request.node.nodeid)
-        log.debug("request.fixturenames=%s", request.fixturenames)
-        if 'adapter_type' in request.fixturenames:
-            adapter_type = request.getfixturevalue('adapter_type')
-        else:
-            adapter_type = AdapterType.DEMO
-        log.debug("adapter_type=%s", adapter_type)
-        self.server = ConfDgNMIServicer.serve(adapter_type=adapter_type)
-        self.client = ConfDgNMIClient()
-        log.debug("<== fixture method setup")
-        yield
-        log.debug("==> fixture method teardown (nodeid %s)" % nodeid_path)
-        self.server.stop(0)
-        log.debug("<== fixture method teardown")
-
-    @pytest.mark.parametrize("adapter_type",
-                             [pytest.param(AdapterType.DEMO,
-                                           marks=[pytest.mark.demo]),
-                              pytest.param(AdapterType.API,
-                                           marks=[pytest.mark.confd])])
-    def test_capabilities(self, request, adapter_type):
+    def test_capabilities(self, request):
         log.info("testing capabilities")
         supported_models = self.client.get_capabilities()
 
@@ -85,7 +79,7 @@ class TestGrpc(object):
     def assert_updates(updates, path_vals):
         assert (len(updates) == len(path_vals))
         for i, u in enumerate(updates):
-            TestGrpc.assert_update(u, path_vals[i])
+            GrpcBase.assert_update(u, path_vals[i])
 
     @staticmethod
     def assert_in_updates(updates, path_vals):
@@ -104,7 +98,7 @@ class TestGrpc(object):
     def verify_get_response_updates(self, prefix, paths, path_value,
                                     datatype, encoding, assert_fun=None):
         if assert_fun is None:
-            assert_fun = TestGrpc.assert_updates
+            assert_fun = GrpcBase.assert_updates
         log.debug("prefix=%s paths=%s pv_list=%s datatype=%s encoding=%s",
                   prefix, paths, path_value, datatype, encoding)
         notification = self.client.get(prefix, paths, datatype, encoding)
@@ -120,10 +114,10 @@ class TestGrpc(object):
                                         poll_interval=0,
                                         poll_count=0, read_count=-1):
         if assert_fun is None:
-            assert_fun = TestGrpc.assert_updates
+            assert_fun = GrpcBase.assert_updates
         log.debug("paths=%s path_value=%s", paths, path_value)
         response_count = 0
-        thread_assert = False
+        thread_exception = False
         pv_idx = 0
         for pv in path_value:
             if not isinstance(pv, list):
@@ -132,7 +126,7 @@ class TestGrpc(object):
         log.debug("pv_idx=%s", pv_idx)
 
         def read_subscribe_responses(responses, read_count=-1):
-            nonlocal response_count, pv_idx, thread_assert
+            nonlocal response_count, pv_idx, thread_exception
             try:
                 for response in responses:
                     response_count += 1
@@ -153,9 +147,9 @@ class TestGrpc(object):
                             log.info("read count reached")
                             break
                 assert read_count == -1 or read_count == 0
-            except AssertionError as error:
-                log.exception(error)
-                thread_assert = True
+            except Exception as e:
+                log.exception(e)
+                thread_exception = True
 
         read_thread = read_subscribe_responses
         subscription_list = \
@@ -169,7 +163,7 @@ class TestGrpc(object):
                                           poll_count=poll_count,
                                           read_count=read_count)
 
-        assert thread_assert == False
+        assert thread_exception is False
         log.debug("responses=%s", responses)
         if poll_count:
             assert (poll_count + 1 == response_count)
@@ -180,7 +174,7 @@ class TestGrpc(object):
                             poll_interval=0,
                             poll_count=0, read_count=-1):
 
-        kwargs = {"assert_fun": TestGrpc.assert_updates}
+        kwargs = {"assert_fun": GrpcBase.assert_updates}
         if_state_str = prefix_state_str = ""
         if datatype == gnmi_pb2.GetRequest.DataType.STATE:
             prefix_state_str = "-state"
@@ -189,14 +183,14 @@ class TestGrpc(object):
         kwargs["prefix"] = prefix
         if_id = 8
         leaf_paths = [
-            TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[0], if_state_str,
+            GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[0], if_state_str,
                                      if_id),
-            TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], if_state_str,
+            GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[1], if_state_str,
                                      if_id)]
         list_paths = [
-            TestGrpc.mk_gnmi_if_path(self.list_paths_str[0], if_state_str,
+            GrpcBase.mk_gnmi_if_path(self.list_paths_str[0], if_state_str,
                                      if_id),
-            TestGrpc.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
+            GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
                                      if_id)]
         ifname = "{}if_{}".format(if_state_str, if_id)
 
@@ -228,49 +222,34 @@ class TestGrpc(object):
         verify_response_updates(**kwargs)
         pv = []
         for i in range(1, GnmiDemoServerAdapter.num_of_ifs):
-            pv.append((TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[0],
+            pv.append((GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[0],
                                                 if_state_str, i),
                        "{}if_{}".format(if_state_str, i)))
-            pv.append((TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1],
+            pv.append((GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[1],
                                                 if_state_str, i),
                        "gigabitEthernet"))
         kwargs["paths"] = [list_paths[1]]
         kwargs["path_value"] = pv
-        kwargs["assert_fun"] = TestGrpc.assert_in_updates
+        kwargs["assert_fun"] = GrpcBase.assert_in_updates
         verify_response_updates(**kwargs)
         pass
 
-    @pytest.mark.parametrize("adapter_type",
-                             [pytest.param(AdapterType.DEMO,
-                                           marks=[pytest.mark.demo]),
-                              pytest.param(AdapterType.API,
-                                           marks=[pytest.mark.confd])])
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
-    def test_get(self, request, adapter_type, data_type):
+    def test_get(self, request, data_type):
         log.info("testing get")
         self._test_get_subscribe(datatype=get_data_type(data_type))
 
-    @pytest.mark.parametrize("adapter_type",
-                             [pytest.param(AdapterType.DEMO,
-                                           marks=[pytest.mark.demo]),
-                              pytest.param(AdapterType.API,
-                                           marks=[pytest.mark.confd])])
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
-    def test_subscribe_once(self, request, adapter_type, data_type):
+    def test_subscribe_once(self, request, data_type):
         log.info("testing subscribe_once")
         self._test_get_subscribe(is_subscribe=True,
                                  datatype=get_data_type(data_type))
 
     @pytest.mark.long
-    @pytest.mark.parametrize("adapter_type",
-                             [pytest.param(AdapterType.DEMO,
-                                           marks=[pytest.mark.demo]),
-                              pytest.param(AdapterType.API,
-                                           marks=[pytest.mark.confd])])
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     @pytest.mark.parametrize("poll_args",
                              [(0.2, 2), (0.5, 2), (1, 2), (0.2, 10)])
-    def test_subscribe_poll(self, request, adapter_type, data_type, poll_args):
+    def test_subscribe_poll(self, request, data_type, poll_args):
         log.info("testing subscribe_poll")
         self._test_get_subscribe(is_subscribe=True,
                                  datatype=get_data_type(data_type),
@@ -318,25 +297,53 @@ class TestGrpc(object):
                     config_cmd += "mset {};".format(cmd)
         log.info("<==")
 
-    @pytest.mark.long
-    @pytest.mark.parametrize("adapter_type",
-                             [pytest.param(AdapterType.DEMO,
-                                           marks=[pytest.mark.demo]),
-                              pytest.param(AdapterType.API,
-                                           marks=[pytest.mark.confd])
-                              ])
-    @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
-    def test_subscribe_stream(self, request, adapter_type, data_type):
-        log.info("testing subscribe_stream")
+    @staticmethod
+    def _changes_list_to_pv(changes_list):
+        '''
+        Return path_value_list created from changes_list.
+        :param changes_list:
+        :return:
+        '''
+        path_value = []
+        pv_idx = 0
+        for c in changes_list:
+            if isinstance(c, str):
+                if c == "send":
+                    pv_idx += 1
+            else:
+                if len(path_value) < pv_idx + 1:
+                    path_value.append([])
+                path_value[pv_idx].append((make_gnmi_path(c[0]), c[1]))
+        log.debug("path_value=%s", path_value)
+        return path_value
 
+    @staticmethod
+    def _changes_list_to_xml(changes_list, prefix_str):
+        demo = ET.Element("demo")
+        sub = ET.SubElement(demo, "subscription")
+        stream = ET.SubElement(sub, "STREAM")
+        changes = ET.SubElement(stream, "changes")
+        for c in changes_list:
+            el = ET.SubElement(changes, "element")
+            if isinstance(c, str):
+                el.text = c
+            else:
+                ET.SubElement(el, "path").text = "{}/{}".format(prefix_str,
+                                                                c[0])
+                ET.SubElement(el, "val").text = c[1]
+        xml_str = ET.tostring(demo, encoding='unicode')
+        log.debug("xml_str=%s", xml_str)
+        return xml_str
+
+    @pytest.mark.long
+    @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
+    def test_subscribe_stream(self, request, data_type):
+        log.info("testing subscribe_stream")
         if_state_str = prefix_state_str = ""
         if data_type == "STATE":
             prefix_state_str = "-state"
             if_state_str = "state_"
-        prefix_str = "/interfaces{}".format(prefix_state_str)
-        prefix = make_gnmi_path(prefix_str)
-        paths = [TestGrpc.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
-                                          "N/A")]
+
         changes_list = [
             ("interface[name={}if_5]/type".format(if_state_str),
              "fastEther"),
@@ -349,7 +356,7 @@ class TestGrpc(object):
              "gigabitEthernet"),
             "send",
         ]
-        if data_type == "STATE" and adapter_type == AdapterType.API:
+        if data_type == "STATE" and self.adapter_type == AdapterType.API:
             # TODO state `confd_cmd` is not transactional, so we need to check
             # every item - add 'send' after each item (or fix checking method?)
             new_change_list = []
@@ -359,76 +366,47 @@ class TestGrpc(object):
             changes_list = new_change_list
         log.info("change_list=%s", changes_list)
 
-        def changes_list_to_pv(changes_list):
-            path_value = [[]]  # empty means no check
-            pv_idx = 1
-            for c in changes_list:
-                if isinstance(c, str):
-                    if c == "send":
-                        pv_idx += 1
-                else:
-                    if len(path_value) == pv_idx:
-                        path_value.append([])
-                    path_value[pv_idx].append((make_gnmi_path(c[0]), c[1]))
-            log.debug("path_value=%s", path_value)
-            return path_value
+        path_value = [[]]  # empty element means no check
+        path_value.extend(self._changes_list_to_pv(changes_list))
 
-        def changes_list_to_xml(changes_list):
-            demo = ET.Element("demo")
-            sub = ET.SubElement(demo, "subscription")
-            stream = ET.SubElement(sub, "STREAM")
-            changes = ET.SubElement(stream, "changes")
-            for c in changes_list:
-                el = ET.SubElement(changes, "element")
-                if isinstance(c, str):
-                    el.text = c
-                else:
-                    ET.SubElement(el, "path").text = "{}/{}".format(prefix_str,
-                                                                    c[0])
-                    ET.SubElement(el, "val").text = c[1]
-            xml_str = ET.tostring(demo, encoding='unicode')
-            log.debug("xml_str=%s", xml_str)
-            return xml_str
+        prefix_str = "/interfaces{}".format(prefix_state_str)
+        prefix = make_gnmi_path(prefix_str)
+        paths = [GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
+                                          "N/A")]
 
-        path_value = changes_list_to_pv(changes_list)
-        if adapter_type == AdapterType.DEMO:
-            GnmiDemoServerAdapter.load_config_string(
-                changes_list_to_xml(changes_list))
-
-        kwargs = {"assert_fun": TestGrpc.assert_in_updates}
+        kwargs = {"assert_fun": GrpcBase.assert_in_updates}
         kwargs["prefix"] = prefix
         kwargs["paths"] = paths
         kwargs["path_value"] = path_value
         kwargs["subscription_mode"] = gnmi_pb2.SubscriptionList.STREAM
         kwargs["read_count"] = len(path_value)
-        kwargs["assert_fun"] = TestGrpc.assert_in_updates
-        if adapter_type == AdapterType.API:
+        kwargs["assert_fun"] = GrpcBase.assert_in_updates
+
+        if self.adapter_type == AdapterType.DEMO:
+            GnmiDemoServerAdapter.load_config_string(
+                self._changes_list_to_xml(changes_list, prefix_str))
+        if self.adapter_type == AdapterType.API:
             sleep(1)
             thr = threading.Thread(
                 target=self._send_change_list_to_confd_thread,
-                args=(prefix_str, changes_list, ))
+                args=(prefix_str, changes_list,))
             thr.start()
 
         self.verify_sub_sub_response_updates(**kwargs)
 
-        if adapter_type == AdapterType.API:
+        if self.adapter_type == AdapterType.API:
             thr.join()
-        # TODO reset ConfD DB to original values
+            # TODO reset ConfD DB to original values
 
-    @pytest.mark.parametrize("adapter_type",
-                             [pytest.param(AdapterType.DEMO,
-                                           marks=[pytest.mark.demo]),
-                              pytest.param(AdapterType.API,
-                                           marks=[pytest.mark.confd])])
-    def test_set(self, request, adapter_type):
+    def test_set(self, request):
         log.info("testing set")
         if_id = 8
         prefix = make_gnmi_path("/interfaces")
-        paths = [TestGrpc.mk_gnmi_if_path(self.leaf_paths_str[1], "", if_id)]
+        paths = [GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[1], "", if_id)]
         vals = [gnmi_pb2.TypedValue(string_val="fastEther")]
         response = self.client.set(prefix, list(zip(paths, vals)))
         assert (response.prefix == prefix)
-        TestGrpc.assert_set_response(response.response[0],
+        GrpcBase.assert_set_response(response.response[0],
                                      (paths[0], gnmi_pb2.UpdateResult.UPDATE))
 
         # fetch with get and see value has changed
@@ -438,10 +416,10 @@ class TestGrpc(object):
         for n in notification:
             log.debug("n=%s", n)
             assert (n.prefix == prefix)
-            TestGrpc.assert_updates(n.update, [(paths[0], "fastEther")])
+            GrpcBase.assert_updates(n.update, [(paths[0], "fastEther")])
 
         # put value back
         vals = [gnmi_pb2.TypedValue(string_val="gigabitEthernet")]
         response = self.client.set(prefix, list(zip(paths, vals)))
-        TestGrpc.assert_set_response(response.response[0],
+        GrpcBase.assert_set_response(response.response[0],
                                      (paths[0], gnmi_pb2.UpdateResult.UPDATE))

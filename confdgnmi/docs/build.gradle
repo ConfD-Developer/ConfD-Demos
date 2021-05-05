@@ -3,8 +3,8 @@
 
 plugins {
     id 'idea'
-    id 'com.github.ben-manes.versions' version '0.36.0' // gradle dependencyUpdates -Drevision=release
-    id 'org.asciidoctor.jvm.convert' version '3.3.0'
+    id 'com.github.ben-manes.versions' version '0.38.0' // gradle dependencyUpdates -Drevision=release
+    id 'org.asciidoctor.jvm.convert' version '3.3.2'
 }
 
 repositories {

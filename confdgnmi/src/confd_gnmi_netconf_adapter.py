@@ -4,7 +4,7 @@ from confd_gnmi_adapter import GnmiServerAdapter
 class GnmiNetconfServerAdapter(GnmiServerAdapter):
 
     @classmethod
-    def get_inst(cls):
+    def get_adapter(cls):
         pass
 
     def set(self, prefix, path, val):

@@ -6,10 +6,10 @@ import sys
 def gen_intf(name):
     interface = """<interface xmlns:ns0="urn:ietf:params:xml:ns:netconf:base:1.0"
                ns0:operation="create">
-        <name>{}</name>  
+        <name>{}</name>
         <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">
             gigabitEthernet
-        </type>             
+        </type>
     </interface>
     """.format(name)
     return interface
@@ -17,10 +17,10 @@ def gen_intf(name):
 
 def gen_intf_state(name):
     interface = """<interface xmlns:ns0="urn:ietf:params:xml:ns:netconf:base:1.0">
-        <name>{}</name>  
+        <name>{}</name>
         <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">
             gigabitEthernet
-        </type>             
+        </type>
     </interface>
     """.format(name)
     return interface

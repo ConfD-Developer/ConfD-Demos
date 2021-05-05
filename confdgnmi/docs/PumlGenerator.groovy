@@ -29,9 +29,10 @@ class PumlGenerator {
     static void main(String[] args) {
         def builder = makeBuilder()
         [
-                [fileName: 'subscribe_once', txt: true, fn: Subscriber.&makeSubscriberOnceSeq],
-                [fileName: 'subscribe_poll', txt: true, fn: Subscriber.&makeSubscriberPollSeq],
-                [fileName: 'subscribe_stream', txt: true, fn: Subscriber.&makeSubscriberStreamSeq],
+                [fileName: 'subscribeonce', txt: true, fn: Subscriber.&makeSubscriberOnceSeq],
+                [fileName: 'subscribepoll', txt: true, fn: Subscriber.&makeSubscriberPollSeq],
+                [fileName: 'subscribestream', txt: true, fn: Subscriber.&makeSubscriberStreamSeq],
+                [fileName: 'subscribedpstream', txt: true, fn: Subscriber.&makeSubscriberDpStreamSeq]
         ].each { it ->
             builder.reset()
             print "Processing  ${it.fileName}"

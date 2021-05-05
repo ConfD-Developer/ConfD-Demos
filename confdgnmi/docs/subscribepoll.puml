@@ -75,7 +75,7 @@ activate client
     deactivate server
   deactivate sub_read
   deactivate server
-  note right of server : Client or Servewr stops Request/Response stream.
+  note right of server : Client or Server stops Request/Response stream.
   sub_read --> server : reading ended\n(""subscribe_rpc_done"")
   activate server
     server -> adapter : stop
