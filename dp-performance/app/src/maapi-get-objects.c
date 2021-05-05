@@ -122,8 +122,9 @@ static int traverse_cs_nodes(int ms, int th, int j, char *path, struct confd_cs_
         ret = maapi_get_objects(&mc, &subvals[curr_nobjs * nsubvals], nsubvals, &nobjs);
         curr_nobjs += nobjs;
       } while (ret >= 0 && mc.n != 0);
+      maapi_destroy_cursor(&mc);
       nkeys = 0;
-      for (keyptr = cs_node->info.keys; *keyptr != 0; keyptr++) {
+      for (keyptr = cs_node->info.keys; keyptr != NULL && *keyptr != 0; keyptr++) {
         nkeys++;
       }
       sublen = strlen(path);
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
     confd_fatal("Failed to start trans\n");
   }
 
-  if ((ret = maapi_set_flags(maapisock, thandle, MAAPI_FLAG_NO_DEFAULTS)) != CONFD_OK) {
+  if ((ret = maapi_set_flags(maapisock, thandle, 0)) != CONFD_OK) {
     confd_fatal("maapi_set_flags() failed\n");
   }
 

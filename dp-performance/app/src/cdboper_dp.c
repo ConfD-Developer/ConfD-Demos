@@ -351,30 +351,15 @@ static int get_object(struct confd_trans_ctx *tctx,
   cs_node = confd_cs_node_cd(NULL, kp_str);
   itv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 *
                                      (1 + confd_max_object_size(cs_node)));
-  if (cs_node->info.flags & CS_NODE_IS_LIST) {
-    if (cs_node->info.keys != NULL) { /* not a keyless list */
-      if (cdb_exists(cdbsock, kp_str) != 1) {
-        /* No list entry with a maching key */
-        confd_data_reply_not_found(tctx);
-        return CONFD_OK;
-      }
-    }
-    j = traverse_cs_nodes(cs_node->children, &itv[0], j);
-  } else { /* container */
-    j = traverse_cs_nodes(cs_node->children, &itv[0], j);
-  }
-
+  j = traverse_cs_nodes(cs_node->children, &itv[0], j);
   if (cdb_get_values(cdbsock, itv, j, kp_str) != CONFD_OK) {
-    confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
+    confd_data_reply_not_found(tctx);
+    return CONFD_OK;
+    //confd_fatal("cdb_get_values() from path %s failed\n", kp_str);
   }
   tv = (confd_tag_value_t *) malloc(sizeof(confd_tag_value_t) * 2 *
                                     (1 + confd_max_object_size(cs_node)));
-  if (start->info.flags & CS_NODE_IS_CONTAINER) {
-    n = format_object(tv, &itv[0], j, start);
-  } else {
-    n = format_object(tv, &itv[1], j-2, start); /* +1 and -2 to skip begin and
-                                                   end tags for each object */
-  }
+  n = format_object(tv, &itv[0], j, start);
   confd_data_reply_tag_value_array(tctx, tv, n);
 
   free(tv);
@@ -482,7 +467,7 @@ static int find_next(struct confd_trans_ctx *tctx,
     }
   }
   /* reply */
-  confd_data_reply_next_key(tctx, &v[0], j, pos);
+  confd_data_reply_next_key(tctx, &v[0], j, -1);
   return CONFD_OK;
 }
 
