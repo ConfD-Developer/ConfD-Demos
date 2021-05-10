@@ -94,8 +94,8 @@ nodes to join the cluster in a fully synchronized fashion.
 This example is designed to show the setup of multiple ConfD nodes,
 how to setup a cluster them  and how a configuration is replicated
 within that cluster. By default it will start three ConfD instances
-on the same host and the demo shell script, run.sh,  will run a
-configuration performance tests using NETCNF as well as add and
+on the same host and the demo shell script, run.sh, will run a
+configuration performance tests using NETCONF as well as add and
 remove a fourth node. 
 
 Running the Example
