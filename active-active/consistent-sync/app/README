@@ -8,7 +8,8 @@ instances, each serving any number of application (micro)services to
 form active-active fully synchronized clusters as the core part of an
 active-active HA framework.
 
-The focus of the example is consistency + partitioning and as a
+The focus of the example is linearizability with full-consistency + 
+partitioning (distributed system). That comes with some cost and as a
 consequence we sacrifice some availability due to taking maapi_lock(s)
 on the nodes we synch to. See CAP theorem to for the basics on why we
 need to sacrifice some availability if we always want to preserve
