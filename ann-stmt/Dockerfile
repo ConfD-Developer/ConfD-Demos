@@ -29,5 +29,4 @@ ADD app.tar.gz /
 WORKDIR /app
 
 # Startup script
-EXPOSE 2022
 CMD [ "./run.sh" ]

@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFD_VERSION="7.5.1"
+CONFD_VERSION="7.5.2"
 IMG_NAME="ann-stmt"
 
 function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
@@ -52,7 +52,7 @@ elif [[ $CONFD_VERSION == 7.* ]]; then
 else
   docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION -f Dockerfile.pre7 .
 fi
-CID="$(docker run --name $IMG_NAME -d --rm -p 2022:2022 $IMG_NAME | cut -c1-12)"
+CID="$(docker run --name $IMG_NAME -d --rm $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
     echo "waiting..."

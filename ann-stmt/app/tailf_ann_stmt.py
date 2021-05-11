@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 import copy
+import sys
 
 
 def gen_ann_module(name, ns, prefix):
@@ -32,17 +33,24 @@ def add_stmt(node, ann_node, ann_soup):
         return ann_node
     elif node.parent.name == "augment":
         parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['target_node']))
-    elif node.parent.name == "when":
-        parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="when")
+    #elif node.parent.name == "when":
+    #    parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="when")
     else:
-        parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[{}=\'{}\']".format(node.parent.name,
+        #print(">>>>>>>node.parent.name: {} attrs: {}".format(node.parent.name, node.parent.attrs))
+        if not node.parent.attrs:
+            parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}".format(node.parent.name))
+        else:
+            parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[{}=\'{}\']".format(node.parent.name,
    													     next(iter(node.parent.attrs)),
 													     next(iter(node.parent.attrs.values()))))
     parent_ann_node.append(ann_node)
     return add_stmt(node.parent, parent_ann_node, ann_soup)
 
 
-def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_callpoint_stmt, parse_validate_stmt, sanitize, yang_file):
+def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
+                   parse_max_elem_stmt, parse_mandatory_stmt, parse_unique_stmt,
+                   parse_pattern_stmt, parse_tailf_stmt, parse_callpoint_stmt,
+                   parse_validate_stmt, sanitize, out_path, yang_file):
     confd_dir = os.environ['CONFD_DIR']
     yang_file_path = yang_file.rsplit('/', 1)
     yang_path = yang_file_path[0]
@@ -87,6 +95,36 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_cal
                 annotate_statements = add_stmt(when_stmt, copy.copy(when_stmt), ann_soup)
                 ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
                 when_stmt.decompose()
+    if parse_min_elem_stmt is True:
+        for min_elem_stmt in yin_soup.find_all('min-elements'):
+            if min_elem_stmt.parent is not None:
+                annotate_statements = add_stmt(min_elem_stmt, copy.copy(min_elem_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                min_elem_stmt.decompose()
+    if parse_max_elem_stmt is True:
+        for max_elem_stmt in yin_soup.find_all('max-elements'):
+            if max_elem_stmt.parent is not None:
+                annotate_statements = add_stmt(max_elem_stmt, copy.copy(max_elem_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                max_elem_stmt.decompose()
+    if parse_mandatory_stmt is True:
+        for mandatory_stmt in yin_soup.find_all('mandatory'):
+            if mandatory_stmt.parent is not None:
+                annotate_statements = add_stmt(mandatory_stmt, copy.copy(mandatory_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                mandatory_stmt.decompose()
+    if parse_unique_stmt is True:
+        for unique_stmt in yin_soup.find_all('unique'):
+            if unique_stmt.parent is not None:
+                annotate_statements = add_stmt(unique_stmt, copy.copy(unique_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                unique_stmt.decompose()
+    if parse_pattern_stmt is True:
+        for pattern_stmt in yin_soup.find_all('pattern'):
+            if pattern_stmt.parent is not None:
+                annotate_statements = add_stmt(pattern_stmt, copy.copy(pattern_stmt), ann_soup)
+                ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
+                pattern_stmt.decompose()
     if parse_tailf_stmt is True:
         for tailf_extension in yin_soup.find_all(re.compile('tailf_prefix_')):
             if tailf_extension.parent is not None and tailf_extension.parent.name.startswith('tailf_prefix_') == False:
@@ -139,7 +177,7 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_cal
                             stdout=subprocess.PIPE, input=yin_soup_str,
                             encoding='utf-8')
     yang_content = result.stdout
-    with open("yang/{}".format(yang_filename), "w") as fp:
+    with open("{}/{}".format(out_path,yang_filename), "w") as fp:
         fp.write(str(yang_content))
         fp.close()
     if create_ann_module is True:
@@ -156,7 +194,7 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_tailf_stmt, parse_cal
                                 yang_path, '-p', confd_dir], stdout=subprocess.PIPE,
                                 input=ann_soup_str, encoding='utf-8')
         ann_content = result.stdout
-        with open("yang/{}".format(ann_filename), "w") as fp:
+        with open("{}/{}".format(out_path,ann_filename), "w") as fp:
             fp.write(str(ann_content))
             fp.close()
 
@@ -170,6 +208,16 @@ if __name__ == "__main__":
                         help='remove all must statements')
     parser.add_argument('-w', '--when', action='store_true',
                         help='remove all when startements')
+    parser.add_argument('-i', '--minelem', action='store_true',
+                        help='remove all min-element statements')
+    parser.add_argument('-x', '--maxelem', action='store_true',
+                        help='remove all max-element statements')
+    parser.add_argument('-a', '--mandatory', action='store_true',
+                        help='remove all mandatory statements')
+    parser.add_argument('-u', '--unique', action='store_true',
+                        help='remove all unique statements')
+    parser.add_argument('-p', '--pattern', action='store_true',
+                        help='remove all pattern statements')
     parser.add_argument('-t', '--tailf', action='store_true',
                         help='remove all tailf extensions')
     parser.add_argument('-c', '--callpoint', action='store_true',
@@ -178,7 +226,12 @@ if __name__ == "__main__":
                         help='remove tailf:validate extensions')
     parser.add_argument('-s', '--sanitize', action='store_true',
                         help='sanitize only without creating an annotation file')
+    parser.add_argument('-o', '--output', nargs=1, type=str, default="",
+                        help='Write the output to a different path than current folder')
     parser.add_argument('filename', nargs=1, type=str,
                         help='<file> YANG module to be sanitized')
     args = parser.parse_args()
-    tailf_ann_stmt(args.must, args.when, args.tailf, args.callpoint, args.validate, args.sanitize, args.filename[0])
+    tailf_ann_stmt(args.must, args.when, args.minelem, args.maxelem,
+                   args.mandatory, args.unique, args.pattern, args.tailf,
+                   args.callpoint, args.validate, args.sanitize,
+                   args.output[0], args.filename[0])
