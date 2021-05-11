@@ -16,15 +16,18 @@ module test {
   }
 
   container test {
+    presence "";
     uses test-valid;
     container si-test {
       when "../testmod1";
       list interface {
+        key "name";
         tailf:secondary-index "my-index" {
           tailf:index-leafs "if-index";
           tailf:display-default-order;
         }
-        key "name";
+        min-elements 1;
+        max-elements 100;
         leaf name {
           type string;
         }
@@ -44,7 +47,9 @@ module test {
       tailf:cli-mode-name "testMOD";
       tailf:cli-add-mode;
       leaf dummy {
-        type string;
+        type string {
+          pattern "[0-9a-fA-F]*";
+        }
       }
     }
     container testmod2 {
@@ -60,6 +65,7 @@ module test {
       tailf:cli-suppress-mode;
       tailf:cli-incomplete-command;
       key "name";
+      unique "dummy";
       leaf name {
         type string;
       }
