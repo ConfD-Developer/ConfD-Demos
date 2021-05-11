@@ -151,14 +151,14 @@ class GrpcBase(object):
                 log.exception(e)
                 thread_exception = True
 
-        read_thread = read_subscribe_responses
+        read_fun = read_subscribe_responses
         subscription_list = \
             ConfDgNMIClient.make_subscription_list(prefix,
                                                    paths,
                                                    subscription_mode)
 
         responses = self.client.subscribe(subscription_list,
-                                          read_thread=read_thread,
+                                          read_fun=read_fun,
                                           poll_interval=poll_interval,
                                           poll_count=poll_count,
                                           read_count=read_count)

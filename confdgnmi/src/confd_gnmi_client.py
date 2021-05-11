@@ -123,18 +123,15 @@ class ConfDgNMIClient:
         log.info("<==")
 
     # TODO this API would change with more subscription support
-    def subscribe(self, subscription_list, read_thread=None,
+    def subscribe(self, subscription_list, read_fun=None,
                   poll_interval=0.0, poll_count=0, read_count=-1):
         log.info("==>")
         responses = self.stub.Subscribe(
             ConfDgNMIClient.generate_subscriptions(subscription_list,
                                                    poll_interval, poll_count),
             metadata=self.metadata)
-        if read_thread is not None:
-            thr = threading.Thread(target=read_thread,
-                                   args=(responses, read_count,))
-            thr.start()
-            thr.join()
+        if read_fun is not None:
+            read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
         return responses
 
@@ -244,7 +241,7 @@ if __name__ == '__main__':
     elif opt.operation == "subscribe":
         print("Starting subscription ....")
         client.subscribe(subscription_list,
-                         read_thread=ConfDgNMIClient.read_subscribe_responses,
+                         read_fun=ConfDgNMIClient.read_subscribe_responses,
                          poll_interval=poll_interval, poll_count=poll_count,
                          read_count=read_count)
         print(".... subscription done")
