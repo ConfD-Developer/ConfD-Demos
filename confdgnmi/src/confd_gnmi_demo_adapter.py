@@ -222,15 +222,16 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                                 else:
                                     log.info("c=%s self.monitored_paths=%s",
                                              c, self.monitored_paths)
-                                    if any(c[0].startswith(elem) for elem in
+                                    (path, val) = c
+                                    if any(path.startswith(elem) for elem in
                                            self.monitored_paths):
                                         log.info("appending c=%s", c)
                                         self.change_db.append(c)
-                                        if c[0] in self.adapter.demo_db:
-                                            self.adapter.demo_db[c[0]] = c[1]
-                                        elif c[0] in self.adapter.demo_state_db:
+                                        if path in self.adapter.demo_db:
+                                            self.adapter.demo_db[path] = val
+                                        elif path in self.adapter.demo_state_db:
                                             self.adapter.demo_state_db[
-                                                c[0]] = c[1]
+                                                path] = val
                                         else:
                                             assert False
                         if send:
