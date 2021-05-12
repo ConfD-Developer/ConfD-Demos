@@ -167,7 +167,7 @@ NOTE: In `gnmi.proto` we have updated `import "gnmi_ext.proto"`
 
 == gNMI overview
 
-gNMI protocol consists of four operations (`Capabilities`, Set`, `Get` and `Subscribe`).
+gNMI protocol consists of four operations/messages (`Capabilities`, `Set`, `Get` and `Subscribe`).
 
 .gNMI Interface
 [source, protobuf, role="acopy"]
@@ -180,7 +180,7 @@ service gNMI {
 }
 ----
 
-NOTE: The interface itself looks relatively simple, but we need to consider the Request and Response messages are complex. Mainly `Subscribe` method has many variants. More details can be found in the https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification[gNMI Specification].
+NOTE: The interface itself looks relatively simple, but the `Request` and `Response` messages may be complex. `Subscribe` method has many variants. More details can be found in the https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification[gNMI Specification].
 
 == Building gNMI Adapter demo
 
@@ -892,7 +892,7 @@ This not all gNMI functionality are currently supported. They may be added in th
 *Limitations*
 
 * only `BYTES` are used as `encoding`
-* `Get`, `Set` and `Subscribe` works only on `the leaf`, `list` entries and `lists`
+* `Get`, `Set` and `Subscribe` works only on the `leaf`, `list` entries and `lists`
 * `Set` works only on `leaf` elements
 * `Subscribe`
 ** not all subscription parameters are supported
