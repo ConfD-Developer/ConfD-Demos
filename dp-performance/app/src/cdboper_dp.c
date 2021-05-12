@@ -826,7 +826,7 @@ int main(int argc, char *argv[])
   if (confd_register_done(dctx) != CONFD_OK)
     confd_fatal("Failed to complete registration \n");
 
-  /* Start a CDB session towards the CDB running datastore */
+  /* Start a CDB session towards the CDB operational datastore */
   if ((cdbsock = socket(PF_INET, SOCK_STREAM, 0)) < 0)
     confd_fatal("Failed to create the CDB socket");
   if (cdb_connect(cdbsock, CDB_DATA_SOCKET, (struct sockaddr *)&addr,
