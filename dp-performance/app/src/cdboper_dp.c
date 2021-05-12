@@ -645,6 +645,14 @@ static int find_next_object(struct confd_trans_ctx *tctx,
   return CONFD_OK;
 }
 
+/* Normally, we would write the data to the external DB from the write_start()
+   or perpare() callbacks and commit the data from the commit() callback. Since
+   we are writing to the ConfD CDB operational datastore it is not possible for
+   other northbound clients other than MAAPI and CDB API clients to write or
+   read (see tailf:export in the *-state.yang modules) the data we can write
+   the data to the CDB operational datastore in the commit callback as we are
+   ceritain (enough "nines", see for example the Wikipedia "High Availability"
+   article) that our write operations will succeed. */
 static int t_commit(struct confd_trans_ctx *tctx)
 {
   struct confd_tr_item *item = tctx->accumulated;
