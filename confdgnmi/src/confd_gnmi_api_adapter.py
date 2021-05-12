@@ -1,24 +1,32 @@
+import logging
 import os
 import select
 import sys
 import threading
 import xml.etree.ElementTree as ET
+from enum import Enum
 from socket import socket
+from typing import List
 
 import _confd
 from confd import maapi, maagic
 from confd.cdb import cdb
 
+import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
-from confd_gnmi_common import *
+from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
+from confd_gnmi_common import make_xpath_path, make_gnmi_path, \
+    make_formatted_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
 
 
 class GnmiConfDApiServerAdapter(GnmiServerAdapter):
-    confd_addr: str = '127.0.0.1'
-    confd_port: int = _confd.CONFD_PORT
+    confd_addr: str = ApiAdapterDefaults.CONFD_ADDR
+    confd_port: int = ApiAdapterDefaults.CONFD_PORT if ApiAdapterDefaults.CONFD_PORT else _confd.CONFD_PORT
+    monitor_external_changes: bool = ApiAdapterDefaults.MONITOR_EXTERNAL_CHANGES
+    external_port: int = ApiAdapterDefaults.EXTERNAL_PORT
 
     def __init__(self):
         self.addr: str = ""
@@ -44,15 +52,25 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         _confd.set_debug(confd_debug_level, sys.stderr)
 
     @staticmethod
-    def set_confd_addr(confd_addr):
-        GnmiConfDApiServerAdapter.confd_addr = confd_addr
+    def set_confd_addr(addr):
+        GnmiConfDApiServerAdapter.confd_addr = addr
 
     @staticmethod
-    def set_confd_port(confd_port):
-        GnmiConfDApiServerAdapter.confd_port = confd_port
+    def set_confd_port(port):
+        if port is None:
+            port = _confd.CONFD_PORT
+        GnmiConfDApiServerAdapter.confd_port = port
+
+    @staticmethod
+    def set_external_port(port):
+        GnmiConfDApiServerAdapter.external_port = port
+
+    @staticmethod
+    def set_monitor_external_changes(val=True):
+        GnmiConfDApiServerAdapter.monitor_external_changes = val
 
     @classmethod
-    def get_inst(cls) -> GnmiServerAdapter:
+    def get_adapter(cls) -> GnmiServerAdapter:
         """
         This is classmethod on purpose, see GnmiDemoServerAdapter
         """
@@ -69,7 +87,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             self.change_thread = None
             self.stop_pipe = None
 
-        def get_monitored_changes(self) -> []:
+        def get_monitored_changes(self) -> List:
             # TODO reuse with demo adapter ?
             with self.change_db_lock:
                 log.debug("==> self.change_db=%s", self.change_db)
@@ -104,7 +122,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             self.monitored_paths.append(path_with_prefix_str)
             log.debug("<==")
 
-        def kp_to_xpath(self, kp):
+        @staticmethod
+        def kp_to_xpath(kp):
             log.debug("==> kp=%s", kp)
             xpath = _confd.xpath_pp_kpath(kp)
             xpath = xpath.replace('"', '')
@@ -119,10 +138,26 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             log.debug("<== xpath=%s", xpath)
             return xpath
 
+        class ChangeOp(Enum):
+            MODIFIED = "mod"
+
+        def _append_changes(self, change_tuple):
+            """
+            :param change_tuple: 3 elem tuple (o, xpath, val)
+            :return:
+            """
+            log.debug("==> change_tuple=%s", change_tuple)
+            with self.change_db_lock:
+                for c in change_tuple:
+                    assert c[0] == self.ChangeOp.MODIFIED or \
+                           c[0] == self.ChangeOp.MODIFIED.value
+                    self.change_db.append((c[1], c[2]))
+            log.debug("<==")
+
         def process_subscription(self, sub_sock, sub_point):
             log.debug("==>")
 
-            def iter(kp, op, oldv, newv, state):
+            def cdb_iter(kp, op, oldv, newv, state):
                 log.debug("==> kp=%s, op=%r, oldv=%s, newv=%s, state=%r", kp,
                           op, oldv, newv, state)
                 if op == _confd.MOP_CREATED:
@@ -130,9 +165,9 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     # TODO CREATE not handled for now
                 if op == _confd.MOP_VALUE_SET:
                     log.debug("_confd.MOP_VALUE_SET")
-                    with self.change_db_lock:
-                        xpath = self.kp_to_xpath(kp)
-                        self.change_db.append((xpath, str(newv)))
+                    self._append_changes([(self.ChangeOp.MODIFIED,
+                                           self.kp_to_xpath(kp),
+                                           str(newv))])
                     # TODO MOP_VALUE_SET implement
                 elif op == _confd.MOP_DELETED:
                     log.debug("_confd.MOP_DELETED")
@@ -142,66 +177,135 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     # TODO MODIFIED not handled for now
                 else:
                     log.warning(
-                        "Operation op=%d is not expected, kp=%s. Skipping!"
-                        , op, kp)
+                        "Operation op=%d is not expected, kp=%s. Skipping!",
+                        op, kp)
                 return _confd.ITER_RECURSE
 
-            cdb.diff_iterate(sub_sock, sub_point, iter, 0, None)
+            cdb.diff_iterate(sub_sock, sub_point, cdb_iter, 0, None)
             self.put_event(self.SubscriptionEvent.SEND_CHANGES)
             log.debug("self.change_db=%s", self.change_db)
             log.debug("<==")
 
-        def process_changes(self):
+        def process_external_change(self, ext_sock):
+            log.info("==>")
+            connection, client_address = ext_sock.accept()
+            with connection:
+                # TODO make const
+                msg = connection.recv(1024)
+                log.debug("msg=%s", msg)
+                # simple protocol (just for illustration, real implementation
+                # should be more robust as not everything may come at once)
+                # the msg string should contain N strings separated by \n
+                # op1\nxpath1\nval1\nop2\nxpath2\nval2 .....
+                # op1 .. first operation1, xpath1 .... first xpath, ...
+                # op is string used in ChangeOp Enum class
+                # currently operation can be only "modified"
+                # the size must be smaller then size in recv
+                data = msg.decode().split('\n')
+                assert len(data) % 3 == 0
+                chunks = ((data[x], data[x+1], data[x+2]) for x in range(0, len(data), 3))
+                self._append_changes(chunks)
+                self.put_event(self.SubscriptionEvent.SEND_CHANGES)
+                log.debug("data=%s", data)
+            log.info("<==")
+
+        def subscribe_monitored_paths_cdb(self, sub_sock):
+            """
+            Subscribe to monitored paths
+            :param sub_sock:
+            :return: True, if some path is not in CDB
+            """
+            log.debug("==> sub_sock=%s", sub_sock)
+            prio = 10
+            subscribed = has_non_cdb = False
+            # make subscription for all self.monitored_paths in CDB
+            for p in self.monitored_paths:
+                log.debug("subscribing config p=%s", p)
+                # TODO hash - breaks generic usage
+                # TODO for now we subscribe path for both, config and oper,
+                # TODO subscribe only for paths that exist
+                # it may be more efficient to find out type of path and subscribe
+                # only for one type
+                cs_node = _confd.cs_node_cd(None, p)
+                is_cdb = cs_node.info().flags() & _confd.CS_NODE_IS_CDB
+                if is_cdb:
+                    subscribed = True
+                    cdb.subscribe2(sub_sock, cdb.SUB_RUNNING, 0, prio, 0, p)
+                    log.debug("subscribing operational p=%s", p)
+                    cdb.subscribe2(sub_sock, cdb.SUB_OPERATIONAL, 0, prio, 0, p)
+                else:
+                    has_non_cdb = True
+            if subscribed:
+                cdb.subscribe_done(sub_sock)
+            log.debug("<== has_non_cdb=%s", has_non_cdb)
+            return has_non_cdb
+
+        def start_external_change_server(self):
+            """
+            Start external change server
+            :return: socket to listen for changes
+            """
             log.debug("==>")
-            # make subscription for all self.monitored_paths
+            log.info("Starting external change server!")
+            ext_server_sock = socket()
+            # TODO port (host) as const or command line option
+            ext_server_sock.bind(("localhost",
+                                  GnmiConfDApiServerAdapter.external_port))
+            ext_server_sock.listen(5)
+            log.debug("<== ext_server_sock=%s", ext_server_sock)
+            return ext_server_sock
+
+        def socket_loop(self, sub_sock, ext_server_sock=None):
+            log.debug("==> sub_sock=%s ext_server_sock=%s", sub_sock,
+                      ext_server_sock)
+            rlist = [sub_sock, self.stop_pipe[0]]
+            if ext_server_sock is not None:
+                rlist.append(ext_server_sock)
+            wlist = elist = []
+            while True:
+                log.debug("rlist=%s", rlist)
+                r, w, e = select.select(rlist, wlist, elist)
+                log.debug("r=%s", r)
+                if ext_server_sock is not None and ext_server_sock in r:
+                    self.process_external_change(ext_server_sock)
+                if sub_sock in r:
+                    try:
+                        sub_info = cdb.read_subscription_socket2(
+                            sub_sock)
+                        for s in sub_info[2]:
+                            self.process_subscription(sub_sock, s)
+                        cdb.sync_subscription_socket(sub_sock,
+                                                     cdb.DONE_PRIORITY)
+                    except _confd.error.Error as e:
+                        # Callback error
+                        if e.confd_errno is _confd.ERR_EXTERNAL:
+                            log.exception(e)
+                        else:
+                            raise e
+                if self.stop_pipe[0] in r:
+                    v = os.read(self.stop_pipe[0], 1)
+                    assert v == b'x'
+                    log.debug("Stopping ConfD loop")
+                    break
+            log.debug("<==")
+
+        def process_changes(self, external_changes=False):
+            log.debug("==> external_changes=%s", external_changes)
             with socket() as sub_sock:
-                prio = 10
                 cdb.connect(sub_sock, cdb.SUBSCRIPTION_SOCKET, '127.0.0.1',
                             _confd.CONFD_PORT)
-                for p in self.monitored_paths:
-                    log.debug("subscribing config p=%s", p)
-                    # TODO hash - breaks generic usage
-                    # TODO for now we subscribe path for both, config and oper,
-                    # TODO subscribe only for paths that exist
-                    # it may be more efficient to find out type of path and subscribe
-                    # only for one type
-                    cdb.subscribe2(sub_sock, cdb.SUB_RUNNING, 0, prio,
-                                   0, p)
-                    log.debug("subscribing operational p=%s", p)
-                    cdb.subscribe2(sub_sock, cdb.SUB_OPERATIONAL, 0, prio,
-                                   0, p)
-                cdb.subscribe_done(sub_sock)
+                has_non_cdb = self.subscribe_monitored_paths_cdb(sub_sock)
                 log.debug("subscribe_done")
                 assert self.stop_pipe is not None
-                rlist = [sub_sock, self.stop_pipe[0]]
-                wlist = elist = []
                 try:
-                    while True:
-                        log.debug("rlist=%s", rlist)
-                        r, w, e = select.select(rlist, wlist, elist)
-                        log.debug("r=%s", r)
-                        if self.stop_pipe[0] in r:
-                            v = os.read(self.stop_pipe[0], 1)
-                            assert v == b'x'
-                            log.debug("Stopping ConfD loop")
-                            break
-                        if sub_sock in r:
-                            try:
-                                sub_info = cdb.read_subscription_socket2(sub_sock)
-                                for s in sub_info[2]:
-                                    self.process_subscription(sub_sock, s)
-                                cdb.sync_subscription_socket(sub_sock,
-                                                             cdb.DONE_PRIORITY)
-                            except _confd.error.Error as e:
-                                # Callback error
-                                if e.confd_errno is _confd.ERR_EXTERNAL:
-                                    log.exception(e)
-                                else:
-                                    raise e
-
+                    if external_changes and has_non_cdb:
+                        ext_server_sock = self.start_external_change_server()
+                        with ext_server_sock:
+                            self.socket_loop(sub_sock, ext_server_sock)
+                    else:
+                        self.socket_loop(sub_sock)
                 except Exception as e:
                     log.exception(e)
-
             log.debug("<==")
 
         def start_monitoring(self):
@@ -210,7 +314,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             assert self.stop_pipe is None
             log.debug("** creating change_thread")
             self.stop_pipe = os.pipe()
-            self.change_thread = threading.Thread(target=self.process_changes)
+            # TODO external change server always started,
+            # make optional by passing False
+            self.change_thread = \
+                threading.Thread(target=self.process_changes,
+                                 args=(
+                                     GnmiConfDApiServerAdapter.monitor_external_changes,))
             log.debug("** starting change_thread")
             self.change_thread.start()
             log.debug("** change_thread started")
@@ -218,17 +327,21 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         def stop_monitoring(self):
             log.debug("==>")
-            assert self.change_thread is not None
-            assert self.stop_pipe is not None
-            log.debug("** stopping change_thread")
-            # https://stackoverflow.com/a/4661284
-            os.write(self.stop_pipe[1], b'x')
-            self.change_thread.join()
-            log.debug("** change_thread joined")
-            self.change_thread = None
-            os.close(self.stop_pipe[0])
-            os.close(self.stop_pipe[1])
-            self.stop_pipe = None
+            # if there is an error during fetch of first subs. sample,
+            # we do not start change thread
+            if self.change_thread is None:
+                log.warning("Cannot stop change thread! Not started?")
+            else:
+                assert self.stop_pipe is not None
+                log.debug("** stopping change_thread")
+                # https://stackoverflow.com/a/4661284
+                os.write(self.stop_pipe[1], b'x')
+                self.change_thread.join()
+                log.debug("** change_thread joined")
+                self.change_thread = None
+                os.close(self.stop_pipe[0])
+                os.close(self.stop_pipe[1])
+                self.stop_pipe = None
             self.monitored_paths = []
             log.debug("<==")
 
@@ -257,10 +370,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info(
             "<==  self.addr=%s self.port=%i self.username=%s self.password=:-)",
             self.addr, self.port, self.username)
-
-    def disconnect(self):
-        log.info("==>")
-        log.info("<==")
 
     # https://tools.ietf.org/html/rfc6022#page-8
     # TODO pass username from request context
@@ -348,8 +457,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                   orig_path_str, parent_path_cand)
         path_vals = []
         # skip top level 'config' element
-        if not (parent_path_cand == "" and
-                elem.tag == "{http://tail-f.com/ns/config/1.0}config"):
+        if not (
+                parent_path_cand == "" and elem.tag == "{http://tail-f.com/ns/config/1.0}config"):
             parent_path_cand += "/" + elem.tag.split("}")[-1]
         if len(elem) > 0:
             # we (simplification) assume that if there are more sibling elements,
@@ -362,8 +471,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     parent_path_cand2 = parent_path_cand + "[{}={}]".format(
                         elem[0].tag.split("}")[-1], elem[0].text)
                     if parent_path_cand2.startswith(
-                            orig_path_str) or orig_path_str.startswith(
-                        parent_path_cand2):
+                            orig_path_str) or \
+                            orig_path_str.startswith(parent_path_cand2):
                         parent_path_cand = parent_path_cand2
 
             for e in elem:

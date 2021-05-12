@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
-import optparse
+import argparse
+import logging
+import sys
 import threading
-
 from time import sleep
 
-from confd_gnmi_common import *
-from gnmi_pb2_grpc import *
+from grpc import channel_ready_future, insecure_channel
+
+import gnmi_pb2
+from confd_gnmi_common import HOST, PORT, make_xpath_path, VERSION, \
+    common_optparse_options, common_optparse_process, make_gnmi_path, \
+    get_data_type, get_sub_mode
+from gnmi_pb2_grpc import gNMIStub
 
 log = logging.getLogger('confd_gnmi_client')
 
 
 class ConfDgNMIClient:
 
-    def __init__(self, host=HOST, port=PORT,
-                 metadata=None):
+    def __init__(self, host=HOST, port=PORT, metadata=None):
         if metadata is None:
             metadata = [('username', 'admin'), ('password', 'admin')]
         log.info("==> host=%s, port=%i, metadata-%s", host, port, metadata)
-        channel = grpc.insecure_channel("{}:{}".format(host, port))
-        grpc.channel_ready_future(channel).result(timeout=5)
+        self.channel = insecure_channel("{}:{}".format(host, port))
+        channel_ready_future(self.channel).result(timeout=5)
         self.metadata = metadata
-        self.stub = gNMIStub(channel)
+        self.stub = gNMIStub(self.channel)
         log.info("<== self.stub=%s", self.stub)
+
+    def close(self):
+        self.channel.close()
 
     def get_capabilities(self):
         log.info("==>")
@@ -66,7 +74,7 @@ class ConfDgNMIClient:
         return sub
 
     @staticmethod
-    def generate_subscriptions(subscription_list, poll_interval=0,
+    def generate_subscriptions(subscription_list, poll_interval=0.0,
                                poll_count=0):
         log.debug("==> subscription_list=%s", subscription_list)
 
@@ -99,7 +107,8 @@ class ConfDgNMIClient:
         # example to cancel
         # responses.cancel()
         for response in responses:
-            log.info("******* Subscription received response=%s read_count=%i", response, read_count)
+            log.info("******* Subscription received response=%s read_count=%i",
+                     response, read_count)
             print("subscribe - response read_count={}".format(read_count))
             ConfDgNMIClient.print_notification(response.update)
             if read_count > 0:
@@ -107,24 +116,22 @@ class ConfDgNMIClient:
                 if read_count == 0:
                     break
         log.info("Canceling read")
-        # See https://stackoverflow.com/questions/54588382/how-can-a-grpc-server-notice-that-the-client-has-cancelled-a-server-side-streami
+        # See https://stackoverflow.com/questions/54588382/
+        # how-can-a-grpc-server-notice-that-the-client-has-cancelled-a-server-side-streami
         responses.cancel()
 
         log.info("<==")
 
     # TODO this API would change with more subscription support
-    def subscribe(self, subscription_list, read_thread=None,
-                  poll_interval=0, poll_count=0, read_count=-1):
+    def subscribe(self, subscription_list, read_fun=None,
+                  poll_interval=0.0, poll_count=0, read_count=-1):
         log.info("==>")
         responses = self.stub.Subscribe(
             ConfDgNMIClient.generate_subscriptions(subscription_list,
                                                    poll_interval, poll_count),
             metadata=self.metadata)
-        if read_thread is not None:
-            thr = threading.Thread(target=read_thread,
-                                   args=(responses, read_count,))
-            thr.start()
-            thr.join()
+        if read_fun is not None:
+            read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
         return responses
 
@@ -154,38 +161,52 @@ class ConfDgNMIClient:
         return response
 
 
-if __name__ == '__main__':
-    parser = optparse.OptionParser(version="%prog {}".format(VERSION))
-    parser.add_option("-o", "--oper", action="store", dest="operation",
-                      help="gNMI operation [capabilities, set, get, subscribe]",
-                      default="capabilities")
+def parse_args(args):
+    log.debug("==> args=%s", args)
+    parser = argparse.ArgumentParser(description="gNMI Adapter client")
+    parser.add_argument("--version", action="version",
+                        version="%(prog)s {}".format(VERSION))
+    parser.add_argument("-o", "--oper", action="store", dest="operation",
+                        choices=["capabilities", "set", "get", "subscribe"],
+                        help="gNMI operation",
+                        default="capabilities")
     common_optparse_options(parser)
-    parser.add_option("--prefix", action="store", dest="prefix",
-                      help="'prefix' path for set, get and subscribe operation (empty by default)",
-                      default="")
-    parser.add_option("-p", "--path", action="append", dest="paths",
-                      help="'path' for get, set and subscribe operation, can be repeated (empty by default)",
-                      default=[])
-    parser.add_option("-t", "--data-type", action="store", dest="datatype",
-                      help="'data type' for get operation, can be ALL, CONFIG, STATE, OPERATIONAL  (default 'CONFIG')",
-                      default="CONFIG")
-    parser.add_option("-v", "--val", action="append", dest="vals",
-                      help="'value' for set operation, can be repeated (empty by default)",
-                      default=[])
-    parser.add_option("-s", "--sub-mode", action="store", dest="submode",
-                      help="subscription mode, can be ONCE, POLL, STREAM (default 'ONCE')",
-                      default="ONCE")
-    parser.add_option("--poll-count", action="store", dest="pollcount", type=int,
-                      help="Number of POLLs (default 5)",
-                      default=5)
-    parser.add_option("--poll-interval", action="store", dest="pollinterval", type=float,
-                      help="Interval (in seconds) between POLL requests (default 0.5)",
-                      default=0.5)
-    parser.add_option("--read-count", action="store", dest="readcount", type=int,
-                      help="Number of read requests for STREAM subscription (default 4)",
-                      default=4)
+    parser.add_argument("--prefix", action="store", dest="prefix",
+                        help="'prefix' path for set, get and subscribe operation (empty by default)",
+                        default="")
+    parser.add_argument("-p", "--path", action="append", dest="paths",
+                        help="'path' for get, set and subscribe operation, can be repeated (empty by default)",
+                        default=[])
+    parser.add_argument("-t", "--data-type", action="store", dest="datatype",
+                        choices=["ALL", "CONFIG", "STATE", "OPERATIONAL"],
+                        help="'data type' for get operation (default 'CONFIG')",
+                        default="CONFIG")
+    parser.add_argument("-v", "--val", action="append", dest="vals",
+                        help="'value' for set operation, can be repeated (empty by default)",
+                        default=[])
+    parser.add_argument("-s", "--sub-mode", action="store", dest="submode",
+                        choices=["ONCE", "POLL", "STREAM"],
+                        help="subscription mode (default ONCE)",
+                        default="ONCE")
+    parser.add_argument("--poll-count", action="store", dest="pollcount",
+                        type=int,
+                        help="Number of POLLs (default 5)",
+                        default=5)
+    parser.add_argument("--poll-interval", action="store", dest="pollinterval",
+                        type=float,
+                        help="Interval (in seconds) between POLL requests (default 0.5)",
+                        default=0.5)
+    parser.add_argument("--read-count", action="store", dest="readcount",
+                        type=int,
+                        help="Number of read requests for STREAM subscription (default 4)",
+                        default=4)
+    (opt, args) = parser.parse_known_args(args=args)
+    log.debug("opt=%s", opt)
+    return opt
 
-    (opt, args) = parser.parse_args()
+
+if __name__ == '__main__':
+    opt = parse_args(args=sys.argv[1:])
     common_optparse_process(opt, log)
     log.debug("opt=%s", opt)
     log.info("paths=%s vals=%s", opt.paths, opt.vals)
@@ -202,7 +223,8 @@ if __name__ == '__main__':
 
     log.debug("datatype=%s subscription_mode=%s poll_interval=%s "
               "poll_count=%s read_count=%s",
-              datatype, subscription_mode, poll_interval, poll_count, read_count)
+              datatype, subscription_mode, poll_interval, poll_count,
+              read_count)
 
     encoding = gnmi_pb2.Encoding.BYTES
     subscription_list = ConfDgNMIClient.make_subscription_list(
@@ -219,7 +241,7 @@ if __name__ == '__main__':
     elif opt.operation == "subscribe":
         print("Starting subscription ....")
         client.subscribe(subscription_list,
-                         read_thread=ConfDgNMIClient.read_subscribe_responses,
+                         read_fun=ConfDgNMIClient.read_subscribe_responses,
                          poll_interval=poll_interval, poll_count=poll_count,
                          read_count=read_count)
         print(".... subscription done")
@@ -231,7 +253,7 @@ if __name__ == '__main__':
     elif opt.operation == "set":
         if len(paths) != len(vals):
             log.warning("len(paths) != len(vals); %i != %i", len(paths),
-                       len(vals))
+                        len(vals))
             print(
                 "Number of paths (--path) must be the same as number of vals (--val)!")
         else:
@@ -247,3 +269,4 @@ if __name__ == '__main__':
                                                               r.path)))
     else:
         log.warning("Unknown operation %s", opt.operation)
+    client.close()
