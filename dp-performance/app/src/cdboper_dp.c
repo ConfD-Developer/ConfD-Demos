@@ -692,7 +692,8 @@ static int remove_node(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath)
 static int move_after(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath,
                        confd_value_t *prevkeys)
 {
-  // Cannot be supported for "config false" data as we write to CDB operational
+  /*  Not supported for "config false" data so we can't perform this operation
+      on the data in the CDB operational datastore. Demo limitation. */
   return CONFD_OK;
 }
 
