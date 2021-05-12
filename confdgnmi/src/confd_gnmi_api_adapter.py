@@ -6,6 +6,7 @@ import threading
 import xml.etree.ElementTree as ET
 from enum import Enum
 from socket import socket
+from typing import List
 
 import _confd
 from confd import maapi, maagic
@@ -86,7 +87,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             self.change_thread = None
             self.stop_pipe = None
 
-        def get_monitored_changes(self) -> []:
+        def get_monitored_changes(self) -> List:
             # TODO reuse with demo adapter ?
             with self.change_db_lock:
                 log.debug("==> self.change_db=%s", self.change_db)
@@ -192,7 +193,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 # TODO make const
                 msg = connection.recv(1024)
                 log.debug("msg=%s", msg)
-                # simple protocol
+                # simple protocol (just for illustration, real implementation
+                # should be more robust as not everything may come at once)
                 # the msg string should contain N strings separated by \n
                 # op1\nxpath1\nval1\nop2\nxpath2\nval2 .....
                 # op1 .. first operation1, xpath1 .... first xpath, ...
@@ -201,7 +203,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 # the size must be smaller then size in recv
                 data = msg.decode().split('\n')
                 assert len(data) % 3 == 0
-                chunks = (data[x:x + 3] for x in range(0, len(data), 3))
+                chunks = ((data[x], data[x+1], data[x+2]) for x in range(0, len(data), 3))
                 self._append_changes(chunks)
                 self.put_event(self.SubscriptionEvent.SEND_CHANGES)
                 log.debug("data=%s", data)
@@ -266,11 +268,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 log.debug("r=%s", r)
                 if ext_server_sock is not None and ext_server_sock in r:
                     self.process_external_change(ext_server_sock)
-                if self.stop_pipe[0] in r:
-                    v = os.read(self.stop_pipe[0], 1)
-                    assert v == b'x'
-                    log.debug("Stopping ConfD loop")
-                    break
                 if sub_sock in r:
                     try:
                         sub_info = cdb.read_subscription_socket2(
@@ -285,6 +282,11 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                             log.exception(e)
                         else:
                             raise e
+                if self.stop_pipe[0] in r:
+                    v = os.read(self.stop_pipe[0], 1)
+                    assert v == b'x'
+                    log.debug("Stopping ConfD loop")
+                    break
             log.debug("<==")
 
         def process_changes(self, external_changes=False):

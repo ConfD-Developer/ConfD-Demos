@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple, Dict
 
 import gnmi_pb2
 
@@ -41,7 +42,7 @@ def set_logging_level(level):
 
 
 # TODO tests
-def make_name_keys(elem_string) -> (str, {}):
+def make_name_keys(elem_string) -> Tuple[str, Dict[str, str]]:
     """
     Split element string to element name and keys.
     e.g. elem[key1=7][key2=aaa] => (elem, {key1:7, key2:aaa})

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
+from typing import List
 
 import gnmi_pb2
 
@@ -74,7 +75,7 @@ class GnmiServerAdapter(ABC):
                 self.read_queue = Queue()
 
         @abstractmethod
-        def get_sample(self, path, prefix) -> []:
+        def get_sample(self, path, prefix) -> List:
             """
             Create gNMI subscription updates for given path and prefix
             :param path: gNMI path for updates
@@ -96,7 +97,7 @@ class GnmiServerAdapter(ABC):
             pass
 
         @abstractmethod
-        def get_monitored_changes(self) -> []:
+        def get_monitored_changes(self) -> List:
             """
             Get gNMI subscription updates for changed values
             :return: gNMI update array
