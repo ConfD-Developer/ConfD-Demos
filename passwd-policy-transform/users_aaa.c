@@ -30,8 +30,6 @@ void pval(confd_value_t *v)
   fprintf(stderr, "%s\n", buf);
 }
 
-#define MYBUFSIZ 10240
-
 static struct confd_daemon_ctx *dctx;
 static int ctlsock;
 static int workersock;
@@ -40,16 +38,48 @@ struct confd_data_cbs  data;
 static int maapi_socket;
 
 struct confd_trans_validate_cbs vcb;
-struct confd_valpoint_cb valp1;
+struct confd_valpoint_cb passwdvalp;
 
 static void OK(int rval)
 {
   if (rval != CONFD_OK) {
-    fprintf(stderr, "transform_test.c: error not CONFD_OK: %d : %s \n",
+    fprintf(stderr, "users_aaa.c: error not CONFD_OK: %d : %s \n",
             confd_errno, confd_lasterr());
     abort();
   }
 }
+static int init_validation(struct confd_trans_ctx *tctx)
+{
+    confd_trans_set_fd(tctx, workersock);
+    return CONFD_OK;
+}
+
+static int stop_validation(struct confd_trans_ctx *tctx)
+{
+    return CONFD_OK;
+}
+
+static int validate(struct confd_trans_ctx *tctx,
+  confd_hkeypath_t *keypath,
+  confd_value_t *newval)
+  {
+    char password[BUFSIZ];
+
+    if(strlen(CONFD_GET_CBUFPTR(newval)) > 16) {
+      confd_trans_seterr(tctx, "Length > 16");
+      return CONFD_ERR;
+    }
+    strcpy(&password[0], CONFD_GET_CBUFPTR(newval));
+    char *uppercasew = strrchr(password, 'W');
+    if (uppercasew && strcmp(uppercasew, "World") == 0) {
+      confd_trans_seterr(tctx, "Are you really sure you want password must end with 'World'");
+      return CONFD_VALIDATION_WARN;
+    } else if (uppercasew && strcmp(uppercasew, "Willy") == 0) {
+      confd_trans_seterr(tctx, "The password must not end with 'Willy'");
+      return CONFD_ERR;
+    }
+    return CONFD_OK;
+  }
 
 static int init_transformation(struct confd_trans_ctx *tctx)
 {
@@ -437,6 +467,14 @@ int main(int argc, char **argv)
 
   if (confd_register_data_cb(dctx, &data) == CONFD_ERR)
     confd_fatal("Failed to register data cb \n");
+
+  vcb.init = init_validation;
+  vcb.stop = stop_validation;
+  confd_register_trans_validate_cb(dctx, &vcb);
+
+  passwdvalp.validate = validate;
+  strcpy(passwdvalp.valpoint, "passwdvp");
+  OK(confd_register_valpoint_cb(dctx, &passwdvalp));
 
   OK(confd_register_done(dctx));
   OK(maapi_sock(&maapi_socket));
