@@ -83,7 +83,7 @@ Aborted: 'users user admin password': The password must not end with 'Willy'
 (config-user-admin)# users user admin password 1hello-World
 (config-user-admin)# commit
 The following warnings were generated:
-  'users user admin password': Are you really sure you want password must end with 'World'
+  'users user admin password': Are you really sure you want the password to end with 'World'?
 Proceed? [yes,no] no
 Aborted: by user
 (config-user-admin)# users user admin password hello-World1
