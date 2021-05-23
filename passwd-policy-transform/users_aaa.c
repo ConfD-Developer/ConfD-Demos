@@ -73,7 +73,7 @@ static int validate(struct confd_trans_ctx *tctx,
     strcpy(&password[0], CONFD_GET_CBUFPTR(newval));
     char *uppercasew = strrchr(password, 'W');
     if (uppercasew && strcmp(uppercasew, "World") == 0) {
-      confd_trans_seterr(tctx, "Are you really sure you want password must end with 'World'");
+      confd_trans_seterr(tctx, "Are you really sure you want the password to end with 'World'?");
       return CONFD_VALIDATION_WARN;
     } else if (uppercasew && strcmp(uppercasew, "Willy") == 0) {
       confd_trans_seterr(tctx, "The password must not end with 'Willy'");
