@@ -63,8 +63,8 @@ do
                 netconf-console --rpc=-<<<'<get-data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda"><datastore>ds:'"$NETCONF_DS"'</datastore><subtree-filter><sys xmlns="http://example.com/router"/></subtree-filter><config-filter>false</config-filter></get-data>' &> /dev/null
             elif [ $TC == "NCGETD" ]; then
                 netconf-console --rpc=-<<<'<get-data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda"><datastore>ds:'"$NETCONF_DS"'</datastore><subtree-filter><sys xmlns="http://example.com/router"/></subtree-filter></get-data>' &> /dev/null
-            elif [ $TC == "RCGETA" ]; then
-                curl -s -u admin:admin http://localhost:8008/restconf/data/router:sys -H "Accept: application/yang-data+json" &> /dev/null
+            #elif [ $TC == "RCGETA" ]; then
+            #    curl -s -u admin:admin http://localhost:8008/restconf/data/router:sys -H "Accept: application/yang-data+json" &> /dev/null
             elif [ $TC == "MSAVEX" ]; then
                 ./maapi-save -s $MAAPI_DS -x -p "/r:sys" &> /dev/null
             elif [ $TC == "MSAVEJ" ]; then
