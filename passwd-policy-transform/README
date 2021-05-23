@@ -1,0 +1,73 @@
+Enforce the requirements of a password policy
+=============================================
+
+There are often requirements on user's password quality according to a policy.
+As we must enforce such rules before the password is hashed or encrypted,
+we need to implement a transform using high level YANG model where the password
+type set to "string". The string is never stored in CDB and is set in CDB
+using a low level YANG model as the CDB schema.
+
+The YANG model setup:
+---------------------
+
+    NETCONF/RESTCONF/CLI/MAAPI/etc. client
+       |   ^
+       |   |
+       |   |
+       v   |
+   --------------
+  |              |
+  |  users.yang  |
+  |              |  high-level YANG model
+  |              |
+  |              |
+  |              |
+   --------------
+       |   ^
+       |   |
+     Transform application
+       |   |
+       v   |
+     -------------------------
+    |     tailf-aaa.yang      |
+    |                         |
+   -------------------------  |
+  |                         | |
+  |  ietf-netconf-acm.yang  | |  low-level YANG model
+  |                         | |
+  |                         | |
+  |                         | |
+  |                         | |
+  |                         |-
+  |                         |
+   -------------------------
+
+Typically we do not expose the low level YANG modes to the northbound
+interfaces, but in this demo we still do. Recompile the low-level YANG model
+with the --export=none confdc flag or add the tailf:export extension to the
+YANG model.
+
+Quick demo:
+-----------
+
+make all start cli-c
+# config
+(config)# users user admin password hello
+-------------------------------------------------^
+syntax error: The password must be at least 8 characters long
+(config)# users user admin password helloworld
+-------------------------------------------------^
+syntax error: The password must have at least one digit
+(config)# users user admin password helloworld1
+-------------------------------------------------^
+syntax error: The password must have at least one upper case alpha
+(config)# users user admin password Helloworld1
+-------------------------------------------------^
+syntax error: The password must have at least one of these symbols: [<>~;:!@#/$%^&*=-]+
+(config)# users user admin password Hello-world1
+
+Steps
+-----
+1. make stop clean all
+2. confd_cli -u admin -C
+3. See the "quick demo" above
