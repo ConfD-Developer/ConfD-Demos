@@ -46,6 +46,7 @@ module users {
         type string;
       }
       leaf password {
+        tailf:validate passwdvp { tailf:dependency "."; }
         type passwdStr;
         mandatory true;
       }

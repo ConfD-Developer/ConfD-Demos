@@ -2,10 +2,21 @@ Enforce the requirements of a password policy
 =============================================
 
 There are often requirements on user's password quality according to a policy.
-As we must enforce such rules before the password is hashed or encrypted,
-we need to implement a transform using high level YANG model where the password
-type set to "string". The string is never stored in CDB and is set in CDB
-using a low level YANG model as the CDB schema.
+Most of the time these requirements can be checked using YANG "length",
+"pattern", and/or "must" statements.
+
+If we have a need to check that the password meet the requirements using
+application code we must register a validation point. As we must run our
+validation data provider application before the password is hashed or
+encrypted, we the need to also register a transform data provider application
+using high level YANG model where the password type set to "string". The string
+is never stored in CDB and is set in CDB using a low level YANG model as the
+CDB schema.
+
+Note that it if possible, using lenght and (multiple) pattern statements has
+the advantage for the CLI or WebUI JSON-RPC interfaces in that they will be
+checked as the user enter the password. must statements and validation points
+will be checked when the user commit the password change.
 
 The YANG model setup:
 ---------------------
@@ -18,10 +29,12 @@ The YANG model setup:
    --------------
   |              |
   |  users.yang  |
-  |              |  high-level YANG model
+  |              |  high-level YANG model with tail:callpoint { transform }
+  |              |  and tailf:validate statements
   |              |
-  |              |
-  |              |
+  |              |------------>
+  |              |              Validation applidation
+  |              |<------------
    --------------
        |   ^
        |   |
@@ -55,16 +68,32 @@ make all start cli-c
 (config)# users user admin password hello
 -------------------------------------------------^
 syntax error: The password must be at least 8 characters long
-(config)# users user admin password helloworld
+(config)# users user admin password hellowilly
 -------------------------------------------------^
 syntax error: The password must have at least one digit
-(config)# users user admin password helloworld1
+(config)# users user admin password 1hellowilly
 -------------------------------------------------^
 syntax error: The password must have at least one upper case alpha
-(config)# users user admin password Helloworld1
+(config)# users user admin password 1helloWilly
 -------------------------------------------------^
 syntax error: The password must have at least one of these symbols: [<>~;:!@#/$%^&*=-]+
-(config)# users user admin password Hello-world1
+(config)# users user admin password 1hello-Willy
+COHULT-M-54G0(config-user-admin)# commit
+Aborted: 'users user admin password': The password must not end with 'Willy'
+(config-user-admin)# users user admin password 1hello-World
+(config-user-admin)# commit
+The following warnings were generated:
+  'users user admin password': Are you really sure you want password must end with 'World'
+Proceed? [yes,no] no
+Aborted: by user
+(config-user-admin)# users user admin password hello-World1
+(config-user-admin)# commit
+Commit complete.
+(config-user-admin)# end
+COHULT-M-54G0# show running-config users user admin password
+users user admin
+ password $1$SaEiRb6q$7yQssjcl7/qGJYf/KJIw/0
+!
 
 Steps
 -----
