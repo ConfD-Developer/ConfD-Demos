@@ -32,7 +32,7 @@ module users {
         error-message "The password must have no spaces";
       }
       length "8..16" {
-        error-message "The password must be between least 8 and 16 characters long";
+        error-message "The password must be between least 8 and 127 characters long";
       }
     }
   }
