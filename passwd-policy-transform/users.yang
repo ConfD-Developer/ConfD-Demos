@@ -1,0 +1,58 @@
+module users {
+  yang-version 1.1;
+  namespace "http://tail-f.com/ns/example/users";
+  prefix users;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  typedef Role {
+    type enumeration {
+      enum admin;
+      enum oper;
+    }
+  }
+  typedef passwdStr {
+    type string {
+      pattern ".*[0-9]+.*" {
+        error-message "The password must have at least one digit";
+      }
+      pattern ".*[a-z]+.*" {
+        error-message "The password must have at least one lower case alpha";
+      }
+      pattern ".*[A-Z]+.*" {
+        error-message "The password must have at least one upper case alpha";
+      }
+      pattern ".*[<>~;:!@#/$%^&*=-]+.*" {
+        error-message "The password must have at least one of these symbols: [<>~;:!@#/$%^&*=-]+";
+      }
+      pattern ".* .*" {
+        modifier invert-match;
+        error-message "The password must have no spaces";
+      }
+      length "8..max" {
+        error-message "The password must be at least 8 characters long";
+      }
+    }
+  }
+  container users {
+    tailf:callpoint simple_aaa {
+      tailf:transform true;
+    }
+    list user {
+      key name;
+      leaf name {
+        type string;
+      }
+      leaf password {
+        type passwdStr;
+        mandatory true;
+      }
+      leaf role {
+        type Role;
+        mandatory true;
+      }
+    }
+  }
+}

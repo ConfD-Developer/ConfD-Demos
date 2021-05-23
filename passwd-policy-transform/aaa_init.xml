@@ -1,0 +1,149 @@
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <aaa xmlns="http://tail-f.com/ns/aaa/1.1">
+    <authentication>
+      <users>
+        <user>
+          <name>admin</name>
+          <uid>0</uid>
+          <gid>0</gid>
+          <password>$0$admin</password>
+          <ssh_keydir>/var/confd/homes/admin/.ssh</ssh_keydir>
+          <homedir>/var/confd/homes/admin</homedir>
+        </user>
+        <user>
+          <name>oper</name>
+          <uid>20</uid>
+          <gid>20</gid>
+          <password>$0$oper</password>
+          <ssh_keydir>/var/confd/homes/oper/.ssh</ssh_keydir>
+          <homedir>/var/confd/homes/oper</homedir>
+        </user>
+      </users>
+    </authentication>
+    <ios>
+      <level>
+        <nr>0</nr>
+        <prompt>\h> </prompt>
+      </level>
+      <level>
+        <nr>15</nr>
+        <prompt>\h# </prompt>
+      </level>
+      <privilege>
+        <mode>exec</mode>
+        <level>
+          <nr>0</nr>
+          <command>
+            <name>exit</name>
+          </command>
+          <command>
+            <name>action</name>
+          </command>
+          <command>
+            <name>help</name>
+          </command>
+          <command>
+            <name>autowizard</name>
+          </command>
+          <command>
+            <name>enable</name>
+          </command>
+        </level>
+        <level>
+          <nr>15</nr>
+          <command>
+            <name>configure</name>
+          </command>
+        </level>
+      </privilege>
+    </ios>
+  </aaa>
+  <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    <enable-nacm>true</enable-nacm>
+    <read-default>deny</read-default>
+    <write-default>deny</write-default>
+    <exec-default>deny</exec-default>
+    <groups>
+      <group>
+        <name>admin</name>
+        <user-name>admin</user-name>
+      </group>
+      <group>
+        <name>oper</name>
+        <user-name>oper</user-name>
+      </group>
+    </groups>
+    <rule-list>
+      <name>oper</name>
+      <group>oper</group>
+      <rule>
+        <name>edit-config</name>
+        <rpc-name>edit-config</rpc-name>
+        <context xmlns="http://tail-f.com/yang/acm">netconf</context>
+        <access-operations>exec</access-operations>
+        <action>deny</action>
+      </rule>
+      <rule>
+        <name>delete-config</name>
+        <rpc-name>delete-config</rpc-name>
+        <context xmlns="http://tail-f.com/yang/acm">netconf</context>
+        <access-operations>exec</access-operations>
+        <action>deny</action>
+      </rule>
+      <rule>
+        <name>nacm</name>
+        <module-name>ietf-netconf-acm</module-name>
+        <path>/</path>
+        <access-operations>read create update delete</access-operations>
+        <action>deny</action>
+      </rule>
+      <rule>
+        <name>tailf-acm</name>
+        <module-name>tailf-acm</module-name>
+        <path>/</path>
+        <access-operations>read create update delete</access-operations>
+        <action>deny</action>
+      </rule>
+      <rule>
+        <name>tailf-aaa</name>
+        <module-name>tailf-aaa</module-name>
+        <path>/</path>
+        <access-operations>read create update delete</access-operations>
+        <action>deny</action>
+      </rule>
+    </rule-list>
+    <rule-list>
+      <name>admin</name>
+      <group>admin</group>
+      <rule>
+        <name>any-rpc</name>
+        <rpc-name>*</rpc-name>
+        <context xmlns="http://tail-f.com/yang/acm">netconf</context>
+        <access-operations>exec</access-operations>
+        <action>permit</action>
+      </rule>
+    </rule-list>
+    <rule-list>
+      <name>any-group</name>
+      <group>*</group>
+      <rule>
+        <name>any-access</name>
+        <action>permit</action>
+      </rule>
+      <cmdrule xmlns="http://tail-f.com/yang/acm">
+        <name>cli</name>
+        <context>cli</context>
+        <command>*</command>
+        <access-operations>read exec</access-operations>
+        <action>permit</action>
+      </cmdrule>
+      <cmdrule xmlns="http://tail-f.com/yang/acm">
+        <name>webui</name>
+        <context>webui</context>
+        <command>*</command>
+        <access-operations>read exec</access-operations>
+        <action>permit</action>
+      </cmdrule>
+    </rule-list>
+  </nacm>
+</config>
