@@ -31,8 +31,8 @@ module users {
         modifier invert-match;
         error-message "The password must have no spaces";
       }
-      length "8..max" {
-        error-message "The password must be at least 8 characters long";
+      length "8..16" {
+        error-message "The password must be between least 8 and 16 characters long";
       }
     }
   }
