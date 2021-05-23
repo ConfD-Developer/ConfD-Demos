@@ -63,7 +63,7 @@ YANG model.
 Quick demo:
 -----------
 
-make all start cli-c
+$ make all start cli-c
 # config
 (config)# users user admin password hello
 -------------------------------------------------^
