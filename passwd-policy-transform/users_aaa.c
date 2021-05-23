@@ -20,6 +20,7 @@
 
 #define AAA_USERS   "/aaa:aaa/authentication/users"
 #define AAA_GROUPS  "/nacm:nacm/groups"
+#define MAX_LEN 128
 
 int debuglevel = CONFD_SILENT;
 
@@ -63,7 +64,7 @@ static int validate(struct confd_trans_ctx *tctx,
   confd_hkeypath_t *keypath,
   confd_value_t *newval)
   {
-    char password[BUFSIZ];
+    char password[MAX_LEN];
 
     if(strlen(CONFD_GET_CBUFPTR(newval)) > 16) {
       confd_trans_seterr(tctx, "Length > 16");
