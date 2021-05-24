@@ -8,16 +8,17 @@ of ConfD instances, each serving any number of application
 (micro) services to form active-active fully synchronized clusters as
 the core part of an active-active HA framework.
 
-The focus of the example is linearizability with full-consistency + 
+The focus of the example is linearizability with strong consistency + 
 partitioning (distributed system). That comes with some cost and as a
 consequence we sacrifice some availability due to taking maapi_lock(s)
 on the nodes we synch to. See CAP theorem to for the basics on why we
 need to sacrifice some availability if we always want to preserve
-consistency. Note that the synchronization strategy used in this demo
-is not very efficient, "primary-copy" but very simple, where all nodes
-are primary/active, so the loss of availability, due to locking, is
-higher than if we had one primary/active leader and N active followers.
-See for example the Raft consensus algorithm for a better alternative.
+strongconsistency. Note that the synchronization strategy used in this
+demo is not very efficient, "primary-copy" but very simple, where all
+nodes are primary/active, so the loss of availability, due to locking,
+is higher than if we had one primary/active leader and N active
+followers. See for example the Raft consensus algorithm for a better
+alternative.
 
 It is not an all or nothing database consistency. The configuration
 replicated could be the entire configuration (unlikely), a subtree
