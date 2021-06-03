@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 import copy
 import sys
+from pathlib import Path
 
 
 def gen_ann_module(name, ns, prefix):
@@ -183,6 +184,7 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
                             stdout=subprocess.PIPE, input=yin_soup_str,
                             encoding='utf-8')
     yang_content = result.stdout
+    Path(out_path).mkdir(parents=True, exist_ok=True)
     with open("{}/{}".format(out_path,yang_filename), "w") as fp:
         fp.write(str(yang_content))
         fp.close()
