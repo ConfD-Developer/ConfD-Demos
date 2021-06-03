@@ -1,18 +1,16 @@
 #!/bin/bash
-CONFD_VERSION="7.3.1"
+CONFD_VERSION="7.5.2"
 IMG_NAME="rc-tls-x509"
 APP_NAME="app"
 
-if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ]
+if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ]
 then
     echo "Using:"
     echo "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
-    echo "confd-$CONFD_VERSION.libconfd.tar.gz"
 else
-    echo >&2 "This demo require that the ConfD SDK installer and the ConfD libconfd C-API library has been placed in this folder."
+    echo >&2 "This demo require that the ConfD SDK installer has been placed in this folder."
     echo >&2 "E.g.:"
     echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
-    echo >&2 "confd-$CONFD_VERSION.libconfd.tar.gz"
     echo >&2 "Aborting..."
     exit
 fi
@@ -43,7 +41,7 @@ else
 fi
 
 docker build -t $IMG_NAME --build-arg CONFD_VERSION=$CONFD_VERSION --build-arg APP_NAME=$APP_NAME -f Dockerfile .
-CID="$(docker run --name $IMG_NAME -d --rm -p 2022:2022 -p 4565:4565 $IMG_NAME | cut -c1-12)"
+CID="$(docker run --name $IMG_NAME -d --rm $IMG_NAME | cut -c1-12)"
 
 while [[ $(docker ps -l -a -q -f status=running | grep $CID) != $CID ]]; do
     echo "waiting..."
