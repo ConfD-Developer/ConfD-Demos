@@ -31,17 +31,17 @@ RUN echo "sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin" >>
     && make install
 
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
-RUN ln -s libcrypto.so /usr/lib/x86_64-linux-gnu/libcrypto.so.1.0.0 \
-    && /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
+#RUN ln -s libcrypto.so /usr/lib/x86_64-linux-gnu/libcrypto.so.1.0.0 \
+RUN  /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
 
 # Add the ConfD cryptography integration and C-library API source
-ADD confd-${CONFD_VERSION}.libconfd.tar.gz /tmp
+#ADD confd-${CONFD_VERSION}.libconfd.tar.gz /tmp
 
 # Rebuild the ConfD crypto integration and cleanup
-WORKDIR /tmp/confd-${CONFD_VERSION}/libconfd
-RUN make USE_SSL_DIR=${USE_SSL_DIR} crypto \
-    && make install_crypto \
-    && rm -rf /tmp/* /var/tmp/* \
+#WORKDIR /tmp/confd-${CONFD_VERSION}/libconfd
+#RUN make USE_SSL_DIR=${USE_SSL_DIR} crypto \
+#    && make install_crypto \
+RUN rm -rf /tmp/* /var/tmp/* \
     && apt-get autoremove -y \
     && apt-get clean
 
@@ -64,6 +64,5 @@ RUN mkdir -p /home/${USER}/.ssh \
 
 WORKDIR /home/${USER}/
 
-
-EXPOSE 4565 2022
+#EXPOSE 4565 2022
 CMD [ "./run.sh" ]
