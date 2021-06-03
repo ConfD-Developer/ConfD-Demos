@@ -36,7 +36,6 @@ def add_stmt(node, ann_node, ann_soup):
     #elif node.parent.name == "when":
     #    parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="when")
     else:
-        #print(">>>>>>>node.parent.name: {} attrs: {}".format(node.parent.name, node.parent.attrs))
         if not node.parent.attrs:
             parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}".format(node.parent.name))
         else:
@@ -51,10 +50,17 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
                    parse_max_elem_stmt, parse_mandatory_stmt, parse_unique_stmt,
                    parse_pattern_stmt, parse_tailf_stmt, parse_callpoint_stmt,
                    parse_validate_stmt, sanitize, out_path, yang_file):
-    confd_dir = os.environ['CONFD_DIR']
+    if "CONFD_DIR" in os.environ:
+        confd_dir = os.environ['CONFD_DIR']
+    else:
+        sys.stderr.write('error: Where is ConfD installed? Set CONFD_DIR to point it out!\n')
     yang_file_path = yang_file.rsplit('/', 1)
-    yang_path = yang_file_path[0]
-    yang_filename = yang_file_path[1]
+    if len(yang_file_path) < 2:
+        yang_path = "./"
+        yang_filename = yang_file
+    else:
+        yang_path = yang_file_path[0]
+        yang_filename = yang_file_path[1]
     ann_filename = "{}-ann.yang".format(yang_filename.rsplit('.', 1)[0])
     result = subprocess.run(['python3', '/usr/local/bin/pyang', '-f', 'yin',
                             '-p', yang_path, '-p', confd_dir, yang_file],
@@ -229,9 +235,12 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', nargs=1, type=str, default="",
                         help='Write the output to a different path than current folder')
     parser.add_argument('filename', nargs=1, type=str,
-                        help='<file> YANG module to be sanitized')
+                        help='<file> YANG module filename that end with ".yang"')
     args = parser.parse_args()
+    output = "."
+    if len(args.output) > 0:
+        output = args.output[0]
     tailf_ann_stmt(args.must, args.when, args.minelem, args.maxelem,
                    args.mandatory, args.unique, args.pattern, args.tailf,
                    args.callpoint, args.validate, args.sanitize,
-                   args.output[0], args.filename[0])
+                   output, args.filename[0])
