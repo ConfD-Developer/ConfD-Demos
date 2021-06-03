@@ -54,3 +54,40 @@ Steps
 5. A bonus python script that just sanitize the tailf extensions from a YANG
    model and outputs the result to stout is also available. See
    tailf_sanetize.py.
+   
+Examples
+--------
+- Strip the original YANG module of "tailf:" extensions and create a *-ann.yang
+  annotation module:
+
+$ python3 tailf_ann_stmt.py -t my-yang-module.yang
+
+- Strip the original YANG module of "tailf:" extensions and create a *-ann.yang
+  annotation module. Place the annotation and stripped YANG module files in the
+  "yang" directory:
+  
+$ python3 tailf_ann_stmt.py -o yang -t my-yang-module.yang
+
+- More options:
+
+$ python3 tailf_ann_stmt.py -h
+usage: tailf_ann_stmt.py [-h] [-m] [-w] [-i] [-x] [-a] [-u] [-p] [-t] [-c] [-v] [-s] [-o OUTPUT] filename
+
+positional arguments:
+  filename              <file> YANG module filename that end with ".yang"
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m, --must            remove all must statements
+  -w, --when            remove all when startements
+  -i, --minelem         remove all min-element statements
+  -x, --maxelem         remove all max-element statements
+  -a, --mandatory       remove all mandatory statements
+  -u, --unique          remove all unique statements
+  -p, --pattern         remove all pattern statements
+  -t, --tailf           remove all tailf extensions
+  -c, --callpoint       remove tailf:callpoint extensions
+  -v, --validate        remove tailf:validate extensions
+  -s, --sanitize        sanitize only without creating an annotation file
+  -o OUTPUT, --output OUTPUT
+                        Write the output to a different path than current folder
