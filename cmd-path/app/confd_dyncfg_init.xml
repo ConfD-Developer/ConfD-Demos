@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<config xmlns="http://tail-f.com/ns/config/1.0">
+
+  <confdConfig xmlns="http://tail-f.com/ns/confd_dyncfg/1.0">
+
+    <logs>
+      <syslogConfig>
+        <facility>daemon</facility>
+        <udp>
+          <enabled>false</enabled>
+          <host>syslogsrv.example.com</host>
+          <port>514</port>
+        </udp>
+      </syslogConfig>
+
+      <confdLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>confd.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </confdLog>
+
+      <developerLogLevel>trace</developerLogLevel>
+      <developerLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>devel.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </developerLog>
+
+      <auditLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>audit.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </auditLog>
+
+      <netconfLog>
+        <enabled>true</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>netconf.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </netconfLog>
+
+      <webuiBrowserLog>
+        <enabled>false</enabled>
+        <filename>browser.log</filename>
+      </webuiBrowserLog>
+
+      <webuiAccessLog>
+        <enabled>false</enabled>
+        <trafficLog>false</trafficLog>
+        <dir>.</dir>
+      </webuiAccessLog>
+
+      <snmpLog>
+        <enabled>false</enabled>
+        <file>
+          <enabled>true</enabled>
+          <name>snmp.log</name>
+        </file>
+        <syslog>
+          <enabled>false</enabled>
+        </syslog>
+      </snmpLog>
+
+      <netconfTraceLog>
+        <enabled>false</enabled>
+        <filename>netconf.trace</filename>
+      </netconfTraceLog>
+
+      <xpathTraceLog>
+        <enabled>false</enabled>
+        <filename>xpath-trace</filename>
+      </xpathTraceLog>
+
+      <errorLog>
+        <enabled>true</enabled>
+        <filename>confderr.log</filename>
+        <maxSize>S10M</maxSize>
+      </errorLog>
+
+    </logs>
+
+  </confdConfig>
+
+</config>

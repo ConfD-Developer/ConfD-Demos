@@ -1,0 +1,43 @@
+module cc {
+  namespace "http://tail-f.com/ns/example/cc";
+  prefix cc;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  description "Simple example with Tail-f CLI rendering extensions";
+
+  container native {
+    tailf:cli-drop-node-name;
+    container aaa {
+      tailf:alt-name alt-aaa;
+      presence "";
+      list common-criteria {
+        description
+          "AAA Common Criteria";
+        tailf:cli-mode-name "config-cc-policy";
+        key "policy test";
+        leaf policy {
+          tailf:cli-expose-key-name;
+          tailf:alt-name alt-policy;
+          description
+            "Policy name";
+          type string {
+            length "1..25";
+          }
+        }
+        leaf test { type string; }
+        leaf char-changes {
+          description
+            "Number of change characters between old and new passwords";
+          tailf:cli-full-command;
+          type uint8 {
+            range "1..127";
+          }
+          default 4;
+        }
+      }
+    }
+  }
+}
