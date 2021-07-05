@@ -1,0 +1,43 @@
+Dump an XML listing of the CLI C/I-style commands with relative path and source
+===============================================================================
+
+When CLI commands are generated from YANG models, often using multiple
+tailf:cli-* extensions, it can for more complex YANG models be tricky to find
+the YANG model representation of the command and create a relative xpath/keypath
+to it for use with, for example, the ConfD Data Provider (DP) API.
+
+This demo will create an XML listing of the CLI C/I-style commands in two steps:
+Step 1: Tag the YANG nodes that will become commands using the
+tailf:meta-data/value YANG extension statements.
+Step 2: Create a "cli-i-x-dump" XML file from the ConfD CDB schema and
+meta-data/value tags
+
+About the demo:
+o The demo converts YANG models to YIN XML using the pyang Python tool.
+o The XML format is supported by many powerful tools that can aid in the
+  modification of the YANG modules (now in YIN format).
+o In this demo we use the powerful Python Beautiful Soup Python (bs4)
+  library that in turn uses the lxml library for processing XML.
+o In step 1, pyang is used to convert the YANG model(s) to YIN XML. Beautiful
+  Soup is then used to create tags and the YIN XML is then back to YANG.
+o In step 2, Beautiful Soup and the ConfD schema (derived from the YANG model)
+  is used to create XML listing of the CLI C/I-style commands with relative path
+  and source.
+o Support for three commonly used tailf:* YANG extensions are implemented as
+  a starting point. tailf:alt-name, tailf:cli-drop-node-name, and
+  tailf:cli-expose-key-name.
+
+See YANG RFC 7950 section 13 "YIN" for details on the YIN XML format
+
+Prerequisites
+-------------
+confd-7.x.linux.x86_64.installer.bin
+confd-7.x.libconfd.tar.gz
+Docker installed
+
+Steps
+-----
+1. Drop the confd-7.x* installation packages into the directory of this README.
+2. Run the setup.sh script.
+3. See the setup.sh script and the Dockerfile for details on the setup.
+4. See the app/run.sh script and Python scripts for details
