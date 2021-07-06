@@ -91,7 +91,7 @@ def traverse_cs_nodes(curr_cs_node, path, cmd_path, curr_soup_tag, cmd_soup):
             if cs_node.children() is not None:
                 if cs_node.is_list():
                     new_cmd_path = ""
-                # If there is children, traverse them
+                # If there are children, traverse them
                 traverse_cs_nodes(cs_node.children(), new_path, new_cmd_path, curr_soup_tag, cmd_soup)
         elif cs_node.is_case():
             # Case statements will not be in the xpath/keypath or command. Traverse its children
