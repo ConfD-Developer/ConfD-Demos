@@ -23,6 +23,7 @@ def type2str(shallow_type):
 def traverse_cs_nodes(curr_cs_node, path, cmd_path, curr_soup_tag, cmd_soup):
     # For all siblings
     for cs_node in maagic._CsNodeIter(curr_cs_node):
+        new_curr_soup_tag = curr_soup_tag
         if cs_node.is_container() or cs_node.is_list() or cs_node.is_leaf_list() or cs_node.is_leaf():
             # Add the node tag name to the command
             new_path = path + "/{}:{}".format(prefix2str(cs_node), tag2str(cs_node))
@@ -55,7 +56,7 @@ def traverse_cs_nodes(curr_cs_node, path, cmd_path, curr_soup_tag, cmd_soup):
                         if new_cmd_tag is None:
                             # Create the command tag for the CLI dump
                             new_cmd_tag = cmd_soup.new_tag("cmd", yname=new_cmd_path[:-1])
-                            curr_soup_tag.append(new_cmd_tag)
+                            new_curr_soup_tag.append(new_cmd_tag)
                             # Add the YANG model "relative path" aka "xpath" or "keypath" without keys
                             new_xpath_tag = cmd_soup.new_tag("xpath")
                             new_xpath_tag.string = new_path
@@ -87,16 +88,16 @@ def traverse_cs_nodes(curr_cs_node, path, cmd_path, curr_soup_tag, cmd_soup):
                         new_param_tag.append(new_type_tag)
                         new_params_tag.append(new_param_tag)
                         if cs_node.is_container() or cs_node.is_list():
-                            curr_soup_tag = new_cmd_tag
+                            new_curr_soup_tag = new_cmd_tag
             if cs_node.children() is not None:
                 if cs_node.is_list():
                     new_cmd_path = ""
                 # If there are children, traverse them
-                traverse_cs_nodes(cs_node.children(), new_path, new_cmd_path, curr_soup_tag, cmd_soup)
+                traverse_cs_nodes(cs_node.children(), new_path, new_cmd_path, new_curr_soup_tag, cmd_soup)
         elif cs_node.is_case():
             # Case statements will not be in the xpath/keypath or command. Traverse its children
             if cs_node.children() is not None:
-                traverse_cs_nodes(cs_node.children(), path, cmd_path, curr_soup_tag, cmd_soup)
+                traverse_cs_nodes(cs_node.children(), path, cmd_path, new_curr_soup_tag, cmd_soup)
 
 
 def cli_dump(root_path):
@@ -104,8 +105,11 @@ def cli_dump(root_path):
     root_cs_node = _confd.cs_node_cd(None, root_path)
     # Create an empty BeautifulSoup object (XML document as a nested data structure)
     cmd_soup = BeautifulSoup('', "xml")
+    # Add a root tag
+    cmds_tag = cmd_soup.new_tag("cmds")
+    cmd_soup.append(cmds_tag)
     # Traverse the schema and handle all tailf:meta-data/value statements with tags
-    traverse_cs_nodes(root_cs_node, "", "", cmd_soup, cmd_soup)
+    traverse_cs_nodes(root_cs_node, "", "", cmd_tag, cmd_soup)
     # Get a string representation of the resulting BeautifulSoup object
     cmd_soup_str = str(cmd_soup)
     # Change back temporary tags to the original ones
