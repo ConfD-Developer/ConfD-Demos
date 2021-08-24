@@ -1,19 +1,17 @@
 #!/bin/bash
-CONFD_VERSION="7.3"
+CONFD_VERSION="7.5.2"
 IMG_NAME="confd-linuxcfg"
 
-if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ] && [ -f confd-$CONFD_VERSION.examples.tar.gz ]
+if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.examples.tar.gz ]
 then
     echo "Using:"
     echo "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
     echo "confd-$CONFD_VERSION.examples.tar.gz"
-    echo "confd-$CONFD_VERSION.libconfd.tar.gz"
 else
-    echo >&2 "This demo require that the ConfD SDK installer and the ConfD libconfd C-API library has been placed in this folder."
+    echo >&2 "This demo require that the ConfD SDK installer has been placed in this folder."
     echo >&2 "E.g.:"
     echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
     echo >&2 "confd-$CONFD_VERSION.examples.tar.gz"
-    echo >&2 "confd-$CONFD_VERSION.libconfd.tar.gz"
     echo >&2 "Aborting..."
     exit
 fi

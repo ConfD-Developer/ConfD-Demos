@@ -1,4 +1,4 @@
-FROM debian:10
+FROM debian:latest
 
 ARG CONFD_VERSION
 
@@ -12,31 +12,23 @@ ENV CONFD=${CONFD_DIR}/bin/confd
 
 WORKDIR /
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libssl-dev openssh-client build-essential python3 \
-    && ln -s /usr/bin/python3 /usr/bin/python \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /tmp
+    && apt-get install -y --no-install-recommends libssl-dev openssh-client \
+       build-essential python3 python3-pip python3-setuptools nano \
+       libxml2-utils procps ethtool iproute2 sudo \
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --no-cache-dir paramiko
+
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
 COPY confd-${CONFD_VERSION}.examples.tar.gz /tmp
-WORKDIR ${CONFD_DIR}
-RUN ln -s libcrypto.so /usr/lib/x86_64-linux-gnu/libcrypto.so.1.0.0 \
-    && /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
+RUN /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
 
-COPY confd.conf ${CONFD_DIR}/examples.confd/linuxcfg
-COPY run.sh ${CONFD_DIR}/examples.confd/linuxcfg
-COPY *.patch ${CONFD_DIR}/examples.confd/linuxcfg/
-COPY mk_linuxcfg_init ${CONFD_DIR}/examples.confd/linuxcfg
+COPY run.sh ${CONFD_DIR}/examples.confd/linuxcfg/
 
-# Add the ConfD cryptography integration and C-library API source
-ADD confd-${CONFD_VERSION}.libconfd.tar.gz /tmp
-
-# Rebuild the ConfD crypto integration and cleanup
-WORKDIR /tmp/confd-${CONFD_VERSION}/libconfd
-RUN make USE_SSL_DIR=${USE_SSL_DIR} crypto \
-    && make install_crypto \
-    && rm -rf /tmp/* /var/tmp/* \
+# Cleanup
+RUN rm -rf /tmp/* /var/tmp/* \
     && apt-get autoremove -y \
-    && apt-get clean
+    && apt-get clean \
+    && ln -s /usr/bin/python3 /usr/bin/python
 
 WORKDIR ${CONFD_DIR}/examples.confd/linuxcfg
 EXPOSE 2022 2024

@@ -1,8 +1,0 @@
-589c589
-<     char inst_path[MAX_BUFF_SIZE];
----
->     char inst_path[MAX_BUFF_SIZE+13];
-609c609
-<         snprintf(inst_path, MAX_BUFF_SIZE, "%s[%d]", path_buffer, i);
----
->         snprintf(inst_path, MAX_BUFF_SIZE+13, "%s[%d]", path_buffer, i);
