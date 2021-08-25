@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFD_VERSION="7.5.2"
+CONFD_VERSION="7.6"
 IMG_NAME="confd-linuxcfg"
 
 if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] && [ -f confd-$CONFD_VERSION.examples.tar.gz ]
