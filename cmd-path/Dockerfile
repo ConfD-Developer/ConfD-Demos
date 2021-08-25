@@ -27,7 +27,7 @@ RUN make EXTRA_CFLAGS="-DMAXDEPTH=30 -DMAXKEYLEN=12" && make install
 
 # Rebuild the ConfD Python API
 WORKDIR ${CONFD_DIR}/src/confd/pyapi
-RUN make CFLAGS="-DMAXDEPTH=30 -DMAXKEYLEN=12" clean confd-py3
+RUN make CFLAGS="-DMAXDEPTH=30 -DMAXKEYLEN=12 -g -fstack-protector-strong -Wformat -Werror=format-security" clean confd-py3
 
 # Cleanup
 RUN rm -rf /tmp/* /var/tmp/* \
