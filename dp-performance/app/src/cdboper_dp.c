@@ -832,6 +832,19 @@ int main(int argc, char *argv[])
   if (confd_register_data_cb(dctx, &data) == CONFD_ERR)
     confd_fatal("Failed to register data cb\n");
 
+  /* Using confd.conf /candidate/confirmedCommit/revertByCommit "true" as the
+     CDB operational data store, here used as an external DB, does not
+     implement checkpointing. Thus, the below checkpoint callbacks will not be
+     implemented or registered. */
+  /*
+  db.add_checkpoint_running = add_checkpoint_running;
+  db.del_checkpoint_running = del_checkpoint_running;
+  db.activate_checkpoint_running = activate_checkpoint_running;
+
+  if (confd_register_db_cb(dctx, &db) == CONFD_ERR)
+    confd_fatal("Failed to register db cb\n");
+  */
+
   if (confd_register_done(dctx) != CONFD_OK)
     confd_fatal("Failed to complete registration \n");
 
