@@ -109,7 +109,7 @@ def cli_dump(root_path):
     cmds_tag = cmd_soup.new_tag("cmds")
     cmd_soup.append(cmds_tag)
     # Traverse the schema and handle all tailf:meta-data/value statements with tags
-    traverse_cs_nodes(root_cs_node, "", "", cmd_tag, cmd_soup)
+    traverse_cs_nodes(root_cs_node, "", "", cmds_tag, cmd_soup)
     # Get a string representation of the resulting BeautifulSoup object
     cmd_soup_str = str(cmd_soup)
     # Change back temporary tags to the original ones
