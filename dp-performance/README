@@ -1,6 +1,9 @@
 A Generic Data Provider Setup Targeting Optimal Wall-Clock Time Performance
 ===========================================================================
 
+The 20+ page "High Performance ConfD Data Providers" application note: 
+https://info.tail-f.com/high-performance-confd-data-providers
+
 Build a ConfD Docker container based on a Debian 10 Docker image and
 run a generic ConfD Data Provider (DP API) example. The demo also shows the
 difference in performance when reading the config and operational state YANG 
