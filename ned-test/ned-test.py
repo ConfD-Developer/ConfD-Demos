@@ -3,14 +3,14 @@
 #
 
 import argparse
+from os import getcwd
+from os.path import dirname
 import pexpect
-# import re
 import shutil
 import subprocess
 import sys
-
-# from lxml import etree
 from time import sleep
+
 
 import ncs
 from _ncs import cs_node_cd, decrypt
@@ -34,13 +34,13 @@ class Dummy:
 class TestDevice(object):
     def __init__(self, args):
         self.cli_port = args.cli_port
+        self.dir = args.dir
         self.device_name = args.device_name
         self.ip_address = args.ip_address
         self.ned_id = args.ned_id
         self.netconf_port = args.netconf_port
         self.password = args.password
         self.username = args.username
-        # self.verbose = args.verbose
 
     def build_ned_package(self):
         cmd = "make -C /tmp/%s/src clean all" % self.ned_id
@@ -72,9 +72,10 @@ class TestDevice(object):
 
 
     def install_ned(self):
-        shutil.rmtree("/interop/packages/%s" % self.ned_id, ignore_errors=True)
+        package_dir = "%s/packages/%s" % (self.dir, self.ned_id)
+        shutil.rmtree(package_dir, ignore_errors=True)
         shutil.copytree("/tmp/%s" % self.ned_id,
-                        "/interop/packages/%s" % self.ned_id, dirs_exist_ok=True)
+                        package_dir, dirs_exist_ok=True)
         cli_str = r'''
         packages reload force
         '''
@@ -82,13 +83,13 @@ class TestDevice(object):
         subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
     def setup_cli_device(self):
-        driver_file_name = '/interop/states/%s.py' % self.device_name
-        cmd = '''cp /interop/bin/device.template %s''' % driver_file_name
-        subprocess.run(cmd, shell=True, check=True)
-        cmd = '''sed -i 's/DEVUSER/\"%s\"/; s/DEVPASS/\"%s\"/; s/DEVIP/\"%s\"/; s/DEVPORT/\"%s\"/' %s''' % (self.username, self.password, self.ip_address, self.cli_port, driver_file_name)
-        o = subprocess.run(cmd, shell=True, check=True, text=True)
+        template = '%s/bin/device.template' % self.dir
+        driver = '%s/states/%s.py' % (self.dir, self.device_name)
+        shutil.copyfile(template, driver)
+        maapi_set_elem_str('/devices/device{%s}/drned-xmnr/cli-port' % self.device_name,
+                           self.cli_port)
         maapi_set_elem_str('/devices/device{%s}/drned-xmnr/driver' % self.device_name,
-                           driver_file_name)
+                           driver)
 
     def setup_drned_xmnr(self):
         cli_str = r'''
@@ -106,14 +107,6 @@ class TestDevice(object):
         create_device(self.device_name, self.ip_address, self.netconf_port, self.ned_id, authgroup)
         fetch_host_keys(self.device_name)
         sync_from(self.device_name)
-
-    def setup_translation_device(self, cli_port):
-        driver_file_name = '/interop/states/%s.py' % self.device_name
-        cmd = '''cp /interop/bin/device.template %s''' % driver_file_name
-        subprocess.run(cmd, shell=True, check=True)
-        cmd = '''sed -i 's/DEVUSER/\"%s\"/; s/DEVPASS/\"%s\"/; s/DEVIP/\"%s\"/; s/DEVPORT/\"%s\"/' %s''' % (self.username, self.password, self.ip_address, cli_port, driver_file_name)
-        o = subprocess.run(cmd, shell=True, check=True, text=True)
-        maapi_set_elem_str('/devices/device{%s}/drned-xmnr/driver' % self.device_name, driver_file_name)
 
     def test_ned(self, strategy):
         if strategy == 'walk':
@@ -206,12 +199,11 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     p.expect_exact(['admin@ncs#', 'admin@ncs#'], timeout=120)
     p.sendline('netconf-ned-builder project %s %s module * * select' % (ned_name, version))
     p.expect_exact('admin@ncs#', timeout=120)
-    # Wait for netconf-ned-builder to download all YANG models
 
+    # Wait for netconf-ned-builder to download all YANG models
     while True:
         p.sendline('show netconf-ned-builder project %s %s module * status | notab | nomore | exclude deselected | exclude module | exclude downloaded | count' % (ned_name, version))
         p.expect(r'Count: (\d+) lines')
-        # print('%s YANG modules left...' % p.match.group(1).decode('utf-8'))
         if p.match.group(1).decode('utf-8') == '0':
             break
         sleep(10)
@@ -240,26 +232,6 @@ def sync_from(device_name):
     cmd = "ncs_cli -C -u admin"
     subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
-# def sed(src, dst, search_replace):
-#     "Apply a simple sed s/// expression to src and write the result to dst."
-#
-#     print('search_replace: %s' % search_replace)
-#     with open(src) as s:
-#         with open(dst, 'w') as d:
-#             for line in s:
-#                 for tuple in search_replace:
-#                     compiled_pattern = re.compile(tuple[0])
-#                     result = re.subn(tuple[0], tuple[1], line)
-#                     d.write(result.new_string)
-#                 d.write(line)
-
-
-def get_cli_port(dev):
-    "Get CLI port of device NAME."
-    cmd = "grep -A 3 'def get_port' /interop/states/%s.py | awk '/  return/{print $2}'" % dev
-    o = subprocess.run(cmd, shell=True, check=True, text=True, capture_output=True)
-    return o.stdout.rstrip().strip('"')
-
 
 def maapi_exists(xpath):
     with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
@@ -287,12 +259,15 @@ def maapi_maagic(device_name):
 
 def get_device(device_name):
     args = Dummy()
-    args.cli_port = get_cli_port(device_name)
     args.device_name = device_name
 
     with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
         authgroup = t.get_elem('/devices/device{%s}/authgroup' % device_name)
 
+        if t.exists('/devices/device{%s}/drned-xmnr/cli-port' % device_name):
+            args.cli_port = t.get_elem('/devices/device{%s}/drned-xmnr/cli-port' % device_name)
+        path_value = t.get_elem('/devices/device{%s}/drned-xmnr/driver' % device_name)
+        args.dir = path_value.as_pyval().replace('/states/%s.py' % device_name, '')
         args.ip_address = t.get_elem('/devices/device{%s}/address' % device_name)
         args.ned_id = t.get_elem('/devices/device{%s}/device-type/netconf/ned-id' % device_name)
         args.netconf_port = t.get_elem('/devices/device{%s}/port' % device_name)
@@ -328,7 +303,8 @@ def is_nso_running():
 def create_test_device(args):
     td = TestDevice(args)
     td.setup_netconf_device()
-    td.setup_cli_device()
+    if args.cli_port is not None:
+        td.setup_cli_device()
 
 
 def build_ned(args):
@@ -353,8 +329,6 @@ def build_ned(args):
 def import_tests(args):
     td = get_device(args.device_name)
     td.setup_drned_xmnr()
-    # if args.convert is not None:
-    #     td.setup_translation_device(args.cli_port)
 
     td.translate(args.filter)
 
@@ -387,8 +361,6 @@ def debug(args):
 def ned_test(arguments):
     "Run NED test with specified arguments."
     parser = argparse.ArgumentParser(prog='ned-test')
-    # parser.add_argument('-v', '--verbose',
-    #                     help='Verbose mode. Print debug messages about test progress.')
 
     # Create a test device.  This is the the regular NSO device
     # representation + CLI port (needed if we want to be able to
@@ -397,11 +369,15 @@ def ned_test(arguments):
     init_parser = subparsers.add_parser('init',
                                         help='Configure device and authentication information.')
     init_parser.add_argument('-c', '--cli-port',
-                             help='CLI port. SSH port for the CLI on the device (default: %(default)s).', default='22')
+                             help='CLI port.  SSH port for the CLI on the device.  '
+                                  'Optional, only needed if we want to translate legacy CLI tests to NETCONF tests.')
+    init_parser.add_argument('-d', '--dir',
+                             help='Absolute path to the NSO run directory (default: %(default)s).',
+                             default=getcwd())
     init_parser.add_argument('-i', '--ip-address',
                              help='The IP address of the test device.', required=True)
     init_parser.add_argument('-N', '--ned-id',
-                             help='NETCONF NED id. The name of the NETCONF NED to use, the NED must exist (default: %(default)s) a basic NED without device YANG models.',
+                             help='NETCONF NED id.  The name of the NETCONF NED to use, the NED must exist.  Default: %(default)s a basic NED without device YANG models.',
                              default='netconf')
     init_parser.add_argument('-n', '--netconf-port',
                              help='NETCONF port, only NETCONF over ssh is supported (default: %(default)s).',
@@ -454,8 +430,6 @@ def ned_test(arguments):
     # supported.
     import_tests_parser = subparsers.add_parser('import-tests',
                                                 help='Import test vectors and optionally translate test configurations.')
-    import_tests_parser.add_argument('-c', '--convert',
-                                     help='Convert CLI test cases to NETCONF.  Argument is the name of the CLI device driver to use for translation.')
     import_tests_parser.add_argument('-f', '--filter',
                                      help='Filter available tests (default: %(default)s).', default='')
     import_tests_parser.add_argument('device_name',
