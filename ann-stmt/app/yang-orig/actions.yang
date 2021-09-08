@@ -17,12 +17,13 @@ module actions {
   augment /test:test {
     leaf dummy {
       type string;
-      tailf:info "augment /test";  
+      tailf:info "augment /test";
     }
   }
 
   augment /test:test/test:testmod1 {
-    leaf hello { type string;
+    leaf hello {
+      type string;
       tailf:info "augment /test/testmod1";
     }
   }
