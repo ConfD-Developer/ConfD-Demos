@@ -33,16 +33,20 @@ def add_stmt(node, ann_node, ann_soup):
     if node.parent.name == "module" or node.parent.name == "submodule":
         return ann_node
     elif node.parent.name == "augment":
-        parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['target_node']))
-    #elif node.parent.name == "when":
-    #    parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="when")
+        conflicting_augments = node.parent.find_all_previous(node.parent.name, {"target_node" : node.parent['target_node']})
+        if len(conflicting_augments) == 0:
+            parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[name=\'{}\']".format(node.parent.name, node.parent['target_node']))
+        else:
+            previous_augments = node.parent.find_all_previous(node.parent.name)
+            parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[{}]".format(node.parent.name, len(previous_augments)+1))
+
     else:
         if not node.parent.attrs:
             parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}".format(node.parent.name))
         else:
             parent_ann_node = ann_soup.new_tag("tailf:annotate-statement", statement_path="{}[{}=\'{}\']".format(node.parent.name,
-   													     next(iter(node.parent.attrs)),
-													     next(iter(node.parent.attrs.values()))))
+                                                                                                                 next(iter(node.parent.attrs)),
+                                                                                                                 next(iter(node.parent.attrs.values()))))
     parent_ann_node.append(ann_node)
     return add_stmt(node.parent, parent_ann_node, ann_soup)
 
@@ -82,7 +86,7 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
                                          yin_soup.submodule["xmlns_{}".format(prefix)],
                                          prefix)
     else:
-        print("Error: Unknown module type. Neither a YANG module or submodule")
+        sys.stderr.write("Error: Unknown module type. Neither a YANG module or submodule")
         return
     ann_soup = BeautifulSoup(annotate_module, "xml")
     tailf_extension = None
