@@ -68,7 +68,7 @@ class TestDevice(object):
         dst_dir = '/tmp/yangs'
         shutil.rmtree('/tmp/yangs', ignore_errors=True)
         shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns(*exclude_patterns.split(',')))
+                        ignore=shutil.ignore_patterns(*exclude_patterns.split(' ')))
 
 
     def install_ned(self):
@@ -264,10 +264,12 @@ def get_device(device_name):
     with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
         authgroup = t.get_elem('/devices/device{%s}/authgroup' % device_name)
 
-        if t.exists('/devices/device{%s}/drned-xmnr/cli-port' % device_name):
+        if t.exists('/devices/device{%s}/drned-xmnr/cli-port' % device_name) and \
+           t.exists('/devices/device{%s}/drned-xmnr/driver' % device_name):
             args.cli_port = t.get_elem('/devices/device{%s}/drned-xmnr/cli-port' % device_name)
-        path_value = t.get_elem('/devices/device{%s}/drned-xmnr/driver' % device_name)
-        args.dir = path_value.as_pyval().replace('/states/%s.py' % device_name, '')
+            path_value = t.get_elem('/devices/device{%s}/drned-xmnr/driver' % device_name)
+            args.dir = path_value.as_pyval().replace('/states/%s.py' % device_name, '')
+
         args.ip_address = t.get_elem('/devices/device{%s}/address' % device_name)
         args.ned_id = t.get_elem('/devices/device{%s}/device-type/netconf/ned-id' % device_name)
         args.netconf_port = t.get_elem('/devices/device{%s}/port' % device_name)
@@ -400,7 +402,8 @@ def ned_test(arguments):
     build_ned_parser = subparsers.add_parser('build-ned',
                                              help='Build a NETCONF NED based on YANG models found on device_name or local YANG-models.')
     build_ned_parser.add_argument('-e', '--exclude',
-                                  help='Excluded YANG-models. Comma separated list of YANG modules (glob-style patterns) to exclude from the NED.')
+                                  help='Excluded YANG-models. <space> separated list of YANG modules (glob-style patterns) to exclude from the NED (default: %(default)s).',
+                                  default='""')
     build_ned_parser.add_argument('-i', '--install',
                                   help='Install the ned NED for the specified device.',
                                   action='store_true')
