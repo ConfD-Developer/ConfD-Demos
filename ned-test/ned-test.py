@@ -72,6 +72,7 @@ class TestDevice(object):
 
 
     def install_ned(self):
+        print('Install NED %s...' % self.ned_id, flush=True)
         package_dir = "%s/packages/%s" % (self.dir, self.ned_id)
         shutil.rmtree(package_dir, ignore_errors=True)
         shutil.copytree("/tmp/%s" % self.ned_id,
@@ -79,7 +80,7 @@ class TestDevice(object):
         cli_str = r'''
         packages reload force
         '''
-        cmd = "ncs_cli -C -u admin"
+        cmd = 'ncs_cli -C -u admin > /dev/null'
         subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
     def setup_cli_device(self):
@@ -92,11 +93,13 @@ class TestDevice(object):
                            driver)
 
     def setup_drned_xmnr(self):
+        print('Setup drned-xmnr...', flush=True)
         cli_str = r'''
         devices device %s drned-xmnr setup setup-xmnr overwrite true
         ''' % self.device_name
-        cmd = "ncs_cli -C -u admin"
+        cmd = 'ncs_cli -C -u admin > /dev/null'
         subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+        print('Record start state...')
         cli_str = r'''
         devices device %s drned-xmnr state record-state state-name start overwrite true
         ''' % self.device_name
@@ -120,18 +123,19 @@ class TestDevice(object):
         else:
             raise Exception('Unknown test strategy', strategy)
 
-        cmd = "ncs_cli -C -u admin"
+        cmd = 'ncs_cli -C -u admin'
         subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
     def translate(self, filter):
         cli_str = r'''
         devices device %s drned-xmnr state import-convert-cli-files file-path-pattern states/%s overwrite true
         ''' % (self.device_name, filter)
-        cmd = "ncs_cli -C -u admin"
+        cmd = 'ncs_cli -C -u admin'
         subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
 
 def create_authgroup(group, user, password):
+    print('Create authgroup %s...' % group, flush=True)
     cli_str = r'''
     config
      devices authgroups group %s
@@ -141,12 +145,13 @@ def create_authgroup(group, user, password):
     commit
     !
     ''' % (group, user, password)
-    cmd = "ncs_cli -C -u admin"
+    cmd = 'ncs_cli -C -u admin > /dev/null'
     subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
     return group
 
 
 def create_device(device_name, device_ip, device_port, ned_id, authgroup):
+    print('Create device %s...' % device_name, flush=True)
     cli_str = r'''
     config
      devices device %s
@@ -163,7 +168,7 @@ def create_device(device_name, device_ip, device_port, ned_id, authgroup):
     commit
     !
     ''' % (device_name, device_ip, device_port, authgroup, ned_id)
-    cmd = "ncs_cli -C -u admin"
+    cmd = 'ncs_cli -C -u admin > /dev/null'
     subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
 
@@ -218,18 +223,20 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
 
 
 def fetch_host_keys(device_name):
+    print('Fetch host keys...', flush=True)
     cli_str = r'''
     devices device %s ssh fetch-host-keys
     ''' % device_name
-    cmd = "ncs_cli -C -u admin"
+    cmd = 'ncs_cli -C -u admin > /dev/null'
     subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
 
 def sync_from(device_name):
+    print('Sync configutation from %s...' % device_name, flush=True)
     cli_str = r'''
     devices device %s sync-from
     ''' % device_name
-    cmd = "ncs_cli -C -u admin"
+    cmd = 'ncs_cli -C -u admin > /dev/null'
     subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
 
 
@@ -260,6 +267,8 @@ def maapi_maagic(device_name):
 def get_device(device_name):
     args = Dummy()
     args.device_name = device_name
+    args.cli_port = None
+    args.dir = getcwd()
 
     with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
         authgroup = t.get_elem('/devices/device{%s}/authgroup' % device_name)
