@@ -175,7 +175,7 @@ def create_device(device_name, device_ip, device_port, ned_id, authgroup):
 def download_yang_modules(device_name, ned_name, username, vendor, version):
     # Start the nso interactive session
     p = pexpect.spawn('ncs_cli -C -u admin')
-    p.logfile_read = sys.stdout.buffer
+    #p.logfile_read = sys.stdout.buffer
     p.expect_exact('admin@ncs#')
     p.sendline('devices device %s ssh fetch-host-keys' % device_name)
     p.expect('result.*admin@ncs#')
@@ -190,6 +190,7 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     p.sendline('commit')
 
     # Setup NETCONF NED builder
+    print('Create NED Builder project...', flush=True)
     p.sendline('netconf-ned-builder project %s %s device %s local-user %s vendor %s' % (ned_name, version, device_name, username, vendor))
     p.expect_exact('admin@ncs(config-project-%s/%s)#' % (ned_name, version))
     p.sendline('commit')
@@ -206,6 +207,7 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     p.expect_exact('admin@ncs#', timeout=120)
 
     # Wait for netconf-ned-builder to download all YANG models
+    print('Downloading YANG modules from %s...' % device_name, flush=True)
     while True:
         p.sendline('show netconf-ned-builder project %s %s module * status | notab | nomore | exclude deselected | exclude module | exclude downloaded | count' % (ned_name, version))
         p.expect(r'Count: (\d+) lines')
