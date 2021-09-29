@@ -660,6 +660,9 @@ static int t_commit(struct confd_trans_ctx *tctx)
   struct confd_tr_item *item = tctx->accumulated;
   confd_hkeypath_t *keypath;
   char kp_str[BUFSIZ];
+  char choice_str[BUFSIZ];
+  char tmp_str[BUFSIZ];
+  char *scase_str, *ns_str;
 
   while (item) {
     keypath = item->hkp;
