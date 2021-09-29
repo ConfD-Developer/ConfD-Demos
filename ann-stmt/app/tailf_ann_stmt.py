@@ -54,7 +54,8 @@ def add_stmt(node, ann_node, ann_soup):
 def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
                    parse_max_elem_stmt, parse_mandatory_stmt, parse_unique_stmt,
                    parse_pattern_stmt, parse_tailf_stmt, parse_callpoint_stmt,
-                   parse_validate_stmt, sanitize, out_path, yang_file):
+                   parse_validate_stmt, sanitize, parse_leafref_stmt,
+                   out_path, yang_file):
     if "CONFD_DIR" in os.environ:
         confd_dir = os.environ['CONFD_DIR']
     else:
@@ -142,6 +143,11 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
                 annotate_statements = add_stmt(tailf_extension, copy.copy(tailf_extension), ann_soup)
                 ann_soup.module.tailf_prefix_annotate_module.append(annotate_statements)
                 tailf_extension.decompose()
+    if parse_leafref_stmt is True:
+        for leafref_stmt in yin_soup.find_all(yname = 'leafref'):
+            if leafref_stmt is not None:
+                leafref_stmt.clear()
+                leafref_stmt['yname'] = "string"
     else:
         if parse_callpoint_stmt is True:
             for callpoint_stmt in yin_soup.find_all('tailf_prefix_callpoint'):
@@ -222,6 +228,8 @@ if __name__ == "__main__":
                         help='remove all when startements')
     parser.add_argument('-i', '--minelem', action='store_true',
                         help='remove all min-element statements')
+    parser.add_argument('-l', '--leafref', action='store_true',
+                        help='replace all leafref statements with string')
     parser.add_argument('-x', '--maxelem', action='store_true',
                         help='remove all max-element statements')
     parser.add_argument('-a', '--mandatory', action='store_true',
@@ -248,5 +256,5 @@ if __name__ == "__main__":
         output = args.output[0]
     tailf_ann_stmt(args.must, args.when, args.minelem, args.maxelem,
                    args.mandatory, args.unique, args.pattern, args.tailf,
-                   args.callpoint, args.validate, args.sanitize,
+                   args.callpoint, args.validate, args.sanitize, args.leafref,
                    output, args.filename[0])
