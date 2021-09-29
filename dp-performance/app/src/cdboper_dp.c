@@ -344,7 +344,7 @@ static int get_object(struct confd_trans_ctx *tctx,
                       confd_hkeypath_t *keypath)
 {
   confd_tag_value_t *itv, *tv;
-  int pos, j = 0, n;
+  int j = 0, n;
   struct confd_cs_node *cs_node, *start;
   char kp_str[BUFSIZ];
 
