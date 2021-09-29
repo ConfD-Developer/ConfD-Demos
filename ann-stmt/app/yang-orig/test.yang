@@ -81,6 +81,11 @@ module test {
       leaf second {
         type int32;
       }
+      leaf third {
+        type leafref {
+          path "/test/nomode/name";
+        }
+      }
     }
     list table1 {
       key "name";
