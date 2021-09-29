@@ -231,19 +231,21 @@ static int get_case(struct confd_trans_ctx *tctx,
   confd_value_t rcase;
   char kp_str[BUFSIZ];
   char choice_str[BUFSIZ];
+  char *ns_str;
+  char tmp_str[BUFSIZ];
   int ret, i, len = 0;
 
   mk_kp_str(&kp_str[0], BUFSIZ, kp, KP_MOD);
-
-  choice_str[0] = '\0';
   for(len = 0; choice[len].type != C_NOEXISTS; len++);
   for(i = len-1; i >= 0; i--) {
-    strcat(&choice_str[0], confd_hash2str(CONFD_GET_XMLTAG(&choice[i])));
+    ns_str = confd_ns2prefix(CONFD_GET_XMLTAG_NS(&choice[i]));
+    confd_pp_value(tmp_str, BUFSIZ, &choice[i]);
+    snprintf(choice_str, sizeof(choice_str)-1,"%s%s:%s", ns_str, KP_MOD,
+             tmp_str);
     if (i > 0) {
       strcat(&choice_str[0], "/");
     }
   }
-
   if ((ret = cdb_get_case(cdbsock, &choice_str[0],
                           &rcase, &kp_str[0])) != CONFD_OK ) {
     confd_data_reply_not_found(tctx);
