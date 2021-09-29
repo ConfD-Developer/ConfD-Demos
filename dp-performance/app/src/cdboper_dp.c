@@ -664,6 +664,15 @@ static int t_commit(struct confd_trans_ctx *tctx)
     mk_kp_str(&kp_str[0], BUFSIZ, keypath, KP_MOD);
     switch(item->op) {
     case C_SET_ELEM:
+      if (item->val->type == C_XMLTAG) {
+        ns_str = confd_hash2str(CONFD_GET_XMLTAG_NS(item->val));
+        snprintf(tmp_str, sizeof(tmp_str),"%s%s", ns_str, KP_MOD);
+        item->val->val.xmltag.ns = confd_str2hash(&tmp_str[0]);
+      } else if (item->val->type == C_IDENTITYREF) {
+        ns_str = confd_hash2str(item->val->val.idref.ns);
+        snprintf(tmp_str, sizeof(tmp_str),"%s%s", ns_str, KP_MOD);
+        item->val->val.idref.ns = confd_str2hash(&tmp_str[0]);
+      }
       cdb_set_elem(cdbsock, item->val, &kp_str[0]);
       break;
     case C_CREATE:
@@ -671,6 +680,14 @@ static int t_commit(struct confd_trans_ctx *tctx)
       break;
     case C_REMOVE:
       cdb_delete(cdbsock, &kp_str[0]);
+      break;
+    case C_SET_CASE:
+      confd_pp_value(tmp_str, BUFSIZ, item->choice);
+      ns_str = confd_ns2prefix(CONFD_GET_XMLTAG_NS(item->val));
+      snprintf(choice_str, sizeof(choice_str),"%s%s:%s", ns_str, KP_MOD,
+               tmp_str);
+      scase_str = confd_hash2str(CONFD_GET_XMLTAG(item->val));
+      cdb_set_case(cdbsock, &choice_str[0], &scase_str[0], &kp_str[0]);
       break;
     default:
       return CONFD_ERR;
@@ -703,6 +720,16 @@ static int move_after(struct confd_trans_ctx *tctx, confd_hkeypath_t *keypath,
   /*  Not supported for "config false" data so we can't perform this operation
       on the data in the CDB operational datastore. Demo limitation. */
   return CONFD_OK;
+}
+
+/* Implemented to set the case in the operational datastore using
+   cdb_set_case(). This allows the get_case() callback to check if a case is
+   set using the cdb_get_case() statment. */
+static int set_case(struct confd_trans_ctx *tctx,
+                    confd_hkeypath_t *kp, confd_value_t *choice,
+                    confd_value_t *caseval)
+{
+  return CONFD_ACCUMULATE;
 }
 
 #include <time.h>
@@ -827,6 +854,7 @@ int main(int argc, char *argv[])
   data.create = create_node;
   data.remove = remove_node;
   data.move_after = move_after;
+  data.set_case = set_case;
 
   strcpy(data.callpoint, callpoint);
   if (confd_register_data_cb(dctx, &data) == CONFD_ERR)
