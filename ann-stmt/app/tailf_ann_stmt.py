@@ -169,9 +169,14 @@ def tailf_ann_stmt(parse_must_stmt, parse_when_stmt, parse_min_elem_stmt,
         create_ann_module = True
     tailf_extension = yin_soup.find(re.compile('tailf_prefix_'))
     if tailf_extension is None:
-      tailf_import = yin_soup.find('import', module='tailf-common')
-      if tailf_import is not None:
-        tailf_import.decompose()
+        tailf_import = yin_soup.find('import', module='tailf-common')
+        if tailf_import is not None:
+            tailf_import.decompose()
+            # since tailf-common is removed, change all tailf types to string
+            for t in yin_soup.find_all('type',
+                                       yname=re.compile("tailf_prefix")):
+                t.clear()
+                t['yname'] = "string"
     tailf_ann_import = ann_soup.find('import', module='tailf-common')
     if yin_soup.module is not None:
         ann_soup.module.attrs = copy.copy(yin_soup.module.attrs)

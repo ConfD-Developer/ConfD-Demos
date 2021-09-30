@@ -86,6 +86,9 @@ module test {
           path "/test/nomode/name";
         }
       }
+      leaf fourth {
+        type tailf:aes-cfb-128-encrypted-string;
+      }
     }
     list table1 {
       key "name";
