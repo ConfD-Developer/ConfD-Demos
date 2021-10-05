@@ -19,8 +19,8 @@ fi
 
 start() {
     confd --start-phase0 -c confd.conf --addloadpath ${CONFD_DIR}/etc/confd --addloadpath fxs
-    confd --start-phase1
     ./cdboper_dp -l $LIBCONFD_LOG -s -c $CALLPOINT &> /dev/null &
+    confd --start-phase1
     ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name" > /dev/null; ecode=$?; done;
     confd --start-phase2
 }
