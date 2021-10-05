@@ -20,7 +20,14 @@ data from the CDB operational data store using the CDB API.
   - get_object()
   - find_next()
   - find_next_object()
-  - See app/src/cdboper_dp.c for the implementation of the above
+- We also implement callbacks for writing configuration data:
+  - set_elem()
+  - create()
+  - remove()
+  - move_after()
+  - set_case()
+  - t_commit()
+- See the src/cdboper_dp.c file for the implementation of the above callbacks.
 - The example assume that your root node is a container or a list. I.e. not a
   leaf. We can then set the CONFD_DAEMON_FLAG_BULK_GET_CONTAINER flag using
   confd_set_daemon_flags() and skip implementing the get_elem() data provider
@@ -82,6 +89,11 @@ data from the CDB operational data store using the CDB API.
     - cdb_next_index()
     - cdb_num_instances()
     - cdb_get_values()
+  - t_commit() DP callback:
+    - cdb_set_elem()
+    - cdb_create()
+    - cdb_delete()
+    - cdb_set_case()
 - The northbound NETCONF/RESTCONF/MAAPI/CLI interface clients requesting data:
     - NETCONF <get-data>, an RFC 8526 NETCONF NMDA extension that allow us to
       use a config-filter to get "config false" data only.
