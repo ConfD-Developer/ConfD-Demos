@@ -4,7 +4,7 @@
 
 import argparse
 from os import getcwd
-from os.path import dirname
+from os.path import isdir
 import pexpect
 import shutil
 import subprocess
@@ -60,8 +60,8 @@ class TestDevice(object):
             download_yang_modules(self.device_name, ned_name,
                                   self.username, vendor, version)
             src_dir = 'state/netconf-ned-builder/cache/%s-nc-%s' % (ned_name, version)
-        elif yang_source == 'local':
-            src_dir = '/yangs'
+        elif isdir(yang_source):
+            src_dir = yang_source
         else:
             raise Exception('Unknown YANG source:', yang_source)
 
@@ -177,8 +177,14 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     p = pexpect.spawn('ncs_cli -C -u admin')
     #p.logfile_read = sys.stdout.buffer
     p.expect_exact('admin@ncs#')
+    print('Fetch hostkeys...', end='', flush=True)
     p.sendline('devices device %s ssh fetch-host-keys' % device_name)
-    p.expect('result.*admin@ncs#')
+    index = p.expect(['result failed', 'result (updated|unchanged).*admin@ncs#'])
+    if index == 0:
+        print('error, cannot fetch host keys!', flush=True)
+        sys.exit(1)
+    print('ok', flush=True)
+
     p.sendline('devtools true')
     p.expect_exact('admin@ncs#')
     p.sendline('config')
@@ -190,7 +196,7 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     p.sendline('commit')
 
     # Setup NETCONF NED builder
-    print('Create NED Builder project...', flush=True)
+    print('Create NED Builder project...', end='', flush=True)
     p.sendline('netconf-ned-builder project %s %s device %s local-user %s vendor %s' % (ned_name, version, device_name, username, vendor))
     p.expect_exact('admin@ncs(config-project-%s/%s)#' % (ned_name, version))
     p.sendline('commit')
@@ -199,10 +205,19 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     p.expect_exact('admin@ncs(config)#')
     p.sendline('exit')
     p.expect_exact('admin@ncs#')
+    print('ok', flush=True)
 
     # Fetch YANG module list and select what YANG modules to include in the NED...
+    print('Fetch list of YANG moduels from %s...' % device_name, end='', flush=True)
     p.sendline('netconf-ned-builder project %s %s fetch-module-list' % (ned_name, version))
-    p.expect_exact(['admin@ncs#', 'admin@ncs#'], timeout=120)
+    p.expect_exact('admin@ncs#', timeout=120)
+    p.sendline('show netconf-ned-builder project %s %s module | nomore' % (ned_name, version))
+    index = p.expect_exact(['% No entries found.\r\nadmin@ncs#', 'admin@ncs#'], timeout=120)
+    if index == 0:
+        print('error', flush=True)
+        sys.exit(1)
+    print('ok', flush=True)
+
     p.sendline('netconf-ned-builder project %s %s module * * select' % (ned_name, version))
     p.expect_exact('admin@ncs#', timeout=120)
 
@@ -213,6 +228,7 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
         p.expect(r'Count: (\d+) lines')
         if p.match.group(1).decode('utf-8') == '0':
             break
+        print('%s modules left...' % p.match.group(1).decode('utf-8'), flush=True)
         sleep(10)
     p.sendline('exit')
     p.expect(pexpect.EOF, timeout=None)
@@ -335,7 +351,7 @@ def build_ned(args):
     td.create_ned_package(args.ned_name, args.netsim, args.vendor, args.version)
     td.build_ned_package()
     td.install_ned()
-    if args.install == True:
+    if args.install is True:
         maapi_set_ned_id(td.device_name, td.ned_id)
 
 
@@ -463,7 +479,7 @@ def ned_test(arguments):
 
     # Cleanup after testing
     cleanup_parser = subparsers.add_parser('cleanup',
-                                           help='Remove test device and artifects produced during testing.')
+                                           help='Remove test device and artifacts produced during testing.')
     cleanup_parser.add_argument('device_name',
                                 help='Device name.  A device previously created with ned-test init ...')
 
@@ -474,6 +490,10 @@ def ned_test(arguments):
     debug_parser.add_argument('device_name', help='Device name')
 
     debug_parser.set_defaults(func=debug)
+
+    # Print brief help text if no arguments was given
+    if len(arguments) == 0:
+        parser.error("Missing required command")
 
     args = parser.parse_args(arguments)
 
