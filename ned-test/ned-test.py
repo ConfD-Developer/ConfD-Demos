@@ -13,8 +13,7 @@ from time import sleep
 
 
 import ncs
-from _ncs import cs_node_cd, decrypt
-
+from _ncs import cs_node_cd, decrypt, fatal
 
 class TestNedError(Exception):
     def __init__(self, info):
@@ -54,10 +53,10 @@ class TestDevice(object):
                "--package-version %s" % (ned_name, self.ned_id, netsim, vendor, version))
         subprocess.run(cmd, shell=True, check=True, text=True)
 
-    def get_yang_modules(self, ned_name, vendor, version,
+    def get_yang_modules(self, debug, ned_name, vendor, version,
                          exclude_patterns, yang_source='device'):
         if yang_source == 'device':
-            download_yang_modules(self.device_name, ned_name,
+            download_yang_modules(debug, self.device_name, ned_name,
                                   self.username, vendor, version)
             src_dir = 'state/netconf-ned-builder/cache/%s-nc-%s' % (ned_name, version)
         elif isdir(yang_source):
@@ -70,18 +69,19 @@ class TestDevice(object):
         shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns(*exclude_patterns.split(' ')))
 
-
     def install_ned(self):
         print('Install NED %s...' % self.ned_id, flush=True)
         package_dir = "%s/packages/%s" % (self.dir, self.ned_id)
         shutil.rmtree(package_dir, ignore_errors=True)
         shutil.copytree("/tmp/%s" % self.ned_id,
                         package_dir, dirs_exist_ok=True)
-        cli_str = r'''
-        packages reload force
-        '''
-        cmd = 'ncs_cli -C -u admin > /dev/null'
-        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+        with ncs.maapi.Maapi() as m:
+            with ncs.maapi.Session(m, 'admin', 'python'):
+                root = ncs.maagic.get_root(m)
+                input = root.packages.reload.get_input()
+                input.force.create()
+                output = root.packages.reload.request(input)
+                return output.reload_result[self.ned_id].result
 
     def setup_cli_device(self):
         template = '%s/bin/device.template' % self.dir
@@ -93,24 +93,26 @@ class TestDevice(object):
                            driver)
 
     def setup_drned_xmnr(self):
-        print('Setup drned-xmnr...', flush=True)
-        cli_str = r'''
-        devices device %s drned-xmnr setup setup-xmnr overwrite true
-        ''' % self.device_name
-        cmd = 'ncs_cli -C -u admin > /dev/null'
-        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
-        print('Record start state...')
-        cli_str = r'''
-        devices device %s drned-xmnr state record-state state-name start overwrite true
-        ''' % self.device_name
-        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+        with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
+            print('Setup drned-xmnr...', end='', flush=True)
+            res = maapi_run_action('/ncs:devices/device{%s}/drned-xmnr:drned-xmnr/setup/setup-xmnr' % self.device_name,
+                                   'devices device %s drned-xmnr setup setup-xmnr overwrite true' % self.device_name)
+            if 'success' in res:
+                print('ok', flush=True)
+            print('Record start state...', end='', flush=True)
+            res = maapi_run_action('/ncs:devices/device{%s}/drned-xmnr:drned-xmnr/state/record-state' % self.device_name,
+                                   'devices device %s drned-xmnr state record-state state-name start overwrite true' % self.device_name)
+            if 'success' in res:
+                print('ok', flush=True)
 
     def setup_netconf_device(self):
-        authgroup = create_authgroup(self.device_name, self.username, self.password)
-        create_device(self.device_name, self.ip_address, self.netconf_port, self.ned_id, authgroup)
+        create_authgroup(self.device_name, self.username, self.password)
+        create_device(self.device_name, self.ip_address, self.netconf_port, self.ned_id)
         fetch_host_keys(self.device_name)
         sync_from(self.device_name)
 
+    # We spawn a subprocess, rather than invoking the action using maapi, in order to provive
+    # continuous console feedback since the commands typically takes a long time to run.
     def test_ned(self, strategy):
         if strategy == 'walk':
             cli_str = r'''
@@ -122,60 +124,61 @@ class TestDevice(object):
             ''' % (self.device_name)
         else:
             raise Exception('Unknown test strategy', strategy)
-
+    
         cmd = 'ncs_cli -C -u admin'
-        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True).check_returncode()
 
+
+    # We spawn a subprocess, rather than invoking the action using maapi, in order to provive
+    # continuous console feedback since the commands typically takes a long time to run.
     def translate(self, filter):
         cli_str = r'''
         devices device %s drned-xmnr state import-convert-cli-files file-path-pattern states/%s overwrite true
         ''' % (self.device_name, filter)
         cmd = 'ncs_cli -C -u admin'
-        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+        subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True).check_returncode()
 
 
-def create_authgroup(group, user, password):
-    print('Create authgroup %s...' % group, flush=True)
-    cli_str = r'''
-    config
-     devices authgroups group %s
-     default-map remote-name %s
-     default-map remote-password %s
-     !
-    commit
-    !
-    ''' % (group, user, password)
-    cmd = 'ncs_cli -C -u admin > /dev/null'
-    subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
-    return group
+def create_authgroup(authgroup, username, password):
+    with ncs.maapi.single_write_trans('admin', 'write-ctx') as t:
+        t.create('/devices/authgroups/group{%s}' % authgroup)
+        t.create('/devices/authgroups/group{%s}/default-map' % authgroup)
+        t.set_elem2(username,
+                    '/devices/authgroups/group{%s}/default-map/remote-name' % authgroup)
+        t.set_elem2(password,
+                    '/devices/authgroups/group{%s}/default-map/remote-password' % authgroup)
+        t.apply()
 
 
-def create_device(device_name, device_ip, device_port, ned_id, authgroup):
-    print('Create device %s...' % device_name, flush=True)
-    cli_str = r'''
-    config
-     devices device %s
-     address %s
-     port %s
-     authgroup %s
-     device-type netconf ned-id %s
-     trace pretty
-     read-timeout 300
-     write-timeout 300
-     commit-queue enabled-by-default false
-     state admin-state unlocked
-     !
-    commit
-    !
-    ''' % (device_name, device_ip, device_port, authgroup, ned_id)
-    cmd = 'ncs_cli -C -u admin > /dev/null'
-    subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+def create_device(device_name, device_ip, device_port, ned_id):
+    with ncs.maapi.single_write_trans('admin', 'write-ctx') as t:
+        t.create('/devices/device{%s}' % device_name)
+        t.set_elem2(device_ip,
+                    '/devices/device{%s}/address' % device_name)
+        t.set_elem2(device_port,
+                    '/devices/device{%s}/port' % device_name)
+        t.set_elem2(ned_id,
+                    '/devices/device{%s}/device-type/netconf/ned-id' % device_name)
+        t.set_elem2(device_name,
+                    '/devices/device{%s}/authgroup' % device_name)
+        t.set_elem2('raw',
+                    '/devices/device{%s}/trace' % device_name)
+        t.set_elem2('300',
+                    '/devices/device{%s}/read-timeout' % device_name)
+        t.set_elem2('300',
+                    '/devices/device{%s}/write-timeout' % device_name)
+        t.set_elem2('false',
+                    '/devices/device{%s}/commit-queue/enabled-by-default' % device_name)
+        t.set_elem2('unlocked',
+                    '/devices/device{%s}/state/admin-state' % device_name)
+        t.apply()
 
 
-def download_yang_modules(device_name, ned_name, username, vendor, version):
+def download_yang_modules(debug, device_name, ned_name, username, vendor, version):
     # Start the nso interactive session
     p = pexpect.spawn('ncs_cli -C -u admin')
-    #p.logfile_read = sys.stdout.buffer
+    if debug == True:
+        p.logfile_read = sys.stdout.buffer
     p.expect_exact('admin@ncs#')
     print('Fetch hostkeys...', end='', flush=True)
     p.sendline('devices device %s ssh fetch-host-keys' % device_name)
@@ -215,6 +218,7 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
     index = p.expect_exact(['% No entries found.\r\nadmin@ncs#', 'admin@ncs#'], timeout=120)
     if index == 0:
         print('error', flush=True)
+        print('Try ned-test.py build-ned -d ... to see what went wrong.', flush=True)
         sys.exit(1)
     print('ok', flush=True)
 
@@ -241,21 +245,21 @@ def download_yang_modules(device_name, ned_name, username, vendor, version):
 
 
 def fetch_host_keys(device_name):
-    print('Fetch host keys...', flush=True)
-    cli_str = r'''
-    devices device %s ssh fetch-host-keys
-    ''' % device_name
-    cmd = 'ncs_cli -C -u admin > /dev/null'
-    subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+    print('Fetch host keys...', end='', flush=True)
+    res = maapi_run_action('/ncs:devices/device{%s}/ssh/fetch-host-keys' % device_name,
+                           'devices device %s ssh fetch-host-keys' % device_name)
+    if 'result failed' in res:
+        fatal(res)
+    print('ok', flush=True)
 
 
 def sync_from(device_name):
-    print('Sync configutation from %s...' % device_name, flush=True)
-    cli_str = r'''
-    devices device %s sync-from
-    ''' % device_name
-    cmd = 'ncs_cli -C -u admin > /dev/null'
-    subprocess.run(cmd, input=cli_str, shell=True, check=True, text=True)
+    print('Sync configutation from %s...' % device_name, end='',flush=True)
+    res = maapi_run_action('/ncs:devices/device{%s}/sync-from' % device_name,
+                           'devices device %s sync-from' % device_name)
+    if 'result false' in res:
+        fatal(res)
+    print('ok', flush=True)
 
 
 def maapi_exists(xpath):
@@ -280,6 +284,13 @@ def maapi_maagic(device_name):
         root = ncs.maagic.get_root(t)
         device_node = root.devices.device[device_name]
         return device_node
+
+
+def maapi_run_action(action, args):
+    import pdb
+    # pdb.set_trace()
+    with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
+        return t.request_action_str_th(args, action)
 
 
 def get_device(device_name):
@@ -318,7 +329,7 @@ def wait_for_nso():
         print(".", end='', flush=True)
         sleep(5)
 
-    print("done", flush=True)
+    print("ok", flush=True)
 
 
 def is_nso_running():
@@ -347,12 +358,14 @@ def build_ned(args):
         msg = 'ned-id must be "netconf"'
         raise TestNedError(msg)
 
-    td.get_yang_modules(args.ned_name, args.vendor, args.version, args.exclude, args.yang_source)
-    td.create_ned_package(args.ned_name, args.netsim, args.vendor, args.version)
+    td.get_yang_modules(args.debug, args.ned_name, args.vendor,
+                        args.version, args.exclude, args.yang_source)
+    td.create_ned_package(args.ned_name, args.netsim,
+                          args.vendor, args.version)
     td.build_ned_package()
-    td.install_ned()
     if args.install is True:
-        maapi_set_ned_id(td.device_name, td.ned_id)
+        if td.install_ned():
+            maapi_set_ned_id(td.device_name, td.ned_id)
 
 
 def import_tests(args):
@@ -378,13 +391,22 @@ def debug(args):
     # print(maapi_exists('devices/device{asr9k}'))
     # print(get_device(args.device_name))
     # dev = maapi_maagic(args.device_name)
-    with ncs.maapi.single_read_trans('admin', 'write-ctx') as t:
-        root = ncs.maagic.get_root(t)
-        device_node = root.devices.device[args.device_name]
-        authgroup = root.devices.authgroups.group[device_node.authgroup]
-        pw = authgroup.default_map.remote_password
-        t.maapi.install_crypto_keys()
-        print(authgroup.default_map.remote_name, decrypt(pw))
+    # with ncs.maapi.single_read_trans('admin', 'write-ctx') as t:
+    #     root = ncs.maagic.get_root(t)
+    #     device_node = root.devices.device[args.device_name]
+    #     authgroup = root.devices.authgroups.group[device_node.authgroup]
+    #     pw = authgroup.default_map.remote_password
+    #     t.maapi.install_crypto_keys()
+    #     print(authgroup.default_map.remote_name, decrypt(pw))
+    #with ncs.maapi.single_read_trans('admin', 'read-ctx') as t:
+        # t.request_action_th(params, '/ncs:packages/reload')
+    with ncs.maapi.Maapi() as m:
+        with ncs.maapi.Session(m, 'admin', 'python'):
+            root = ncs.maagic.get_root(m)
+            input = root.packages.reload.get_input()
+            input.force.create()
+            output = root.packages.reload.request(input)
+            print(output.reload_result['drned-xmnr'].result)
 
 
 def ned_test(arguments):
@@ -428,6 +450,9 @@ def ned_test(arguments):
     # the NED.
     build_ned_parser = subparsers.add_parser('build-ned',
                                              help='Build a NETCONF NED based on YANG models found on device_name or local YANG-models.')
+    build_ned_parser.add_argument('-d', '--debug',
+                                  help='Debug mode.',
+                                  action='store_true')
     build_ned_parser.add_argument('-e', '--exclude',
                                   help='Excluded YANG-models. <space> separated list of YANG modules (glob-style patterns) to exclude from the NED (default: %(default)s).',
                                   default='""')
