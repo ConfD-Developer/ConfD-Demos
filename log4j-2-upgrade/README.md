@@ -1,8 +1,8 @@
 # Changing the log4j 2 Version
 
 
-NSO use Apache Log4j 2 for Java log messages. This simple shell script help
-change the version of the Log4j 2 jar files that are included with the NSO
+ConfD use Apache Log4j 2 for Java log messages. This simple shell script help
+change the version of the Log4j 2 jar files that are included with the ConfD
 release.
 
 ## Steps
