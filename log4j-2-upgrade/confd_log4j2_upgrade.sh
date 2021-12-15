@@ -39,11 +39,11 @@ while getopts "v:u:p:k:s:h" OPTION; do
 done
 
 set +u
-if ! [ -z "$JAR_PATH" ]; then
-    if [ -z "${NCS_DIR}" ]; then
-        JAR_PATH=${NCS_DIR}/java/jar
+if [ -z "$JAR_PATH" ]; then
+    if ! [ -z "$CONFD_DIR" ]; then
+        JAR_PATH=${CONFD_DIR}/java/jar
     else
-        printf "${RED}Path to the ConfD Java API jar files or CONFD_DIR is not set${NC}"; usage; return 1;
+        printf "${RED}Path to the ConfD Java API jar files or CONFD_DIR is not set${NC}\n\n"; usage; exit 1;
     fi
 fi
 set -u
