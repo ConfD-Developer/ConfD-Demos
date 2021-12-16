@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu # Abort the script if a command returns with a non-zero exit code or if
         # a variable name is dereferenced when the variable hasn't been set
 
