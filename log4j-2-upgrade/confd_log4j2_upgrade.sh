@@ -11,7 +11,7 @@ function usage()
 {
    printf "${GREEN}Script for upgrading the log4j 2 version used by the ConfD Java API\n\n"
    printf "  -v  New Log4j 2 version. Default: 2.16.0\n"
-   printf "  -u  URL to the Apache Log4j 2 binary (tar.gz). Default: https://www.apache.org/dyn/closer.lua/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz\n"
+   printf "  -u  URL to the Apache Log4j 2 binary (tar.gz). Default: https://dlcdn.apache.org/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz\n"
    printf "  -p  Path to the ConfD Java API jar files. Default: CONFD_DIR/java/jar\n"
    printf "  -k  URL to the KEYS for verifying the integrity of the Apache Log4j 2 distribution. Default: https://downloads.apache.org/logging/KEYS\n"
    printf "  -s  URL to the asc signature file for verifying the integrity of the Apache Log4j 2 distribution. Default: https://downloads.apache.org/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz.asc\n"
