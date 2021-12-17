@@ -43,10 +43,13 @@ if [ -z "$JAR_PATH" ]; then
     if ! [ -z "${CONFD_DIR}" ]; then
         JAR_PATH=${CONFD_DIR}/java/jar
     else
-        printf "${RED}Path to the ConfD Java API jar files or CONFD_DIR is not set${NC}\n\n"; usage; exit 1;
+        printf "${RED}Path to the ConfD Java API jar files or CONFD_DIR is not set. Aborting.${NC}\n\n"; usage; exit 1;
     fi
 fi
 set -u
+
+hash curl 2>/dev/null || { printf "${RED}curl not installed. Aborting.${NC}\n"; exit 1; }
+hash gpg 2>/dev/null || { printf "${RED}gpg not installed. Aborting.${NC}\n"; exit 1; }
 
 printf "\n${PURPLE}Change directory to $JAR_PATH\n${NC}"
 cd $JAR_PATH
