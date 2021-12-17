@@ -7,22 +7,22 @@ GREEN='\033[0;32m'
 PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
-function usage()
-{
-   printf "${GREEN}Script for upgrading the log4j 2 version used by the ConfD Java API\n\n"
-   printf "  -v  New Log4j 2 version. Default: 2.16.0\n"
-   printf "  -u  URL to the Apache Log4j 2 binary (tar.gz). Default: https://dlcdn.apache.org/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz\n"
-   printf "  -p  Path to the ConfD Java API jar files. Default: CONFD_DIR/java/jar\n"
-   printf "  -k  URL to the KEYS for verifying the integrity of the Apache Log4j 2 distribution. Default: https://downloads.apache.org/logging/KEYS\n"
-   printf "  -s  URL to the asc signature file for verifying the integrity of the Apache Log4j 2 distribution. Default: https://downloads.apache.org/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz.asc\n"
-   printf "\nTo, for example, upgrade to 2.16.0:\n\n"
-   printf "  \$ source confdrc; ./confd_log4j_2_upgrade.sh -v 2.16.0\n\n${NC}"
-}
-
 NEW_VERSION=2.16.0
 LOG4J_2_URL="https://dlcdn.apache.org/logging/log4j/$NEW_VERSION/apache-log4j-$NEW_VERSION-bin.tar.gz"
 KEYS_URL="https://downloads.apache.org/logging/KEYS"
 SIGN_URL="https://downloads.apache.org/logging/log4j/$NEW_VERSION/apache-log4j-$NEW_VERSION-bin.tar.gz.asc"
+
+function usage()
+{
+   printf "${GREEN}Script for upgrading the log4j 2 version used by the ConfD Java API\n\n"
+   printf "  -v  New Log4j 2 version. Default: $NEW_VERSION\n"
+   printf "  -u  URL to the Apache Log4j 2 binary (tar.gz). Default: https://dlcdn.apache.org/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz\n"
+   printf "  -p  Path to the ConfD Java API jar files. Default: CONFD_DIR/java/jar\n"
+   printf "  -k  URL to the KEYS for verifying the integrity of the Apache Log4j 2 distribution. Default: $KEYS_URL\n"
+   printf "  -s  URL to the asc signature file for verifying the integrity of the Apache Log4j 2 distribution. Default: https://downloads.apache.org/logging/log4j/NEW_VERSION/apache-log4j-NEW_VERSION-bin.tar.gz.asc\n"
+   printf "\nTo, for example, upgrade to $NEW_VERSION:\n\n"
+   printf "  \$ source confdrc; ./confd_log4j_2_upgrade.sh -v $NEW_VERSION\n\n${NC}"
+}
 
 # Retrieve the calling parameters.
 while getopts "v:u:p:k:s:h" OPTION; do
