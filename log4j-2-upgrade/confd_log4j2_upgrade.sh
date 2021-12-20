@@ -54,7 +54,7 @@ hash gpg 2>/dev/null || { printf "${RED}gpg not installed. Aborting.${NC}\n"; ex
 printf "\n${PURPLE}Change directory to $JAR_PATH\n${NC}"
 cd $JAR_PATH
 printf "\n${PURPLE}Remove the old log4j 2 jar files\n${NC}"
-/bin/rm -fv log4j-*.jar
+rm -fv log4j-*.jar
 printf "\n${PURPLE}Download keys, signature, and the log4j 2 $NEW_VERSION release from $LOG4J_2_URL\n${NC}"
 curl -s $KEYS_URL --output KEYS
 curl -s $SIGN_URL --output apache-log4j-$NEW_VERSION-bin.tar.gz.asc
