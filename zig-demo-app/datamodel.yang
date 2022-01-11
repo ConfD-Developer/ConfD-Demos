@@ -1,0 +1,27 @@
+module datamodel {
+  namespace "http://tail-f.com/ns/example/datamodel";
+  prefix datamodel;
+
+  import ietf-inet-types { prefix inet; }
+  import tailf-common { prefix tailf; }
+
+
+  container search {
+    tailf:info "";
+    tailf:action person {
+      tailf:cli-operational-mode;
+      tailf:actionpoint search-point;
+      input {
+        leaf name {
+          type string;         
+        }
+        leaf age {
+          type uint32;         
+        }      
+      }
+      output {
+
+      }
+    }
+  }
+}
