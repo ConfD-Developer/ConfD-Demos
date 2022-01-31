@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
-NEW_VERSION=2.17.0
+NEW_VERSION=2.17.1
 LOG4J_2_URL="https://dlcdn.apache.org/logging/log4j/$NEW_VERSION/apache-log4j-$NEW_VERSION-bin.tar.gz"
 KEYS_URL="https://downloads.apache.org/logging/KEYS"
 SIGN_URL="https://downloads.apache.org/logging/log4j/$NEW_VERSION/apache-log4j-$NEW_VERSION-bin.tar.gz.asc"
