@@ -10,6 +10,7 @@ release.
 1. Either source the confdrc environment command file or run the script with the
    -h flag to get information on how to set the path to the jar file directory.
 2. Run the script.
+3. Restart running ConfD instances and applications that use the log4j 2 binary.
 
 ## Examples
 
