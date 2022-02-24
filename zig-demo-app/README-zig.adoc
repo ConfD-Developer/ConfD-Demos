@@ -1,0 +1,90 @@
+= Zig demo
+
+This is demo application showing how to create ConfD Application in Zig
+programming language.
+
+https://ziglang.org
+
+Demo implements simple action and demonstrates, how to:
+
+initialize application
+register action
+perform ConfD poll loop
+
+It also shows how to do Zig based logging and error handling.
+It does not use Zig too much, as implementation is empty, can be seen as starting
+point for ConfD application in Zig.
+
+
+== Dependencies
+
+Install zig: https://ziglang.org/learn/getting-started/#direct-download
+
+== Integrate with C
+
+Import C symbols under namespace (e.g. `c_imp`):
+----
+const c_imp = @cImport({
+    @cInclude("confd_lib.h");
+    @cInclude("confd_dp.h");
+});
+----
+
+NOTE:: Under `c_imp` namespace there are other C imports included by imported header files,
+e.g. `c_imp.stderr`. They are not identical if imported in other `@cImport` statement (other namespace), ...
+
+Usage of imported symbols:
+----
+var debuglevel: c_uint = c_imp.CONFD_TRACE;
+c_imp.confd_init(EXAMPLE_APP_NAME, c_imp.stderr, debuglevel);
+----
+
+=== C code translation to Zig
+
+C code can be auto translated to Zig as starting sample (`goto` statement and labels should not be used in the C code, as translator cannot handle them). Translated code is good start, but it has many unnecessary constructs (pointer casts, C lib usage, no error handling) and imports that can be cleaned.
+
+Example command to translate C application with ConfD include paths:
+----
+zig translate-c -lc -I${CONFD_DIR}/include -I${CONFD_DIR}/examples.confd/include app.c > app_.zig
+----
+
+== Build example
+
+1st shell:
+
+----
+make clean all
+----
+
+NOTE:: Zig application itself can be build with `zig build-exe app.zig --name appZig`
+ or `zig build-exe -I. -I${CONFD_DIR}/include -L${CONFD_DIR}/lib -lc -lconfd app.zig  --name appZig` command. This was added to the `Makefile`.
+
+== Run example
+
+1st shell:
+
+----
+make clean all start
+----
+
+2nd shell:
+
+----
+make cli-c
+search person name joe
+search person name joe age 21
+----
+
+See logging output in the 1st shell.
+
+1st shell:
+
+----
+make stop
+----
+
+See error handling when socket was disconnected.
+
+----
+make clean
+----
