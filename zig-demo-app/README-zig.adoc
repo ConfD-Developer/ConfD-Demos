@@ -39,11 +39,11 @@ var debuglevel: c_uint = c_imp.CONFD_TRACE;
 c_imp.confd_init(EXAMPLE_APP_NAME, c_imp.stderr, debuglevel);
 ----
 
-=== C code translation
+=== C code translation to Zig
 
-C code can be translated as starting sample (`goto` and labels should not be used in C code!).
-Translated code is good start, but it has many unnecessary constructs (pointer casts, C lib usage, no error handling) and imports that can be cleaned.
+C code can be auto translated to Zig as starting sample (`goto` statement and labels should not be used in the C code, as translator cannot handle them). Translated code is good start, but it has many unnecessary constructs (pointer casts, C lib usage, no error handling) and imports that can be cleaned.
 
+Example command to translate C application with ConfD include paths:
 ----
 zig translate-c -lc -I${CONFD_DIR}/include -I${CONFD_DIR}/examples.confd/include app.c > app_.zig
 ----
