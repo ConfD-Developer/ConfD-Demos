@@ -25,7 +25,7 @@ cd ..
 confd_load -dd -i -m -l init.xml
 confd_load -dd -i -m -l subnodes.xml
 confd_cmd -dd -c "start-phase1"
-python ./cdbl-sync-nc.py &
+python3 ./cdbl-sync-nc.py &
 ecode=1; while [ $ecode -ne 0 ]; do sleep .5; confd_cmd -dd -o -c "mget /tfcm:confd-state/tfcm:internal/tfcm:cdb/tfcm:client{1}/tfcm:name"; ecode=$?; done;
 time confd_cmd -dd -c "maction /netconf-client/sync-to"
 confd_cmd -dd -c "start-phase2"
