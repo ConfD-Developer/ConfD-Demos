@@ -16,7 +16,7 @@ node NETCONF client synchronize to 1 or more sub node NETCONF servers
   network wide transactions, i.e. all nodes support the NETCONF
   :rollback-on-error, :candidate, :validate1.1, and
   :confirmed-commit1.1 capabilities.
-- The sub nodes has a priority so that they either all have the same
+- The sub nodes have a priority so that they either all have the same
   priority, which is performance friendly, or some or all have different
   priorities and then the prioritized subnodes will be updated before
   the less prioritized ones are updated with the new config. Default is
@@ -24,7 +24,7 @@ node NETCONF client synchronize to 1 or more sub node NETCONF servers
 - Sub nodes with the same priorities are updated in parallel using one
   process per subnode. This greatly improves the performance.
 - The sub nodes can subscribe to different parts of the YANG model. Each
-  sub node subscribe to it’s own path.
+  sub node subscribe to its own path.
 - It is possible to add and remove devices/nodes from the list of
   sub nodes (netconf-servers) to be synced to from the master node
   (netconf-client) at run-time. (join and leave cluster style).
