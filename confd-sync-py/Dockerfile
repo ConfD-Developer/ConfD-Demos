@@ -1,4 +1,4 @@
-FROM python:3
+FROM debian:11-slim
 
 ARG CONFD_VERSION
 
@@ -11,29 +11,23 @@ ENV LD_LIBRARY_PATH=${CONFD_DIR}/lib:$LD_LIBRARY_PATH
 ENV PYTHONPATH=$CONFD_DIR/src/confd/pyapi:$PYTHONPATH
 
 WORKDIR /
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir paramiko \
-    && apt-get update \
-    && apt-get install psmisc libxml2-utils htop
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends psmisc libxml2-utils python3 \
+    python3-pip python3-setuptools build-essential libssl-dev openssh-client \
+    htop nano \
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --no-cache-dir paramiko
 
 COPY confd-${CONFD_VERSION}.linux.x86_64.installer.bin /tmp
-RUN ln -s libcrypto.so /usr/lib/x86_64-linux-gnu/libcrypto.so.1.0.0 \
-    && /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
-
-# Add the ConfD cryptography integration and C-library API source
-ADD confd-${CONFD_VERSION}.libconfd.tar.gz /tmp
-
-# Rebuild the ConfD crypto integration for libcrypto1.1
-WORKDIR /tmp/confd-${CONFD_VERSION}/libconfd
-RUN make install_crypto
+RUN /tmp/confd-${CONFD_VERSION}.linux.x86_64.installer.bin ${CONFD_DIR}
 
 # Cleanup
 RUN rm -rf /tmp/* /var/tmp/* \
     && apt-get autoremove -y \
-    && apt-get clean
+    && apt-get clean \
+    && ln -s /usr/bin/python3 /usr/bin/python
 
 WORKDIR /
-# Startup script for the ConfD cdb.get_modifications() Python example
 ADD app.tar.gz /
 WORKDIR /app
 
