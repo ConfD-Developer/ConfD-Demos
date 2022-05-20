@@ -1,23 +1,20 @@
 #!/bin/bash
-CONFD_VERSION="7.3.1"
+CONFD_VERSION="7.8"
 IMG_NAME="confd-sync-py"
 
-if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ] \
-       && [ -f confd-$CONFD_VERSION.libconfd.tar.gz ]
+if [ -f confd-$CONFD_VERSION.linux.x86_64.installer.bin ]
 then
     echo "Using:"
     echo "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
-    echo "confd-$CONFD_VERSION.libconfd.tar.gz"
 else
-    echo >&2 "This demo require that the ConfD SDK installer, ConfD libconfd C-API library, and the ConfD examples tar-ball has been placed in this folder."
+    echo >&2 "This demo require that the ConfD SDK installer has been placed in this folder."
     echo >&2 "E.g.:"
     echo >&2 "confd-$CONFD_VERSION.linux.x86_64.installer.bin"
-    echo >&2 "confd-$CONFD_VERSION.libconfd.tar.gz"
     echo >&2 "Aborting..."
     exit
 fi
 
-COPYFILE_DISABLE=true tar cvfz app.tar.gz app
+COPYFILE_DISABLE=1 tar cvfz app.tar.gz app
 
 DOCKERPS=$(docker ps -q -n 1 -f name="$IMG_NAME")
 if [ -z "$DOCKERPS" ]
