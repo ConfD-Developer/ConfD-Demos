@@ -1,0 +1,32 @@
+module symlinked {
+  namespace "http://cisco.com/ns/example/symlink/symlinks";
+  prefix symlinks;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  import root {
+    prefix root;
+  }
+
+  container web-service {
+    container data {
+      tailf:symlink storage {
+        tailf:path /root:storage;
+      }
+    }
+    container web {
+      tailf:symlink portal {
+        tailf:path /root:portal;
+      }
+    }
+    container servers {
+      tailf:symlink server {
+        tailf:path /root:server;
+      }
+    }
+  }
+}
+    
+    

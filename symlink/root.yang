@@ -1,0 +1,51 @@
+module root {
+  namespace "http://cisco.com/ns/example/symlink/root";
+  prefix root;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  container storage {
+    leaf capacity {
+      type uint64;
+    }
+    leaf-list volumes {
+      type string;
+    }
+    leaf free {
+      config false;
+      type uint64;
+    }
+  }
+
+  grouping portal-symlink-grouping {
+    list portal {
+      key name;
+      leaf name {
+        type string;
+      }
+      leaf url {
+        type string;
+      }
+      leaf server {
+        type leafref {
+          path "/root:server/root:name";
+        }
+      }
+    }
+  }
+
+  grouping server-symlink-grouping {
+    list server {
+      key name;
+      leaf name {
+        type string;
+      }
+      leaf-list address {
+        type inet:ip-address;
+      }
+    }
+  }
+  uses server-symlink-grouping;
+}
