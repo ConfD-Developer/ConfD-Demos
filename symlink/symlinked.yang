@@ -1,0 +1,48 @@
+module symlinked {
+  namespace "http://cisco.com/ns/example/symlink/symlinks";
+  prefix symlinks;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  import root {
+    prefix root;
+  }
+
+  container web-service {
+    container data {
+      container storage {
+        leaf capacity {
+          type uint64;
+          tailf:link /root:storage/root:capacity;
+        }
+        leaf-list volumes {
+          type string;
+          tailf:link /root:storage/root:volumes;
+        }
+        leaf free {
+          config false;
+          type uint64;
+          tailf:link /root:storage/root:free;
+        }
+      }
+    }
+
+    container web {
+      uses root:portal-symlink-grouping;
+    }
+
+    container servers {
+      uses root:server-symlink-grouping {
+        refine server {
+          tailf:callpoint servers-symlink {
+            tailf:transform true;
+          }
+        }
+      }
+    }
+  }
+}
+    
+    
