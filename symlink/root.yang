@@ -45,6 +45,9 @@ module root {
       leaf-list address {
         type inet:ip-address;
       }
+      leaf shutdown {
+        type empty;
+      }
     }
   }
   uses server-symlink-grouping;

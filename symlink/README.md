@@ -98,8 +98,10 @@ notable differences:
 * configuration changes in one of the two subtrees are not visible in the other
   subtree until the configuration is committed;
 * due to callbacks involved, performance of the solution might be worse,
-  especially if the symlinked configuration contains large list instance sets;
-  this can be improved if needed, but this is beyond the scope of this demo.
+  especially if the symlinked configuration contains large list instance sets.
+  
+The performance can be improved if needed, but this is beyond the scope of this demo.
 
 * pros: the behavior is almost identical, can be used in most scenarios
-* cons: might be complex to implement, suffers from aliasing
+* cons: might be complex to implement, suffers from aliasing, potentially
+  decreased performance
