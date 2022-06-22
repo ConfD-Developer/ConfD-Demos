@@ -1,0 +1,20 @@
+module tailf-common {
+  // this module only provides extensions needed to remove symlinks
+  // from the example modules; the actual tailf-common module is part
+  // of ConfD distribution.
+
+  namespace "http://cisco.com/ns/example/symlink/tailf-common";
+  prefix tailf;
+
+  extension symlink {
+    argument name;
+  }
+
+  extension link {
+    argument name;
+  }
+
+  extension path {
+    argument path;
+  }
+}
