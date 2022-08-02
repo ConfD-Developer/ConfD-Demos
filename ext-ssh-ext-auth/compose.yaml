@@ -1,0 +1,82 @@
+services:
+  radius:
+    hostname: radius
+    image: radius-server:3.2.0
+    init: true
+    build:
+      context: containers/radius-server
+      args:
+        - radius-ver=3.2.0
+    expose:
+      - 1812
+      - 1813
+    entrypoint:
+      - /usr/sbin/freeradius
+      - -X
+    networks:
+      app-network:
+        ipv4_address: 10.10.10.20
+    secrets:
+        - source: radius-clients
+          target: /etc/raddb/clients.conf
+        - source: radius-authorize
+          target: /etc/raddb/mods-config/files/authorize
+
+  ssh-confd:
+    hostname: ssh-confd
+    image: ssh-confd:7.8.2
+    init: true
+    build:
+      context: containers/ssh-confd
+      args:
+        - ver=7.8.2
+    depends_on:
+      - radius
+    entrypoint:
+      - /usr/bin/supervisord
+      - -n
+    networks:
+      default:
+      app-network:
+        ipv4_address: 10.10.10.10
+    ports:
+      - '2022:2022'
+      - '2024:2024'
+    configs:
+      - source: confd-config
+        target: /mnt/confd.conf
+      - source: sshd-config
+        target: /etc/ssh/sshd_config.d/sshd.conf
+      - source: supervisord-config
+        target: /etc/supervisord.conf
+    secrets:
+      - source: pam-radius
+        target: /etc/pam_radius_auth.conf
+      - source: pam-sshd
+        target: /etc/pam.d/sshd
+
+networks:
+  app-network:
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+
+configs:
+  confd-config:
+    file: resources/configs/ssh-confd/confd.conf
+  sshd-config:
+    file: resources/configs/ssh-confd/sshd.conf
+  supervisord-config:
+    file: ./resources/configs/ssh-confd/supervisord.conf
+
+secrets:
+  confd-secret:
+    file: ./resources/secrets/ssh-confd/access.txt
+  pam-radius:
+    file: ./resources/secrets/ssh-confd/pam-radius-auth.conf
+  pam-sshd:
+    file: ./resources/secrets/ssh-confd/pam-sshd.conf
+  radius-clients:
+    file: ./resources/secrets/radius/clients.conf
+  radius-authorize:
+    file: ./resources/secrets/radius/mods-config/files/authorize

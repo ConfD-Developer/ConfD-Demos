@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# -*-  Mode: Shell-script -*-
+# builder --- ConfD target installation package builder
+
+set -eo pipefail; [ "$TRACE" ] && set -x
+
+# Minimal target installation.
+minimal_installation="$CONFD_DIR/bin/confd"
+minimal_installation="$minimal_installation $CONFD_DIR/etc/confd/*.fxs"
+minimal_installation="$minimal_installation $CONFD_DIR/etc/confd/ssh/*"
+minimal_installation="$minimal_installation $CONFD_DIR/lib/confd/bin/*"
+minimal_installation="$minimal_installation $CONFD_DIR/lib/confd/erts/*"
+minimal_installation="$minimal_installation $CONFD_DIR/lib/confd/lib/core/*"
+minimal_installation="$minimal_installation $CONFD_DIR/lib/confd/lib/netconf/*"
+
+# Config and directories needed to start and access ConfD.
+minimal_setup="$CONFD_DIR/etc/confd/confd.conf"
+minimal_setup="$minimal_setup $CONFD_DIR/var/confd/candidate"
+minimal_setup="$minimal_setup $CONFD_DIR/var/confd/cdb/aaa_init.xml"
+minimal_setup="$minimal_setup $CONFD_DIR/var/confd/log"
+minimal_setup="$minimal_setup $CONFD_DIR/var/confd/rollback"
+minimal_setup="$minimal_setup $CONFD_DIR/var/confd/state"
+
+# Optional tools, generally not required.
+optional_tools="$CONFD_DIR/bin/confd_cmd"
+optional_tools="$optional_tools $CONFD_DIR/bin/confd_load"
+optional_tools="$optional_tools $CONFD_DIR/bin/maapi"
+optional_tools="$optional_tools $CONFD_DIR/bin/netconf-console"
+optional_tools="$optional_tools $CONFD_DIR/bin/netconf-console-tcp"
+optional_tools="$optional_tools $CONFD_DIR/bin/netconf-console.py"
+optional_tools="$optional_tools $CONFD_DIR/bin/netconf-subsys"
+
+# CLI agent, required if we use the CLI.
+cli_agent="$CONFD_DIR/bin/confd_cli"
+cli_agent="$cli_agent $CONFD_DIR/lib/confd/lib/cli*"
+
+# NETCONF server, required if we use NETCONF.
+netconf_server="$CONFD_DIR/lib/confd/lib/netconf*"
+netconf_server="$netconf_server $CONFD_DIR/etc/confd/ietf-netconf-*"
+netconf_server="$netconf_server $CONFD_DIR/etc/confd/ietf-netconf-*"
+
+# WEB server, required in order to support REST(CONF) or WebUI.
+web_server="$CONFD_DIR/lib/confd/lib/webui*"
+web_server="$web_server $CONFD_DIR/etc/confd/ietf-restconf-monitoring.fxs"
+web_server="$web_server $CONFD_DIR/etc/confd/tailf-webui.fxs"
+
+# WEB frontend, only needed if we use the WebUI.
+web_frontend="$CONFD_DIR/var/confd/webui*"
+web_frontend="$web_frontend $CONFD_DIR/etc/confd/tailf-webui.fxs"
+
+# SNMP gateway, required if we plan to support SNMP.  smidump is only
+# used for generating YANG-files from MIBs, it's unlikely we need it
+# on a target installation.
+snmp_gateway="$CONFD_DIR/bin/smidump"
+snmp_gateway="$snmp_gateway $CONFD_DIR/lib/confd/lib/snmp*"
+
+# The integrated SSH server is not needed if OpenSSH is used to
+# terminate SSH for NETCONF and the CLI.
+ssh_server="$CONFD_DIR/lib/confd/lib/core/ssh*"
+
+# The compiler can be removed unless we plan to to compile YANG files
+# on the host.
+yang_compiler="$CONFD_DIR/bin/confdc"
+yang_compiler="$yang_compiler $CONFD_DIR/bin/cs2yang"
+yang_compiler="$yang_compiler $CONFD_DIR/bin/pyang"
+yang_compiler="$yang_compiler $CONFD_DIR/bin/yanger"
+yang_compiler="$yang_compiler $CONFD_DIR/lib/confd/lib/confdc*"
+yang_compiler="$yang_compiler $CONFD_DIR/lib/cs2yang* $CONFD_DIR/lib/pyang*"
+
+main() {
+    {
+        :
+        sed -i 's:<loadPath>:\n  <!-- Allow IPC connections from non-localhost clinets -->\n  <confdIpcAddress>\n    <ip>0.0.0.0</ip>\n  </confdIpcAddress>\n\n  <loadPath>:' /confd/etc/confd/confd.conf
+
+        # In order to get libcrypto 1.1 support we must rebuild libconfd.
+        [ "$LIBCRYPTO11" ] && {
+            echo "Building libconfd for OpenSSL 1.1 (this could take a minute or two)..."
+            (cd $CONFD_DIR/libconfd && make install install_crypto &> /dev/null)
+        }
+
+        # By default we include the minimal_installation including
+        # support for NETCONF, RESTCONF and CLI using the built-in SSH
+        # server, add/remove other packages as needed.
+        find $minimal_installation \
+             $minimal_setup \
+             $optional_tools \
+             $cli_agent \
+             $netconf_server \
+             $ssh_server \
+             $web_server \
+             -type f ! -name \.gitkeep | \
+            sed "s/\/confd\///" | \
+            sort -u | \
+            tar czf /tmp/confd-target.tgz -C /"$CONFD_DIR" -T -
+    } >&2
+
+    if [ -n "$STDOUT" ]; then
+        cat /tmp/confd-target.tgz
+    fi
+}
+
+main "$@"
+
+exit 0
+
+# builder ends here

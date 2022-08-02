@@ -1,0 +1,47 @@
+# Build ConfD target package
+
+# Start from alpine linux base image.  The base image we use doesn't
+# matter for this container, we just install ConfD and run the builder
+# script.
+FROM alpine:3.15.0
+LABEL description="Docker image to generate the ConfD target installation package."
+LABEL maintainer="jojohans@cisco.com"
+
+ENV CONFD_DIR=/confd
+
+# Default to latest version of ConfD.  Override on the command line
+# with --build-arg ver=<version>.
+ARG ver=7.7
+
+# Install extra packages needed to install ConfD and re-build libconfd..
+RUN apk --no-cache add alpine-sdk \
+    openssh-keygen \
+    openssh-server \
+    linux-headers \
+    openssl-dev \
+    python3
+RUN cd /usr/bin && ln -sv python3 python
+
+# Cleanup the image.
+RUN rm -rf /var/cache/apk/*
+
+# We will run ConfD as a non-root user.
+RUN addgroup confd && adduser -D -G confd confd
+RUN mkdir -p ${CONFD_DIR} && chown confd:confd ${CONFD_DIR}
+DUSER confd
+
+# Install ConfD in the container (no need for documentation or
+# examples).  We expect to find the installer in a directory called
+# confd/<ver>.
+COPY --chown=confd:confd resources/confd/$ver/* /tmp/
+RUN sh -c "cd /tmp && /tmp/confd-$ver.linux.x86_64.signed.bin && /tmp/confd-$ver.linux.x86_64.installer.bin --skip-docs --skip-examples ${CONFD_DIR} &> /dev/null"
+RUN tar xzf /tmp/confd-$ver.libconfd.tar.gz --strip-components 1 -C $CONFD_DIR
+
+# Add the build script.
+COPY --chown=confd:confd resources/builder /
+
+# Remove spent resources
+RUN rm -rf /tmp/confd-$ver.linux.x86_64.installer.bin /tmp/confd-$ver.libconfd.tar.gz
+
+# Run the build script.
+ENTRYPOINT ["/builder"]
