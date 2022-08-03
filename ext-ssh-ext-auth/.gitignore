@@ -1,2 +1,4 @@
 artifacts/**
 !artifacts/.gitkeep
+resources/confd/**
+!resources/confd/.gitkeep
