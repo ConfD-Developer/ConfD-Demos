@@ -79,10 +79,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ##    tcpdump
 
 # Add ConfD users
-RUN adduser admin --disabled-password --gid 100 \
-                  --uid 9001 --quiet --gecos "" && \
-    adduser oper --disabled-password --gid 100 \
-                 --uid 9002 --quiet --gecos ""
+RUN adduser admin --disabled-password --quiet --gecos "" && \
+    adduser oper --disabled-password --quiet --gecos ""
 
 # We have to add Match statement in the main sshd_config file rather than
 # in the include file due to a bug in OpenSSH 8.2 (default in Ubuntu 20.04).
