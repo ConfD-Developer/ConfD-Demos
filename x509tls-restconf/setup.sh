@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFD_VERSION="7.5.2"
+CONFD_VERSION="7.8.3"
 IMG_NAME="rc-tls-x509"
 APP_NAME="app"
 
