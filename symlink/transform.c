@@ -30,11 +30,10 @@ struct prefix_map {
     char *from, *to;
 };
 
-struct prefix_map_list {
-    int len;
-    struct prefix_map maps[];
-} prefix_maps = {.maps = {{.from = "/web-service/servers/server", .to = "/server"}},
-                 .len = 1};
+struct prefix_map prefix_maps[] =
+    {{.from = "/web-service/servers/server", .to = "/server"},
+     {.from = "/web-service/web/portal", .to = "/portal"},
+     {.from = NULL, .to = NULL}};
 
 struct sockaddr_in get_sockaddr_by_ip_port(in_addr_t addr, in_port_t port)
 {
@@ -128,8 +127,7 @@ int translate_path(confd_hkeypath_t *kp, char *target_path)
     confd_pp_kpath(path, BUFSIZ, kp);
     int found = 0;
     struct prefix_map *map;
-    for (int i = 0; i < prefix_maps.len; i++) {
-        map = &prefix_maps.maps[i];
+    for (map = prefix_maps; map->from != NULL; map++) {
         if (strncmp(path, map->from, strlen(map->from)) == 0) {
             found = 1;
             break;
@@ -303,7 +301,7 @@ int main(int argc, char **argv)
                                   .set_elem = cb_set_elem,
                                   .create   = cb_create,
                                   .remove   = cb_remove,
-                                  .callpoint = symlinks__callpointid_servers_symlink};
+                                  .callpoint = symlinks__callpointid_symlink_transform};
     if (confd_register_data_cb(dctx, &data) == CONFD_ERR) {
         confd_fatal("Failed to register data cb \n");
     }
