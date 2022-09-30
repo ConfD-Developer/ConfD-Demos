@@ -13,7 +13,7 @@ Also note the additional confd.conf settings to force a "mutual" authentication:
     <ssl>
 ...
       <readFromDb>true</readFromDb>
-      <protocols>tlsv1.2</protocols>
+      <protocols>tlsv1.3</protocols>
       <verify>3</verify>
     </ssl>
  </transport>
