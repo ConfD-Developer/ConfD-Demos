@@ -92,8 +92,7 @@ class ConfDgNMIServicer(gNMIServicer):
             )
         response = gnmi_pb2.CapabilityResponse(
             supported_models=supported_models,
-            supported_encodings=[gnmi_pb2.Encoding.JSON,
-                                 gnmi_pb2.Encoding.BYTES],
+            supported_encodings=[gnmi_pb2.Encoding.JSON_IETF],
             gNMI_version="proto3",
             extension=[])
         # context.set_code(grpc.StatusCode.UNIMPLEMENTED)

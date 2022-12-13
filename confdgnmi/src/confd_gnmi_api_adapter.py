@@ -1,9 +1,10 @@
 import logging
 import os
+import re
 import select
 import sys
 import threading
-import xml.etree.ElementTree as ET
+import json
 from enum import Enum
 from socket import socket
 from typing import List
@@ -22,6 +23,10 @@ log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
 
 
+INT_VALS = {_confd.C_INT8, _confd.C_INT16, _confd.C_INT32, _confd.C_INT64}
+UINT_VALS = {_confd.C_UINT8, _confd.C_UINT16, _confd.C_UINT32, _confd.C_UINT64}
+
+
 class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     confd_addr: str = ApiAdapterDefaults.CONFD_ADDR
     confd_port: int = ApiAdapterDefaults.CONFD_PORT if ApiAdapterDefaults.CONFD_PORT else _confd.CONFD_PORT
@@ -34,6 +39,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         self.username: str = ""
         self.password: str = ""
         self.mp_inst = None
+        # make sure schemas are loaded
+        with maapi.Maapi():
+            pass
+        nslist = _confd.get_nslist()
+        self.module_to_pfx = {nsentry[-1]: nsentry[1] for nsentry in nslist}
+        self.ns_to_module = {nsentry[0]: nsentry[-1] for nsentry in nslist}
 
     # call only once!
     @staticmethod
@@ -110,8 +121,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                        start_change_processing=False):
             update = []
             log.debug("==>")
-            update.extend(self.adapter.get_updates_with_maapi_save(path,
-                                                                   prefix,
+            pathstr = make_xpath_path(path, prefix)
+            update.extend(self.adapter.get_updates_with_maapi_save(pathstr,
                                                                    gnmi_pb2.GetRequest.DataType.ALL))
             log.debug("<== update=%s", update)
             return update
@@ -375,7 +386,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     # TODO pass username from request context
     def get_netconf_capabilities(self):
         log.info("==>")
-        context = "maapi"
+        context = "netconf"
         groups = [self.username]
         try:
             with maapi.single_read_trans(self.username, context, groups,
@@ -385,19 +396,10 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 count = 0
                 # format
                 # http://tail-f.com/ns/confd-progress?module=tailf-confd-progress&revision=2020-06-29
-                for val in root.netconf_state.capabilities.capability:
-                    log.debug("val=%s", val)
-                    if "module=" in val:
-                        el = val.split("?")
-                        if len(el) > 1:
-                            cap = el[1].split("&")
-                            name = cap[0]
-                            ver = ''
-                            if len(cap) > 1:
-                                ver = cap[1]
-                            values.append(
-                                (el[0], name.replace("module=", ""), "",
-                                 ver.replace("revision=", "")))
+                for module in root.modules_state.module:
+                    log.debug("val=%s", module.name)
+                    name = f'{module.namespace}:{module.name}'
+                    values.append((module.namespace, name, "", module.revision))
                     count += 1
                     log.debug("Value element count=%d" % count)
             log.debug("values=%s", values)
@@ -420,95 +422,93 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("<== models=%s", models)
         return models
 
-    def get_maapi_save_string(self, path_str, save_flags):
+    def make_gnmi_keypath_elems(self, csnode, keypath):
+        i = len(keypath) - 1
+        ns = 0
+
+        def csnode_list():
+            node = csnode
+            while node is not None:
+                yield node
+                node = node.parent()
+
+        for node in reversed(list(csnode_list())):
+            assert i >= 0
+            keys = {}
+            name = _confd.hash2str(keypath[i].tag)
+            if keypath[i].ns != ns:
+                ns = keypath[i].ns
+                name = f'{self.ns_to_module[ns]}:{name}'
+            i -= 1
+            if node.info().flags() & _confd.CS_NODE_IS_LIST != 0:
+                assert i >= 0 and isinstance(keypath[i], tuple)
+                keys = {_confd.hash2str(key): str(val)
+                        for (key, val) in zip(node.info().keys(), keypath[i])}
+                i -= 1
+            yield gnmi_pb2.PathElem(name=name, key=keys)
+
+    def make_gnmi_keypath(self, csnode, keypath):
+        return gnmi_pb2.Path(elem=list(self.make_gnmi_keypath_elems(csnode, keypath)))
+
+    def get_updates(self, trans, path_str, save_flags):
         log.debug("==> path_str=%s", path_str)
-        save_str = ""
-        context = "maapi"
-        groups = [self.username]
-        try:
-            with maapi.single_read_trans(self.username, context, groups,
-                                         src_ip=self.addr) as t:
-                save_id = t.save_config(save_flags, path_str)
-                with socket() as save_sock:
-                    _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
-                                          ip=self.addr, port=self.port)
-                    # based on
-                    # https://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
-                    fragments = []
-                    max_msg_size = 1024
-                    while True:
-                        chunk = save_sock.recv(max_msg_size)
-                        if not chunk:
-                            break
-                        fragments.append(chunk)
-                    save_str = b''.join(fragments)
-                    log.debug("save_str=%s", save_str)
-                    save_result = t.maapi.save_config_result(save_id)
-                    log.debug("save_result=%s", save_result)
-                    assert save_result == 0
-        except Exception as e:
-            log.exception(e)
+        csnode = _confd.cs_node_cd(None, path_str)
+        if csnode is None:
+            log.warning('failed to find the cs-node')
+            # TODO: raise the right exception
+            return []
+        updates = []
 
-        log.debug("<== save_str=%s", save_str)
-        return save_str
+        def add_update_json(keypath, _value):
+            save_id = trans.save_config(save_flags, _confd.pp_kpath(keypath))
+            with socket() as save_sock:
+                _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
+                                      ip=self.addr, port=self.port)
+                max_msg_size = 1024
+                save_str = b''.join(iter(lambda: save_sock.recv(max_msg_size), b''))
+                saved_data = json.loads(save_str)
+                log.debug("data=%s", saved_data)
+                save_result = trans.maapi.save_config_result(save_id)
+                log.debug("save_result=%s", save_result)
+                assert save_result == 0
+                gnmi_path = self.make_gnmi_keypath(csnode, keypath)
+                # the format of saved_data is {"container": {data}}
+                # we need only the data part
+                assert len(saved_data) == 1
+                [data] = saved_data.values()
+                gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(data).encode())
+                updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
 
-    def get_xml_paths(self, elem, orig_path_str, parent_path_cand=""):
-        log.debug("==> elem=%s orig_path_str=%s parent_path_cand=%s", elem,
-                  orig_path_str, parent_path_cand)
-        path_vals = []
-        # skip top level 'config' element
-        if not (
-                parent_path_cand == "" and elem.tag == "{http://tail-f.com/ns/config/1.0}config"):
-            parent_path_cand += "/" + elem.tag.split("}")[-1]
-        if len(elem) > 0:
-            # we (simplification) assume that if there are more sibling elements,
-            # this is list and first element is key, this should be fixed with
-            # help of `cs_nodes`
-            # in this way we can detect some (non list) paths incorrectly, we try to fix
-            # by comparing original path
-            if len(elem) > 1:
-                if elem[0].text is not None:
-                    parent_path_cand2 = parent_path_cand + "[{}={}]".format(
-                        elem[0].tag.split("}")[-1], elem[0].text)
-                    if parent_path_cand2.startswith(
-                            orig_path_str) or \
-                            orig_path_str.startswith(parent_path_cand2):
-                        parent_path_cand = parent_path_cand2
+        def add_update_value(keypath, value):
+            gnmi_path = self.make_gnmi_keypath(csnode, keypath)
+            if value.confd_type() in INT_VALS:
+                gnmi_value = gnmi_pb2.TypedValue(int_val=int(value))
+            elif value.confd_type() in UINT_VALS:
+                gnmi_value = gnmi_pb2.TypedValue(uint_val=int(value))
+            elif value.confd_type == _confd.C_BOOL:
+                gnmi_value = gnmi_pb2.TypedValue(bool_val=bool(value))
+            elif value.confd_type == _confd.C_DOUBLE:
+                gnmi_value = gnmi_pb2.TypedValue(float_val=float(value))
+            # possibly others?
+            else:
+                gnmi_value = gnmi_pb2.TypedValue(string_val=str(value))
+            updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
 
-            for e in elem:
-                path_vals.extend(self.get_xml_paths(e, orig_path_str,
-                                                    parent_path_cand))
-        else:
-            # check if this is path for exact key
-            keypath_cand = None
-            if elem.text is not None:
-                val = elem.text.split(":")[-1]
-                path_list = parent_path_cand.split('/')
-                if len(path_list) >= 2:
-                    keypath_cand = "/".join(path_list[:-1]) + "[{}={}]".format(
-                        path_list[-1], val) + "/" + path_list[-1]
-                if keypath_cand is not None and orig_path_str == keypath_cand:
-                    path = keypath_cand
-                    parent_path_cand = path
-                else:
-                    path = parent_path_cand
-                # if path != orig_path_str:
-                #     path += "/" + elem.tag.split("}")[-1]
-                # we also need to check possibility this is exact key leaf
-                # skip not correctly detected paths
-                if path.startswith(parent_path_cand):
-                    path_vals.append((path, val))
-        log.debug("<== paths=%s", path_vals)
-        return path_vals
+        container_flags = (_confd.CS_NODE_IS_LIST | _confd.CS_NODE_IS_CONTAINER)
+        is_container = csnode.info().flags() & container_flags != 0
+        add_update = add_update_json if is_container else add_update_value
+        trans.xpath_eval(path_str, add_update, None, '/')
+        log.debug("<== save_str=%s", updates)
+        return updates
 
-    def get_updates_with_maapi_save(self, path, prefix, data_type):
-        log.debug("==> path=%s prefix=%s data_type=%s", path, prefix, data_type)
-        path_str = make_xpath_path(path, prefix, quote_val=False)
-        # we need ariant with quoted values for maapi_save
-        path_str_quote = make_xpath_path(path, prefix, quote_val=True)
-        prefix_str = make_xpath_path(gnmi_prefix=prefix)
-        log.debug("path_str=%s", path_str)
-        save_flags = _confd.maapi.CONFIG_XML | _confd.maapi.CONFIG_XPATH
+    def get_updates_with_maapi_save(self, path, data_type):
+        log.debug("==> path=%s data_type=%s", path, data_type)
+
+        def module_to_prefix(match):
+            name = match.groups()[0]
+            return self.module_to_pfx.get(name, name) + ':'
+        pfx_path = re.sub(r'([^/:]+):', module_to_prefix, path)
+        save_flags = _confd.maapi.CONFIG_JSON | _confd.maapi.CONFIG_NO_PARENTS
 
         if data_type == gnmi_pb2.GetRequest.DataType.ALL:
             save_flags |= _confd.maapi.CONFIG_WITH_OPER
@@ -519,19 +519,18 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         elif data_type == gnmi_pb2.GetRequest.DataType.OPERATIONAL:
             save_flags |= _confd.maapi.CONFIG_OPER_ONLY
 
-        save_xml = self.get_maapi_save_string(path_str_quote, save_flags)
-        root = ET.fromstring(save_xml)
-        xml_paths = self.get_xml_paths(root, path_str)
-        up = []
-        for pv in xml_paths:
-            # skip incorrecly detected paths
-            if pv[0].startswith(path_str):
-                p = pv[0][len(prefix_str):]
-                up.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                          val=gnmi_pb2.TypedValue(
-                                              string_val=pv[1])))
-        log.debug("<== up=%s", up)
-        return up
+        context = "netconf"
+        groups = [self.username]
+        updates = []
+        try:
+            with maapi.single_read_trans(self.username, context, groups,
+                                         src_ip=self.addr) as t:
+                updates = self.get_updates(t, pfx_path, save_flags)
+        except Exception as e:
+            log.exception(e)
+
+        log.debug("<== up=%s", updates)
+        return updates
 
     def get(self, prefix, paths, data_type, use_models):
         log.info("==> prefix=%s, paths=%s, data_type=%s, use_models=%s",
@@ -540,7 +539,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         update = []
         for path in paths:
             update.extend(
-                self.get_updates_with_maapi_save(path, prefix, data_type))
+                self.get_updates_with_maapi_save(make_xpath_path(path, prefix), data_type))
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
                                       update=update,
                                       delete=[],

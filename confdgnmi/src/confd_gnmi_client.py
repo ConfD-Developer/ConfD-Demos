@@ -2,7 +2,7 @@
 import argparse
 import logging
 import sys
-import threading
+import json
 from time import sleep
 
 from grpc import channel_ready_future, insecure_channel
@@ -99,7 +99,13 @@ class ConfDgNMIClient:
                                                         n.atomic))
         print("Updates:")
         for u in n.update:
-            print("path: {} value {}".format(make_xpath_path(u.path), u.val))
+            if u.val.json_val:
+                value = json.loads(u.val.json_val)
+            elif u.val.json_ietf_val:
+                value = json.loads(u.val.json_ietf_val)
+            else:
+                value = str(u.val)
+            print("path: {} value {}".format(make_xpath_path(u.path), value))
 
     @staticmethod
     def read_subscribe_responses(responses, read_count=-1):
@@ -200,7 +206,8 @@ def parse_args(args):
                         type=int,
                         help="Number of read requests for STREAM subscription (default 4)",
                         default=4)
-    (opt, args) = parser.parse_known_args(args=args)
+    parser.add_argument("--encoding", choices=["BYTES", "JSON", "JSON_IETF"], default="BYTES")
+    opt = parser.parse_args(args=args)
     log.debug("opt=%s", opt)
     return opt
 
@@ -226,7 +233,9 @@ if __name__ == '__main__':
               datatype, subscription_mode, poll_interval, poll_count,
               read_count)
 
-    encoding = gnmi_pb2.Encoding.BYTES
+    encoding = dict(BYTES=gnmi_pb2.Encoding.BYTES,
+                    JSON=gnmi_pb2.Encoding.JSON,
+                    JSON_IETF=gnmi_pb2.Encoding.JSON_IETF)[opt.encoding]
     subscription_list = ConfDgNMIClient.make_subscription_list(
         prefix, paths, subscription_mode)
 
