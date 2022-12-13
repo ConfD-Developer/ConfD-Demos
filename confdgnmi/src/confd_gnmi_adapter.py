@@ -36,7 +36,6 @@ class GnmiServerAdapter(ABC):
         :param use_models: list of gnmi_pb2.ModelData  elements to use
         :return: list of gnmi_pb2.Notification were
                   prefix - is prefix
-                  alias - not set (TODO)
                   updated - list of gnmi_pb2.Update elements (one for each path)
                   delete - empty list
                   timestamp - current time in nanoseconds since Epoch
@@ -177,7 +176,6 @@ class GnmiServerAdapter(ABC):
             :param: start_monitoring: if True, the paths will be monitored
             for future changes
             TODO `delete` is processed and `delete` array is empty
-            TODO `alias` is dummy string, atomic is always False
             TODO timestamp is 0
             :return: SubscribeResponse with sample
             """
@@ -191,7 +189,7 @@ class GnmiServerAdapter(ABC):
                                                  self.subscription_list.prefix)
             notif = gnmi_pb2.Notification(timestamp=0,
                                           prefix=self.subscription_list.prefix,
-                                          alias="/alias", update=update,
+                                          update=update,
                                           delete=[],
                                           atomic=False)
             response = gnmi_pb2.SubscribeResponse(update=notif)
@@ -205,7 +203,6 @@ class GnmiServerAdapter(ABC):
             Get subscription response for changes (subscribed values).
             `update` array contains changes
             TODO `delete` is processed and `delete` array is empty
-            TODO `alias` is dummy string, atomic is always False
             TODO timestamp is 0
             :return: SubscribeResponse with changes
             """
@@ -213,7 +210,7 @@ class GnmiServerAdapter(ABC):
             update = self.get_monitored_changes()
             notif = gnmi_pb2.Notification(timestamp=0,
                                           prefix=self.subscription_list.prefix,
-                                          alias="/alias", update=update,
+                                          update=update,
                                           delete=[],
                                           atomic=False)
             response = gnmi_pb2.SubscribeResponse(update=notif)

@@ -54,7 +54,6 @@ class ConfDgNMIClient:
         subscription_list = gnmi_pb2.SubscriptionList(
             prefix=prefix,
             subscription=subscriptions,
-            use_aliases=False,
             qos=qos,
             mode=mode,
             allow_aggregation=False,
