@@ -210,15 +210,20 @@ class GnmiServerAdapter(ABC):
             :return: SubscribeResponse with changes
             """
             log.debug("==>")
+            notifications = self.get_subscription_notifications()
+            response = [gnmi_pb2.SubscribeResponse(update=notif)
+                        for notif in notifications]
+            log.debug("<== response=%s", response)
+            return response
+
+        def get_subscription_notifications(self):
             update = self.get_monitored_changes()
             notif = gnmi_pb2.Notification(timestamp=0,
                                           prefix=self.subscription_list.prefix,
                                           alias="/alias", update=update,
                                           delete=[],
                                           atomic=False)
-            response = gnmi_pb2.SubscribeResponse(update=notif)
-            log.debug("<== response=%s", response)
-            return response
+            return [notif]
 
         def read(self):
             """
@@ -255,7 +260,7 @@ class GnmiServerAdapter(ABC):
                 elif event == self.SubscriptionEvent.SEND_CHANGES:
                     response = self.changes()
                     log.debug("Sending changes")
-                    yield response
+                    yield from response
                 elif event is None:
                     log.warning("**** event is None ! ****")
                     # TODO error
