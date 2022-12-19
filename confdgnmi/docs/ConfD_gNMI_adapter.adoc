@@ -23,8 +23,8 @@ endif::[]
 :Author:    Michal Novák
 :email:     micnovak@cisco.com
 :URL:       https://www.tail-f.com/
-:Date:      2021-04-27
-:Revision:  0.2.0
+:Date:      2022-12-21
+:Revision:  0.3.0-dev
 
 == Version history
 
@@ -33,6 +33,7 @@ endif::[]
 | Document version     | Notes                                                  | Date        | Author
 | 0.0.1           | Initial document version.                       | 2021-02-09      | {author} {email}
 | 0.1.0          | Run options updated, added seq. diagrams for Subscribe operation.                      |  2021-03-23     | {author} {email}
+| 0.2.0   | External data provider description, fixes, documentation update.                      | 2021-04-27      | {author} {email}
 | {revision}   | External data provider description, fixes, documentation update.                      | {date}      | {author} {email}
 
 |======
@@ -241,29 +242,48 @@ Server is started by running  `./src/confd_gnmi_server.py` python script.
 .output
 [source, shell]
 ----
-Usage: confd_gnmi_server.py [options]
+usage: confd_gnmi_server.py [-h] [-v] [-t {api,demo}]
+                            [--logging {error,warning,info,debug}] [--insecure]
+                            [--port PORT] [--host HOST]
+                            [-d {trace,debug,silent,proto}]
+                            [--confd-addr CONFD_ADDR] [--confd-port CONFD_PORT]
+                            [--monitor-external-changes]
+                            [--external-port EXTERNAL_PORT] [--cfg CFG]
+                            [--key KEY] [--crt CRT]
 
-Options:
-  --version             show program's version number and exit
+gNMI Adapter server
+
+options:
   -h, --help            show this help message and exit
-  -t TYPE, --type=TYPE  gNMI server type  [api, netconf, demo]
-  --logging=LOGGING     Logging level [error, warning, info, debug]
-  -d CONFD_DEBUG, --confd-debug=CONFD_DEBUG
-                        ConfD debug level  [trace, debug, silent, proto]
-  --confd-addr=CONFD_ADDR
+  -v, --version         show program's version number and exit
+  -t {api,demo}, --type {api,demo}
+                        gNMI server type
+  --logging {error,warning,info,debug}
+                        Logging level
+  --insecure            Use insecure connection
+  --port PORT           port number (default: 50061)
+  --host HOST           host (name, ip, default: localhost)
+  -d {trace,debug,silent,proto}, --confd-debug {trace,debug,silent,proto}
+                        ConfD debug level
+  --confd-addr CONFD_ADDR
                         ConfD IP address (default is 127.0.0.1)
-  --confd-port=CONFD_PORT
-                        ConfD port (default is 4565)
+  --confd-port CONFD_PORT
+                        ConfD port (default is None)
   --monitor-external-changes
                         start external changes service
-  --external-port=EXTERNAL_PORT
+  --external-port EXTERNAL_PORT
                         Port of external changes service (default is 5055)
-  --cfg=CFG             config file
+  --cfg CFG             config file
+  --key KEY             Path to the server key.
+  --crt CRT             Path to the server certificate.
 ----
 
-We can run server in demo mode type (pass `-t demo`) or in API (`maapi`) mode against ConfD (pass `-t api`). Other modes (like `netconf` are currently not supported). For `demo` mode type, it may be necessary to pass config file (e.g. for `STREAM` subscriptions, `--cfg=data/demo.xml)
+We can run server in demo mode type (pass `-t demo`) or in API (`maapi`) mode against ConfD (pass `-t api`). Other modes (like `netconf` are currently not supported). For `demo` mode type, it may be necessary to pass config file (e.g. for `STREAM` subscriptions, `--cfg=data/demo.xml). We can pass
+host interface and port the server listens for gRPC communication, specify server key and certificate
+or just use insecure communication connection channel.
 
-NOTE: Other parameters (e.g. gRPC port and host) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
+
+NOTE: Other parameters mapy be hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
 
 === Client
 
@@ -278,38 +298,46 @@ Client is implemented by `./src/confd_gnmi_client.py` python script.
 .output
 [source, shell]
 ----
-Usage: confd_gnmi_client.py [options]
+usage: confd_gnmi_client.py [-h] [--version] [-o {capabilities,set,get,delete,subscribe}] [--logging {error,warning,info,debug}] [--insecure] [--port PORT]
+                            [--host HOST] [--prefix PREFIX] [-p PATHS] [-t {ALL,CONFIG,STATE,OPERATIONAL}] [-v VALS] [-s {ONCE,POLL,STREAM}]
+                            [--poll-count POLLCOUNT] [--poll-interval POLLINTERVAL] [--read-count READCOUNT] [--server-crt SERVERCRT] [--user USERNAME]
+                            [--password PASSWORD] [--encoding {JSON,JSON_IETF}]
 
-Options:
-  --version             show program's version number and exit
+gNMI Adapter client
+
+options:
   -h, --help            show this help message and exit
-  -o OPERATION, --oper=OPERATION
-                        gNMI operation [capabilities, set, get, subscribe]
-  --logging=LOGGING     Logging level [error, warning, info, debug]
-  --prefix=PREFIX       'prefix' path for set, get and subscribe operation
-                        (empty by default)
-  -p PATHS, --path=PATHS
-                        'path' for get, set and subscribe operation, can be
-                        repeated (empty by default)
-  -t DATATYPE, --data-type=DATATYPE
-                        'data type' for get operation, can be ALL, CONFIG,
-                        STATE, OPERATIONAL  (default 'CONFIG')
-  -v VALS, --val=VALS   'value' for set operation, can be repeated (empty by
-                        default)
-  -s SUBMODE, --sub-mode=SUBMODE
-                        subscription mode, can be ONCE, POLL, STREAM (default
-                        'ONCE')
-  --poll-count=POLLCOUNT
+  --version             show program's version number and exit
+  -o {capabilities,set,get,delete,subscribe}, --oper {capabilities,set,get,delete,subscribe}
+                        gNMI operation
+  --logging {error,warning,info,debug}
+                        Logging level
+  --insecure            Use insecure connection
+  --port PORT           port number (default: 50061)
+  --host HOST           host (name, ip, default: localhost)
+  --prefix PREFIX       'prefix' path for set, get and subscribe operation (empty by default)
+  -p PATHS, --path PATHS
+                        'path' for get, set and subscribe operation, can be repeated (empty by default)
+  -t {ALL,CONFIG,STATE,OPERATIONAL}, --data-type {ALL,CONFIG,STATE,OPERATIONAL}
+                        'data type' for get operation (default 'CONFIG')
+  -v VALS, --val VALS   'value' for set operation, can be repeated (empty by default)
+  -s {ONCE,POLL,STREAM}, --sub-mode {ONCE,POLL,STREAM}
+                        subscription mode (default ONCE)
+  --poll-count POLLCOUNT
                         Number of POLLs (default 5)
-  --poll-interval=POLLINTERVAL
-                        Interval (in seconds) between POLL requests (default
-                        0.5)
-  --read-count=READCOUNT
-                        Number of read requests for STREAM subscription
-                        (default 4)
+  --poll-interval POLLINTERVAL
+                        Interval (in seconds) between POLL requests (default 0.5)
+  --read-count READCOUNT
+                        Number of read requests for STREAM subscription (default 4)
+  --server-crt SERVERCRT
+                        Path to the server certificate.
+  --user USERNAME       User (default 'admin')
+  --password PASSWORD   Password (default 'admin')
+  --encoding {JSON,JSON_IETF}
+                        Requested encoding for get and subscribe (default 'JSON_IETF')
 ----
 
-NOTE: Other parameters (e.g. username, password, encoding) are currently hardcoded in the source code (mainly in the `./src/confd_gnmi_client.py`).
+NOTE: Other parameters may be currently hardcoded in the source code (mainly in the `./src/confd_gnmi_client.py`).
 
 === Examples
 
@@ -651,6 +679,117 @@ endif::[]
 
 NOTE: It's important to distinguish between *gNMI Adapter* (name of the project) and individual adapter components/sub-classes which have also *Adapter* word in a name (e.g. `GnmiServerAdapter`, `GnmiConfDApiServerAdapter`, `GnmiConfDApiServerAdapter`).
 
+=== Encoding
+
+List of supported encodings is returned by <<Capabilities>> call.
+The https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md[gNMI reference specification] supports following https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#23-structured-data-types[encodings].
+
+
+[options="header", cols="1s,18,1,1"]
+.Encoding  description
+|===
+|Name |Description |`TypedValue` |`Value`
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#231-json-and-json_ietf[JSON]
+|A JSON encoded string. *Both the client and target MUST support the JSON encoding as a minimum*.
+|`json_val` (protobuf `bytes`)
+|0
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#231-json-and-json_ietf[JSON_IETF]
+|A JSON encoded string, using https://www.rfc-editor.org/rfc/rfc7951[RFC 7951].
+|`json_ietf_val` (protobuf `bytes`)
+|4
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#234-ascii[ASCII]
+|An ASCII encoded string representing text formatted according to a target-defined convention (e.g. CLI output). The gNMI protocol does not define the format of the text – this must be established out-of-band.
+|`ascii_val` (protobuf `string`)
+|3
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#233-protobuf[Proto]
+|A Protobuf encoded message https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#233-protobuf[using scalar] values. (TODO latest specification does not mention no scalar values, e.g. `any_val`)
+|`string_val` `int_val`, `uint_val`, `bool_val`, `bytes_val`, `float_val`, `leaflist_val`
+ (protobuf `string` `int64`, `uint64`, `bool`, `bytes`, `float`, `ScalarArray` - list of `TypedValue` )
+|2
+
+|Bytes
+|An arbitrary sequence of https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#232-bytes[bytes] whose semantics is opaque to the protocol.
+|`bytes_val` (protobuf `bytes`)
+|1
+
+|===
+
+[options="header", cols="1s,18"]
+.Encoding usage in gNMI messages
+|===
+|Message |Description
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#32-capability-discovery[`Capabilities`]
+|The https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#322-the-capabilityresponse-message[`CapabilityResponse`] contains list of `supported encodings` provided by the server.
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#33-retrieving-snapshots-of-state-information[`Get`]
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#331-the-getrequest-message[`GetRequest`] contains `encoding` which represents requested encoding
+(if not specified, JSON is used). If the encoding is not supported by the server,  `Unimplmented` error is returned.
+
+https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#332-the-getresponse-message[`GetResponse`] contains set of https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#21-reusable-notification-message-format[`Notification`] messages. `Notification`
+contains `Update` elements. Each `Update` have https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#223-node-values[`TypedValue`] which corresponds to the encoding.
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#34-modifying-state[`Set`]
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#341-the-setrequest-message[`SetRequest`] contains list of `replace` and `update`
+elements of type `Update`. Each `Update`  have https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#223-node-values[`TypedValue`] which specify encoding used (should correspond to the requested encoding).
+
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#35-subscribing-to-telemetry-updates[`Subscribe`]
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#3511-the-subscriberequest-message[`SubscribeRequest`] contains https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#3512-the-subscriptionlist-message[`SubscriptionList`] message which contains
+`Encoding` to use (TODO: currently not mentioned in the reference).
+
+https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#3514-the-subscriberesponse-message[`SubscribeResponse`] contains `Notification`.
+`Notification` contains `Update` elements. Each `Update` have https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#223-node-values[`TypedValue`] which specify encoding used (should correspond to the requested encoding).
+|===
+
+[options="header", cols="1s,18"]
+.Encoding  implementation in the `gnmi_adapter` server
+|===
+|Name |Description
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#231-json-and-json_ietf[JSON]
+|The same implementation as JSON_IETF encoding (JSON_IETF is valid subset of JSON).
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#231-json-and-json_ietf[JSON_IETF]
+|A JSON encoded string, using https://www.rfc-editor.org/rfc/rfc7951[RFC 7951]. The JSON string is converted to the `json_ietf_val` (protobuf `bytes`) `Typedvalue`
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#234-ascii[ASCII]
+|Not supported.
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#233-protobuf[Proto]
+|Not supported (TODO)
+
+|Bytes
+|Not supported
+
+|===
+
+[options="header", cols="1s,18"]
+.Encoding  implementation in the `gnmi_adapter` client
+|===
+|Name |Description
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#231-json-and-json_ietf[JSON]
+|Client detects `json_val` type and can process it (e.g. print to the stdout).
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#231-json-and-json_ietf[JSON_IETF]
+|Client detects `json_ietf_val` type and can process it (e.g. print to the stdout).
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#234-ascii[ASCII]
+|Not supported.
+
+|https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#233-protobuf[Proto]
+|Not supported (TODO)
+
+|Bytes
+|Not supported
+
+|===
+
 === Capabilities
 
 `rpc Capabilities(CapabilityRequest) returns (CapabilityResponse);`
@@ -667,8 +806,6 @@ NOTE: The `Capability` message does not return full data model information
 (compared to NETCONF), especially in case the datamodel is not fully known
 to the client. gNMI Extension may be used to fix this, but this would
 implementation specific (as the gNMI Extension would not be https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-extensions.md#well-known-and-registered-extensions[well-known extension]).
-
-
 
 ==== ConfD API Implementation
 
@@ -847,7 +984,7 @@ TIP: See `tests/pytest.ini` for available pytest markers.
 
 ==== Run tests
 
-`make test` or `PYTHONPATH=src pytest -sv` or use `test.sh` script
+`make test` or `PYTHONPATH=src:tests:${PYTHONPATH} pytest -sv tests/` or use `test.sh tests/` script
 
 Examples:
 
@@ -891,16 +1028,14 @@ This not all gNMI functionality are currently supported. They may be added in th
 
 *Limitations*
 
-* only `BYTES` are used as `encoding`
-* `Get`, `Set` and `Subscribe` works only on the `leaf`, `list` entries and `lists`
+* only `JSON and JSON_IETF` are used as `encoding`
 * `Set` works only on `leaf` elements
 * `Subscribe`
 ** not all subscription parameters are supported
 ** `updates_only` not supported
 ** `heartbeat_interval` not supported
 * * `sync_response` not generated
-* all values `TypedValues` are used as strings (`string_val`)
-* gNMI Path is converted to XPath or formatted path with simple string operations (no datamodel knowledge used)
+* all values `TypedValues` are used as strings (`json_ietf_val`)
 * only `lists` with one `key` are supported
 * current implementation works only against RUNNING DB
 * list of models (e.g. `Get`) is not supported
@@ -911,7 +1046,6 @@ This not all gNMI functionality are currently supported. They may be added in th
 
 * add more command line options to server
 * add more command line options to client
-* converting XPath to ConfD formatted path/keypath and back is simple string manipulation - cannot handle complex keys (`cs_nodes` have to be used)
 * TODO: Pass yang file content as extension in `Capabilities` call?
 * `-t STATE` type is not reflected in subscriptions
 

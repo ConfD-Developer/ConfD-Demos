@@ -3,9 +3,10 @@ from typing import Tuple, Dict
 
 import gnmi_pb2
 
-VERSION = "0.2.0"
+VERSION = "0.3.0-dev"
 HOST = "localhost"
 PORT = 50061
+
 logging.basicConfig(
     format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s [%(threadName)s]',
     level=logging.WARNING)
@@ -17,6 +18,16 @@ def common_optparse_options(parser):
                         choices=["error", "warning", "info", "debug"],
                         help="Logging level",
                         default="warning")
+    parser.add_argument("--insecure", action="store_true", dest="insecure",
+                        help="Use insecure connection",
+                        default=False)
+    parser.add_argument("--port", action="store", dest="port",
+                        type=int,
+                        help="port number (default: {})".format(PORT),
+                        default=PORT)
+    parser.add_argument("--host", action="store", dest="host",
+                        help="host (name, ip, default: {})".format(HOST),
+                        default=HOST)
 
 
 def common_optparse_process(opt, log):

@@ -26,8 +26,8 @@ class GrpcBase(object):
         nodeid_path = nodeid_to_path(request.node.nodeid)
         log.debug("request.fixturenames=%s", request.fixturenames)
         self.set_adapter_type()
-        self.server = ConfDgNMIServicer.serve(adapter_type=self.adapter_type)
-        self.client = ConfDgNMIClient()
+        self.server = ConfDgNMIServicer.serve(adapter_type=self.adapter_type, insecure=True)
+        self.client = ConfDgNMIClient(insecure=True)
         log.debug("<== fixture method setup")
         yield
         log.debug("==> fixture method teardown (nodeid %s)" % nodeid_path)
@@ -152,7 +152,8 @@ class GrpcBase(object):
         subscription_list = \
             ConfDgNMIClient.make_subscription_list(prefix,
                                                    paths,
-                                                   subscription_mode)
+                                                   subscription_mode,
+                                                   gnmi_pb2.Encoding.JSON_IETF)
 
         responses = self.client.subscribe(subscription_list,
                                           read_fun=read_fun,
