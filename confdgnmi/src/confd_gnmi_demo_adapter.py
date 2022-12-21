@@ -29,9 +29,12 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
     config = {}
 
     capability_list = [
-        dict(name="tailf-aaa", organization="", version="2018-09-12"),
-        dict(name="ietf-inet-types", organization="", version="2013-07-15"),
-        dict(name="ietf-interfaces", organization="", version="2014-05-08"),
+        dict(name="http://tail-f.com/ns/aaa/1.1:tailf-aaa",
+             organization="", version="2018-09-12"),
+        dict(name="urn:ietf:params:xml:ns:yang:ietf-inet-types:ietf-inet-types",
+             organization="", version="2013-07-15"),
+        dict(name="urn:ietf:params:xml:ns:yang:ietf-interfaces:ietf-interfaces",
+             organization="", version="2014-05-08"),
     ]
 
     def __init__(self):

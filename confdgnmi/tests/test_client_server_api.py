@@ -65,10 +65,10 @@ class TestGrpcApi(GrpcBase):
         log.info("testing test_subscribe_stream_on_change_api_state")
         GnmiConfDApiServerAdapter.monitor_external_changes = True
         changes_list = [
-            ("/route-status[route=rt5]/leaf1", "1010"),
-            ("/route-status[route=rt6]/leaf1", "1020"),
+            ("/route-status:route-status/route[id=rt5]/leaf1", 1010),
+            ("/route-status:route-status/route[id=rt6]/leaf1", 1020),
             "send",
-            ("/route-status[route=rt6]/leaf1", "1030"),
+            ("/route-status:route-status/route[id=rt6]/leaf1", 1030),
             "send",
         ]
         path_value = [[]]  # empty element means no check
@@ -76,7 +76,7 @@ class TestGrpcApi(GrpcBase):
 
         prefix_str = ""
         prefix = make_gnmi_path(prefix_str)
-        paths = [make_gnmi_path("route-status")]
+        paths = [make_gnmi_path("route-status:route-status")]
 
         kwargs = {"assert_fun": GrpcBase.assert_in_updates}
         kwargs["prefix"] = prefix

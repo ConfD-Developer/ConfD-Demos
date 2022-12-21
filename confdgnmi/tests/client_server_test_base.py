@@ -2,6 +2,7 @@ import subprocess
 import threading
 import xml.etree.cElementTree as ET
 from time import sleep
+import json
 
 import gnmi_pb2
 import pytest
@@ -37,8 +38,8 @@ class GrpcBase(object):
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        self.leaf_paths_str = ["interface[name={}if_{}]/name",
-                               "interface[name={}if_{}]/type"]
+        self.leaves = ["name", "type"]
+        self.leaf_paths_str = [f"interface[name={{}}if_{{}}]/{leaf}" for leaf in self.leaves]
         self.list_paths_str = ["interface[name={}if_{}]", "interface"]
 
     @staticmethod
@@ -54,8 +55,7 @@ class GrpcBase(object):
         def capability_supported(cap):
             supported = False
             for s in supported_models:
-                if s.name == cap['name'] and s.organization == cap[
-                    'organization'] and s.version == cap['version']:
+                if s.name == cap['name'] and s.organization == cap['organization']:
                     log.debug("capability cap=%s found in s=%s", cap, s)
                     supported = True
                     break
@@ -68,7 +68,8 @@ class GrpcBase(object):
     @staticmethod
     def assert_update(update, path_val):
         assert (update.path == path_val[0])
-        assert (update.val == gnmi_pb2.TypedValue(string_val=path_val[1]))
+        json_value = json.loads(update.val.json_ietf_val)
+        assert json_value == path_val[1]
 
     @staticmethod
     def assert_set_response(response, path_op):
@@ -82,17 +83,16 @@ class GrpcBase(object):
             GrpcBase.assert_update(u, path_vals[i])
 
     @staticmethod
+    def assert_one_in_update(updates, pv):
+        assert any(u.path == pv[0] and json.loads(u.val.json_ietf_val) == pv[1]
+                   for u in updates)
+
+    @staticmethod
     def assert_in_updates(updates, path_vals):
         log.debug("==> updates=%s path_vals=%s", updates, path_vals)
-        assert (len(updates) >= len(path_vals))
+        assert (len(updates) == len(path_vals))
         for pv in path_vals:
-            found = False
-            for u in updates:
-                if u.path == pv[0] and u.val == gnmi_pb2.TypedValue(
-                        string_val=pv[1]):
-                    found = True
-                    break
-            assert found
+            GrpcBase.assert_one_in_update(updates, pv)
         log.debug("<==")
 
     def verify_get_response_updates(self, prefix, paths, path_value,
@@ -117,7 +117,6 @@ class GrpcBase(object):
             assert_fun = GrpcBase.assert_updates
         log.debug("paths=%s path_value=%s", paths, path_value)
         response_count = 0
-        thread_exception = False
         pv_idx = 0
         for pv in path_value:
             if not isinstance(pv, list):
@@ -126,30 +125,26 @@ class GrpcBase(object):
         log.debug("pv_idx=%s", pv_idx)
 
         def read_subscribe_responses(responses, read_count=-1):
-            nonlocal response_count, pv_idx, thread_exception
-            try:
-                for response in responses:
-                    response_count += 1
-                    log.debug("response=%s response_count=%i", response,
-                              response_count)
-                    assert (response.update.prefix == prefix)
-                    pv_to_check = path_value
-                    if pv_idx != -1:
-                        assert pv_idx < len(path_value)
-                        pv_to_check = path_value[pv_idx]
-                        pv_idx += 1
-                    if len(pv_to_check) > 0:  # skip empty arrays
-                        assert_fun(response.update.update, pv_to_check)
-                    log.info("response_count=%i", response_count)
-                    if read_count > 0:
-                        read_count -= 1
-                        if read_count == 0:
-                            log.info("read count reached")
-                            break
-                assert read_count == -1 or read_count == 0
-            except Exception as e:
-                log.exception(e)
-                thread_exception = True
+            nonlocal response_count, pv_idx
+            for response in responses:
+                response_count += 1
+                log.debug("response=%s response_count=%i", response,
+                          response_count)
+                assert (response.update.prefix == prefix)
+                pv_to_check = path_value
+                if pv_idx != -1:
+                    assert pv_idx < len(path_value)
+                    pv_to_check = path_value[pv_idx]
+                    pv_idx += 1
+                if len(pv_to_check) > 0:  # skip empty arrays
+                    assert_fun(response.update.update, pv_to_check)
+                log.info("response_count=%i", response_count)
+                if read_count > 0:
+                    read_count -= 1
+                    if read_count == 0:
+                        log.info("read count reached")
+                        break
+            assert read_count == -1 or read_count == 0
 
         read_fun = read_subscribe_responses
         subscription_list = \
@@ -163,7 +158,6 @@ class GrpcBase(object):
                                           poll_count=poll_count,
                                           read_count=read_count)
 
-        assert thread_exception is False
         log.debug("responses=%s", responses)
         if poll_count:
             assert (poll_count + 1 == response_count)
@@ -179,7 +173,7 @@ class GrpcBase(object):
         if datatype == gnmi_pb2.GetRequest.DataType.STATE:
             prefix_state_str = "-state"
             if_state_str = "state_"
-        prefix = make_gnmi_path("/interfaces{}".format(prefix_state_str))
+        prefix = make_gnmi_path("/ietf-interfaces:interfaces{}".format(prefix_state_str))
         kwargs["prefix"] = prefix
         if_id = 8
         leaf_paths = [
@@ -201,7 +195,7 @@ class GrpcBase(object):
             kwargs["poll_count"] = poll_count
             kwargs["read_count"] = read_count
         else:
-            encoding = gnmi_pb2.Encoding.BYTES
+            encoding = gnmi_pb2.Encoding.JSON_IETF
             verify_response_updates = self.verify_get_response_updates
             kwargs["datatype"] = datatype
             kwargs["encoding"] = encoding
@@ -210,24 +204,19 @@ class GrpcBase(object):
         kwargs["path_value"] = [(leaf_paths[0], ifname)]
         verify_response_updates(**kwargs)
         kwargs["paths"] = [leaf_paths[1]]
-        kwargs["path_value"] = [(leaf_paths[1], "gigabitEthernet")]
+        kwargs["path_value"] = [(leaf_paths[1], "iana-if-type:gigabitEthernet")]
         verify_response_updates(**kwargs)
         kwargs["paths"] = leaf_paths
         kwargs["path_value"] = [(leaf_paths[0], ifname),
-                                (leaf_paths[1], "gigabitEthernet")]
+                                (leaf_paths[1], "iana-if-type:gigabitEthernet")]
         verify_response_updates(**kwargs)
         kwargs["paths"] = [list_paths[0]]
-        kwargs["path_value"] = [(leaf_paths[0], ifname), (leaf_paths[1],
-                                                          "gigabitEthernet")]
+        kwargs["path_value"] = [(list_paths[0],
+                                 dict(zip(self.leaves, [ifname, "iana-if-type:gigabitEthernet"])))]
         verify_response_updates(**kwargs)
-        pv = []
-        for i in range(1, GnmiDemoServerAdapter.num_of_ifs):
-            pv.append((GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[0],
-                                                if_state_str, i),
-                       "{}if_{}".format(if_state_str, i)))
-            pv.append((GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[1],
-                                                if_state_str, i),
-                       "gigabitEthernet"))
+        pv = [(GrpcBase.mk_gnmi_if_path(self.list_paths_str[0], if_state_str, i),
+               dict(zip(self.leaves, [f"{if_state_str}if_{i}", "iana-if-type:gigabitEthernet"])))
+              for i in range(1, GnmiDemoServerAdapter.num_of_ifs+1)]
         kwargs["paths"] = [list_paths[1]]
         kwargs["path_value"] = pv
         kwargs["assert_fun"] = GrpcBase.assert_in_updates
@@ -290,7 +279,7 @@ class GrpcBase(object):
                 path = make_gnmi_path(c[0])
                 cmd = "{} {}".format(
                     make_formatted_path(path, gnmi_prefix=path_prefix),
-                    c[1])
+                    c[1].split(":")[-1])  # remove json prefix
                 if "state" in prefix_str:
                     oper_cmd += "{} ".format(cmd)
                 else:
@@ -346,14 +335,14 @@ class GrpcBase(object):
 
         changes_list = [
             ("interface[name={}if_5]/type".format(if_state_str),
-             "fastEther"),
+             "iana-if-type:fastEther"),
             ("interface[name={}if_6]/type".format(if_state_str),
-             "fastEther"),
+             "iana-if-type:fastEther"),
             "send",
             ("interface[name={}if_5]/type".format(if_state_str),
-             "gigabitEthernet"),
+             "iana-if-type:gigabitEthernet"),
             ("interface[name={}if_6]/type".format(if_state_str),
-             "gigabitEthernet"),
+             "iana-if-type:gigabitEthernet"),
             "send",
         ]
         if data_type == "STATE" and self.adapter_type == AdapterType.API:
@@ -369,8 +358,8 @@ class GrpcBase(object):
         path_value = [[]]  # empty element means no check
         path_value.extend(self._changes_list_to_pv(changes_list))
 
-        prefix_str = "/interfaces{}".format(prefix_state_str)
-        prefix = make_gnmi_path(prefix_str)
+        prefix_str = "interfaces{}".format(prefix_state_str)
+        prefix = make_gnmi_path('/ietf-interfaces:' + prefix_str)
         paths = [GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
                                           "N/A")]
 
@@ -401,9 +390,9 @@ class GrpcBase(object):
     def test_set(self, request):
         log.info("testing set")
         if_id = 8
-        prefix = make_gnmi_path("/interfaces")
+        prefix = make_gnmi_path("/ietf-interfaces:interfaces")
         paths = [GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[1], "", if_id)]
-        vals = [gnmi_pb2.TypedValue(string_val="fastEther")]
+        vals = [gnmi_pb2.TypedValue(json_ietf_val=b"\"iana-if-type:fastEther\"")]
         response = self.client.set(prefix, list(zip(paths, vals)))
         assert (response.prefix == prefix)
         GrpcBase.assert_set_response(response.response[0],
@@ -411,15 +400,15 @@ class GrpcBase(object):
 
         # fetch with get and see value has changed
         datatype = gnmi_pb2.GetRequest.DataType.CONFIG
-        encoding = gnmi_pb2.Encoding.BYTES
+        encoding = gnmi_pb2.Encoding.JSON_IETF
         notification = self.client.get(prefix, paths, datatype, encoding)
         for n in notification:
             log.debug("n=%s", n)
             assert (n.prefix == prefix)
-            GrpcBase.assert_updates(n.update, [(paths[0], "fastEther")])
+            GrpcBase.assert_updates(n.update, [(paths[0], "iana-if-type:fastEther")])
 
         # put value back
-        vals = [gnmi_pb2.TypedValue(string_val="gigabitEthernet")]
+        vals = [gnmi_pb2.TypedValue(json_ietf_val=b"\"iana-if-type:gigabitEthernet\"")]
         response = self.client.set(prefix, list(zip(paths, vals)))
         GrpcBase.assert_set_response(response.response[0],
                                      (paths[0], gnmi_pb2.UpdateResult.UPDATE))

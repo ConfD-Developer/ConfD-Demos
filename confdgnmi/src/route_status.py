@@ -218,7 +218,7 @@ def generate_changes(stop_fun, route_data: RouteData, sleep_val=2):
             log.debug("changing route leaf1 key=%s val=%i", key, val)
             route_data.routes[key].leaf1 = val
             op = ChangeOp.MODIFIED.value
-            xpath = "/route-status[route={}]/leaf1".format(key)
+            xpath = "/route-status/route[id={}]/leaf1".format(key)
             val_str = "{}".format(val)
             msg = "{}\n{}\n{}".format(op, xpath, val_str)
             msgs.append(msg)

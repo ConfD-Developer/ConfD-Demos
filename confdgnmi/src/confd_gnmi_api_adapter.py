@@ -16,7 +16,7 @@ import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
 from confd_gnmi_common import make_xpath_path, make_formatted_path, \
-    prefix_gnmi_paths, remove_path_prefix
+    prefix_gnmi_paths, remove_path_prefix, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
@@ -24,6 +24,8 @@ log.setLevel(logging.DEBUG)
 
 INT_VALS = {_confd.C_INT8, _confd.C_INT16, _confd.C_INT32,
             _confd.C_UINT8, _confd.C_UINT16, _confd.C_UINT32}
+
+EXT_SPOINT = -1  # no subscription point for external changes
 
 
 class GnmiConfDApiServerAdapter(GnmiServerAdapter):
@@ -207,6 +209,16 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             log.debug("self.change_db=%s", self.change_db)
             log.debug("<==")
 
+        def _external_changes(self, data):
+            data_iter = iter(data)
+            for op, xpath, value in zip(data_iter, data_iter, data_iter):
+                fxpath = self.adapter.fix_path_prefixes(xpath)
+                csnode = _confd.cs_node_cd(None, fxpath)
+                path = make_gnmi_path(xpath)
+                cval = _confd.Value.str2val(value, csnode.info().type())
+                json_value = self.adapter.make_gnmi_json_value(cval, csnode)
+                yield op, path, json_value
+
         def process_external_change(self, ext_sock):
             log.info("==>")
             connection, client_address = ext_sock.accept()
@@ -224,8 +236,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 # the size must be smaller then size in recv
                 data = msg.decode().split('\n')
                 assert len(data) % 3 == 0
-                chunks = ((data[x], data[x+1], data[x+2]) for x in range(0, len(data), 3))
-                self._append_changes(chunks)
+                self._append_changes(EXT_SPOINT, list(self._external_changes(data)))
                 self.put_event(self.SubscriptionEvent.SEND_CHANGES)
                 log.debug("data=%s", data)
             log.info("<==")
@@ -249,6 +260,13 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 # only for one type
                 path_str = self.adapter.fix_path_prefixes(make_formatted_path(path))
                 cs_node = _confd.cs_node_cd(None, path_str)
+                if cs_node.info().flags() & _confd.CS_NODE_IS_LIST != 0 \
+                   and not path.elem[-1].key:
+                    subpoint_path = gnmi_pb2.Path(elem=path.elem[:-1],
+                                                  origin=path.origin,
+                                                  target=path.target)
+                else:
+                    subpoint_path = path
                 flags = cs_node.info().flags()
                 is_cdb = flags & _confd.CS_NODE_IS_CDB
                 if is_cdb:
@@ -256,7 +274,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     cdb_type = cdb.SUB_RUNNING if flags & _confd.CS_NODE_IS_WRITE \
                         else cdb.SUB_OPERATIONAL
                     spoint = cdb.subscribe2(sub_sock, cdb_type, 0, prio, 0, path_str)
-                    self.subpoint_paths[spoint] = path
+                    self.subpoint_paths[spoint] = subpoint_path
                 else:
                     has_non_cdb = True
             if subscribed:
@@ -324,6 +342,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 try:
                     if external_changes and has_non_cdb:
                         ext_server_sock = self.start_external_change_server()
+                        self.subpoint_paths[EXT_SPOINT] = gnmi_pb2.Path()
                         with ext_server_sock:
                             self.socket_loop(sub_sock, ext_server_sock)
                     else:
@@ -496,6 +515,8 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                                       ip=self.addr, port=self.port)
                 max_msg_size = 1024
                 save_str = b''.join(iter(lambda: save_sock.recv(max_msg_size), b''))
+                if not save_str:
+                    return
                 saved_data = json.loads(save_str)
                 log.debug("data=%s", saved_data)
                 save_result = trans.maapi.save_config_result(save_id)
@@ -524,11 +545,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         pfx_path = self.fix_path_prefixes(path)
         save_flags = _confd.maapi.CONFIG_JSON | _confd.maapi.CONFIG_NO_PARENTS
+        db = _confd.OPERATIONAL
 
         if data_type == gnmi_pb2.GetRequest.DataType.ALL:
             save_flags |= _confd.maapi.CONFIG_WITH_OPER
         elif data_type == gnmi_pb2.GetRequest.DataType.CONFIG:
-            pass
+            db = _confd.RUNNING
         elif data_type == gnmi_pb2.GetRequest.DataType.STATE:
             save_flags |= _confd.maapi.CONFIG_OPER_ONLY
         elif data_type == gnmi_pb2.GetRequest.DataType.OPERATIONAL:
@@ -538,7 +560,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         groups = [self.username]
         updates = []
         try:
-            with maapi.single_read_trans(self.username, context, groups,
+            with maapi.single_read_trans(self.username, context, groups, db=db,
                                          src_ip=self.addr) as t:
                 updates = self.get_updates(t, pfx_path, save_flags)
         except Exception as e:
@@ -572,15 +594,19 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         elif val.json_ietf_val:
             jval = json.loads(val.json_ietf_val)
 
-            def update_paths(path, val):
+            def update_paths(path, val, parent_node):
                 # TODO: no support for list instances
+                csnode = _confd.cs_node_cd(parent_node, path)
                 if isinstance(val, dict):
                     trans.pushd(path)
                     for leaf, value in val.items():
-                        update_paths(leaf, value)
+                        update_paths(self.fix_path_prefixes(leaf), value, csnode)
                 else:
+                    if csnode.info().shallow_type() == _confd.C_IDENTITYREF:
+                        # in JSON, identityrefs are prefixed by module name
+                        val = self.fix_path_prefixes(val)
                     trans.set_elem(val, path)
-            update_paths(path_str, jval)
+            update_paths(path_str, jval, None)
         op = gnmi_pb2.UpdateResult.UPDATE
         return op
 
