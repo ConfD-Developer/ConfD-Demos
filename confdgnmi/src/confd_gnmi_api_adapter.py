@@ -22,8 +22,8 @@ log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
 
 
-INT_VALS = {_confd.C_INT8, _confd.C_INT16, _confd.C_INT32, _confd.C_INT64}
-UINT_VALS = {_confd.C_UINT8, _confd.C_UINT16, _confd.C_UINT32, _confd.C_UINT64}
+INT_VALS = {_confd.C_INT8, _confd.C_INT16, _confd.C_INT32,
+            _confd.C_UINT8, _confd.C_UINT16, _confd.C_UINT32}
 
 
 class GnmiConfDApiServerAdapter(GnmiServerAdapter):
@@ -43,6 +43,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             pass
         nslist = _confd.get_nslist()
         self.module_to_pfx = {nsentry[-1]: nsentry[1] for nsentry in nslist}
+        self.pfx_to_module = {nsentry[1]: nsentry[-1] for nsentry in nslist}
         self.ns_to_module = {nsentry[0]: nsentry[-1] for nsentry in nslist}
 
     # call only once!
@@ -126,13 +127,15 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         def get_sample(self, path, prefix,
                        start_change_processing=False):
-            update = []
             log.debug("==>")
-            pathstr = make_xpath_path(path, prefix)
-            update.extend(self.adapter.get_updates_with_maapi_save(pathstr,
-                                                                   gnmi_pb2.GetRequest.DataType.ALL))
-            log.debug("<== update=%s", update)
-            return update
+            pathstr = make_xpath_path(path, prefix, quote_val=True)
+            datatype = gnmi_pb2.GetRequest.DataType.ALL
+            updates = self.adapter.get_updates_with_maapi_save(pathstr, datatype)
+            sample = [gnmi_pb2.Update(path=remove_path_prefix(u.path, prefix),
+                                      val=u.val)
+                      for u in updates]
+            log.debug("<== sample=%s", sample)
+            return sample
 
         def add_path_for_monitoring(self, path, prefix):
             log.debug("==>")
@@ -175,14 +178,15 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             def cdb_iter(kp, op, oldv, newv, changes):
                 log.debug("==> kp=%s, op=%r, oldv=%s, newv=%s, state=%r", kp,
                           op, oldv, newv, changes)
+                csnode = _confd.cs_node_cd(None, _confd.pp_kpath(kp))
                 if op == _confd.MOP_CREATED:
                     log.debug("_confd.MOP_CREATED")
                     # TODO CREATE not handled for now
                 if op == _confd.MOP_VALUE_SET:
                     log.debug("_confd.MOP_VALUE_SET")
                     changes.append((self.ChangeOp.MODIFIED,
-                                    self.adapter.make_gnmi_keypath(kp),
-                                    self.adapter.make_gnmi_value(newv)))
+                                    self.adapter.make_gnmi_keypath(kp, csnode),
+                                    self.adapter.make_gnmi_json_value(newv, csnode)))
                     # TODO MOP_VALUE_SET implement
                 elif op == _confd.MOP_DELETED:
                     log.debug("_confd.MOP_DELETED")
@@ -461,18 +465,19 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             csnode = _confd.cs_node_cd(None, _confd.pp_kpath(keypath))
         return gnmi_pb2.Path(elem=list(self.make_gnmi_keypath_elems(keypath, csnode)))
 
-    def make_gnmi_value(self, value):
+    def make_gnmi_json_value(self, value, csnode):
         if value.confd_type() in INT_VALS:
-            gnmi_value = gnmi_pb2.TypedValue(int_val=int(value))
-        elif value.confd_type() in UINT_VALS:
-            gnmi_value = gnmi_pb2.TypedValue(uint_val=int(value))
-        elif value.confd_type == _confd.C_BOOL:
-            gnmi_value = gnmi_pb2.TypedValue(bool_val=bool(value))
-        elif value.confd_type == _confd.C_DOUBLE:
-            gnmi_value = gnmi_pb2.TypedValue(float_val=float(value))
-        # possibly others?
+            json_value = int(value)
+        elif value.confd_type() == _confd.C_BOOL:
+            json_value = bool(value)
+        elif value.confd_type() == _confd.C_IDENTITYREF:
+            # JSON formatting is different than what ConfD does by default
+            [prefix,idref] = value.val2str(csnode.info().type()).split(":")
+            json_value = f"{self.pfx_to_module[prefix]}:{idref}"
+        # empty, leaf-lists...
         else:
-            gnmi_value = gnmi_pb2.TypedValue(string_val=str(value))
+            json_value = value.val2str(csnode.info().type())
+        gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(json_value).encode())
         return gnmi_value
 
     def get_updates(self, trans, path_str, save_flags):
@@ -497,22 +502,14 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 log.debug("save_result=%s", save_result)
                 assert save_result == 0
                 gnmi_path = self.make_gnmi_keypath(keypath, csnode)
-                # the format of saved_data is {"container": {data}}
+                # the format of saved_data is {"node": {data}}
                 # we need only the data part
                 assert len(saved_data) == 1
                 [data] = saved_data.values()
                 gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(data).encode())
                 updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
 
-        def add_update_value(keypath, value):
-            gnmi_path = self.make_gnmi_keypath(keypath, csnode)
-            gnmi_value = self.make_gnmi_value(value)
-            updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
-
-        container_flags = (_confd.CS_NODE_IS_LIST | _confd.CS_NODE_IS_CONTAINER)
-        is_container = csnode.info().flags() & container_flags != 0
-        add_update = add_update_json if is_container else add_update_value
-        trans.xpath_eval(path_str, add_update, None, '/')
+        trans.xpath_eval(path_str, add_update_json, None, '/')
         log.debug("<== save_str=%s", updates)
         return updates
 
@@ -554,12 +551,14 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("==> prefix=%s, paths=%s, data_type=%s, use_models=%s",
                  prefix, paths, data_type, use_models)
         notifications = []
-        update = []
-        for path in paths:
-            update.extend(
-                self.get_updates_with_maapi_save(make_xpath_path(path, prefix), data_type))
+        updates2 = [self.get_updates_with_maapi_save(make_xpath_path(path, prefix, quote_val=True),
+                                                     data_type)
+                    for path in paths]
+        updates = [gnmi_pb2.Update(path=remove_path_prefix(update.path, prefix), val=update.val)
+                   for u_list in updates2
+                   for update in u_list]
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
-                                      update=update,
+                                      update=updates,
                                       delete=[],
                                       atomic=True)
         notifications.append(notif)
