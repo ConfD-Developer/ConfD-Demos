@@ -165,8 +165,6 @@ class GnmiServerAdapter(ABC):
             Sends SubscriptionEvent.FINISH to read function.
             """
             log.info("==>")
-            if self.is_monitor_changes():
-                self.stop_monitoring()
             self.put_event(self.SubscriptionEvent.FINISH)
             log.info("<==")
 
@@ -272,6 +270,9 @@ class GnmiServerAdapter(ABC):
                 log.debug("Waiting for event")
                 event = self.read_queue.get()
                 log.debug("Woke up event=%s", event)
+            if self.is_monitor_changes():
+                self.stop_monitoring()
+
             log.info("<==")
 
         def poll(self):

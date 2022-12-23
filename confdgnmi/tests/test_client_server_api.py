@@ -97,10 +97,12 @@ class TestGrpcApi(GrpcBase):
         confd_thread.start()
         change_thread.start()
 
-        self.verify_sub_sub_response_updates(**kwargs)
-        sleep(1)
+        try:
+            self.verify_sub_sub_response_updates(**kwargs)
+            sleep(1)
 
-        change_thread.join()
-        RouteProvider.stop_confd_loop()
-        confd_thread.join()
-        RouteProvider.close_dp()
+        finally:
+            change_thread.join()
+            RouteProvider.stop_confd_loop()
+            confd_thread.join()
+            RouteProvider.close_dp()
