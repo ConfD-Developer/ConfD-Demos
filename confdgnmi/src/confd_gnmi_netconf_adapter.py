@@ -7,7 +7,10 @@ class GnmiNetconfServerAdapter(GnmiServerAdapter):
     def get_adapter(cls):
         pass
 
-    def set(self, prefix, path, val):
+    def set(self, prefix, updates):
+        pass
+
+    def delete(self, prefix, paths):
         pass
 
     def get_subscription_handler(self, subscription_list):

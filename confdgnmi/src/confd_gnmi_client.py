@@ -212,7 +212,7 @@ def parse_args(args):
                         type=int,
                         help="Number of read requests for STREAM subscription (default 4)",
                         default=4)
-    parser.add_argument("--encoding", choices=["BYTES", "JSON", "JSON_IETF"], default="BYTES")
+    parser.add_argument("--encoding", choices=["BYTES", "JSON", "JSON_IETF"], default="JSON_IETF")
     opt = parser.parse_args(args=args)
     log.debug("opt=%s", opt)
     return opt

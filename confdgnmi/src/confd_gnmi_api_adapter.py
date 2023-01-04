@@ -621,7 +621,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                    for up in updates]
             t.apply()
 
-        log.info("==> op=%s", ops)
+        log.info("==> ops=%s", ops)
         return ops
 
     def delete(self, prefix, paths):

@@ -47,15 +47,27 @@ class GnmiServerAdapter(ABC):
         pass
 
     @abstractmethod
-    def set(self, prefix, path, val):
+    def set(self, prefix, updates):
         """
         Set value for given path
         TODO this is simple version for initial implementation
         To reflect fully gNMI Set,
         we should pass all delete, replace and update lists
         :param prefix: gNMI path prefix
-        :param path: gNMI path
-        :param val: gNMI type value
+        :param updates: gNMI updates (with path and val) to be set
+        :return: gNMI UpdateResult operation
+        """
+        pass
+
+    @abstractmethod
+    def delete(self, prefix, paths):
+        """
+        Delete value(s) for given path
+        TODO this is simple version for initial implementation
+        To reflect fully gNMI Set,
+        we should pass all delete, replace and update lists
+        :param prefix: gNMI path prefix
+        :param paths: list of gNMI paths to delete
         :return: gNMI UpdateResult operation
         """
         pass

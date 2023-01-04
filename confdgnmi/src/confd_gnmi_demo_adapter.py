@@ -1,5 +1,7 @@
+import json
 import logging
 import random
+import re
 import threading
 import xml.etree.ElementTree as ET
 from enum import Enum
@@ -11,9 +13,13 @@ from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_common import make_xpath_path, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_demo_adapter')
+log.setLevel(logging.DEBUG)
 
 
 class GnmiDemoServerAdapter(GnmiServerAdapter):
+    NS_PREFIX="ietf-interfaces:"
+    NS_IANA="iana-if-type:"
+
     # simple demo database
     # map with XPath, value - both strings
     demo_db = {}
@@ -63,7 +69,8 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                         log.debug("path.text=%s val.text=%s", path.text,
                                   val.text)
                         GnmiDemoServerAdapter.config["changes"].append(
-                            (path.text, val.text))
+                            (GnmiDemoServerAdapter._nsless_xpath(path.text),
+                             val.text.replace(GnmiDemoServerAdapter.NS_IANA, "")))
                 elif len(el) == 0:
                     log.debug("el.tag=%s", el.text)
                     GnmiDemoServerAdapter.config["changes"].append(el.text)
@@ -79,9 +86,11 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
     def _fill_demo_db(self):
         log.debug("==>")
         with self.db_lock:
-            for i in range(GnmiDemoServerAdapter.num_of_ifs):
-                if_name = "if_{}".format(i + 1)
-                state_if_name = "state_if_{}".format(i + 1)
+            # make interfaces alphabetically sorted
+            ifs = sorted(str(i+1) for i in range(GnmiDemoServerAdapter.num_of_ifs))
+            for if_id in ifs:
+                if_name = f"if_{if_id}"
+                state_if_name = "state_if_{}".format(if_id)
                 path = "/interfaces/interface[name={}]".format(if_name)
                 state_path = "/interfaces-state/interface[name={}]".format(
                     state_if_name)
@@ -92,6 +101,43 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                     "{}/type".format(state_path)] = "gigabitEthernet"
         log.debug("<== self.demo_db=%s self.demo_state_db=%s", self.demo_db,
                   self.demo_state_db)
+
+    @staticmethod
+    def _nsless_xpath(xpath: str):
+        return xpath.replace(GnmiDemoServerAdapter.NS_PREFIX, "")
+
+
+    @staticmethod
+    def _get_key_from_xpath(xpath):
+        key = re.search('\\[name=(.+)\\]', xpath)
+        if key is not None:
+            key = key.group(1)
+        return key
+
+    @staticmethod
+    def _get_elem_from_xpath(xpath):
+        elem = re.search(']/(.+)', xpath)
+        if elem is not None:
+            elem = elem.group(1)
+        return elem
+
+    @staticmethod
+    def _demo_db_to_key_elem_map(db):
+        log.debug("==>")
+        map_db = {}
+        for p, v in db.items():
+            key = GnmiDemoServerAdapter._get_key_from_xpath(p)
+            elem = GnmiDemoServerAdapter._get_elem_from_xpath(p)
+            elem_map = {}
+            if key in map_db:
+                elem_map = map_db[key]
+            if elem == "type":
+                v = "{}{}".format(GnmiDemoServerAdapter.NS_IANA, v)
+            elem_map[elem] = v
+            map_db[key] = elem_map
+        log.debug("<== map_db={}".format(map_db))
+        return map_db
+
 
     class SubscriptionHandler(GnmiServerAdapter.SubscriptionHandler):
 
@@ -109,29 +155,18 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
             self.change_event_queue = None
 
         def get_sample(self, path, prefix) -> []:
-            log.debug("==>")
-            update = []
-            path_with_prefix_str = make_xpath_path(path, prefix)
-            prefix_str = make_xpath_path(gnmi_prefix=prefix)
-            log.debug("path_with_prefix_str=%s prefix_str=%s",
-                      path_with_prefix_str, prefix_str)
-
-            def get_updates(db):
-                for p, v in db.items():
-                    if p.startswith(path_with_prefix_str):
-                        p = p[len(prefix_str):]
-                        update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                                      val=gnmi_pb2.TypedValue(
-                                                          string_val=v)))
+            log.debug("==> path=%s prefix=%s", path, prefix)
 
             with self.adapter.db_lock:
-                get_updates(self.adapter.demo_db)
+                updates = self.adapter.get_db_updates_for_path(path, prefix,
+                                                               self.adapter.demo_db)
                 # 'if' below is optimization
-                if len(update) == 0:
-                    get_updates(self.adapter.demo_state_db)
+                if len(updates) == 0:
+                    updates = self.adapter.get_db_updates_for_path(path, prefix,
+                                                                   self.adapter.demo_state_db)
 
-            log.debug("<== update=%s", update)
-            return update
+            log.debug("<== updates=%s", updates)
+            return updates
 
         def get_monitored_changes(self) -> []:
             with self.change_db_lock:
@@ -139,14 +174,16 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                 assert len(self.change_db) > 0
                 update = []
                 for c in self.change_db:
-                    prefix_str = make_xpath_path(
-                        gnmi_prefix=self.subscription_list.prefix)
-                    p = c[0]
-                    if c[0].startswith(prefix_str):
-                        p = c[0][len(prefix_str):]
+                    prefix_str = self.adapter._nsless_xpath(make_xpath_path(
+                        gnmi_prefix=self.subscription_list.prefix))
+                    p = self.adapter._nsless_xpath(c[0])
+                    if p.startswith(prefix_str):
+                        p = p[len(prefix_str):]
+                    v = "{}{}".format(GnmiDemoServerAdapter.NS_IANA, c[1])
+                    json_val = gnmi_pb2.TypedValue(
+                        json_ietf_val=json.dumps(v).encode())
                     update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                                  val=gnmi_pb2.TypedValue(
-                                                      string_val=c[1])))
+                                                  val=json_val))
                 self.change_db = []
             log.debug("<== update=%s", update)
             return update
@@ -226,10 +263,12 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                                     log.info("c=%s self.monitored_paths=%s",
                                              c, self.monitored_paths)
                                     (path, val) = c
+                                    if path[0] != '/':
+                                        path = '/' + path
                                     if any(path.startswith(elem) for elem in
                                            self.monitored_paths):
-                                        log.info("appending c=%s", c)
-                                        self.change_db.append(c)
+                                        log.info("appending (path, val)=%s", (path, val))
+                                        self.change_db.append((path, val))
                                         if path in self.adapter.demo_db:
                                             self.adapter.demo_db[path] = val
                                         elif path in self.adapter.demo_state_db:
@@ -266,7 +305,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
             if self.change_event_queue is None:
                 self.change_event_queue = Queue()
             path_with_prefix_str = make_xpath_path(path, prefix)
-            self.monitored_paths.append(path_with_prefix_str)
+            self.monitored_paths.append(GnmiDemoServerAdapter._nsless_xpath(path_with_prefix_str))
             log.debug("<==")
 
         def start_monitoring(self):
@@ -314,31 +353,69 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                                                   version=c['version']))
         return cap
 
+    def get_db_updates_for_path(self, path, prefix, db):
+        log.debug("==> path={} prefix={}".format(path, prefix))
+
+        path_with_prefix = make_xpath_path(gnmi_path=path,
+                                           gnmi_prefix=prefix)
+        prefix_str = make_xpath_path(gnmi_prefix=prefix)
+        log.debug("path_with_prefix=%s prefix_str=%s",
+                  path_with_prefix, prefix)
+
+        updates = []
+        path_val_list = []
+        map_db = self._demo_db_to_key_elem_map(db)
+        ifaces = self._nsless_xpath(path_with_prefix)
+        if ifaces == "/interfaces" or ifaces == "/interfaces-state":
+            if list(db.keys())[0].startswith(ifaces):
+                path_val_list = [
+                    (path_with_prefix, {"interface": list(map_db.values())})]
+        else:
+            paths = []
+            for p, v in db.items():
+                if self._nsless_xpath(p).startswith(
+                        self._nsless_xpath(path_with_prefix)):
+                    paths.append(p)
+            keys_done = set()
+            for p in paths:
+                key = self._get_key_from_xpath(p)
+                if key in keys_done:
+                    continue
+                keys_done.add(key)
+                elem_val = map_db[key]
+                path_elem = self._get_elem_from_xpath(path_with_prefix)
+                path = p
+                if path_elem:
+                    elem_val = elem_val[path_elem]
+                else:
+                    path = p.replace("/type", "").replace("/name", "")
+                path_val_list.append((path, elem_val))
+
+        if len(path_val_list):
+            for pv in path_val_list:
+                path_without_prefix = pv[0][
+                                      len(self._nsless_xpath(prefix_str)):]
+                val = gnmi_pb2.TypedValue(
+                    json_ietf_val=json.dumps(pv[1]).encode())
+                updates.append(
+                    gnmi_pb2.Update(path=make_gnmi_path(path_without_prefix),
+                                    val=val))
+        log.debug("<== updates=%s", updates)
+        return updates
+
     def get_updates(self, path, prefix, data_type):
         log.debug("==> path=%s prefix=%s", path, prefix)
-        path_with_prefix_str = make_xpath_path(gnmi_path=path,
-                                               gnmi_prefix=prefix)
-        prefix_str = make_xpath_path(gnmi_prefix=prefix)
-        log.debug("path_with_prefix_str=%s prefix_str=%s",
-                  path_with_prefix_str, prefix_str)
-        update = []
-
-        def process_db(db):
-            for p, v in db.items():
-                if p.startswith(path_with_prefix_str):
-                    p = p[len(prefix_str):]
-                    update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                                  val=gnmi_pb2.TypedValue(
-                                                      string_val=v)))
 
         with self.db_lock:
             if data_type == gnmi_pb2.GetRequest.DataType.CONFIG or \
                     data_type == gnmi_pb2.GetRequest.DataType.ALL:
-                process_db(self.demo_db)
+                updates = self.get_db_updates_for_path(path, prefix, self.demo_db)
             if data_type != gnmi_pb2.GetRequest.DataType.CONFIG:
-                process_db(self.demo_state_db)
-        log.debug("<== update=%s", update)
-        return update
+                updates = self.get_db_updates_for_path(path, prefix,
+                                                       self.demo_state_db)
+
+        log.debug("<== updates=%s", updates)
+        return updates
 
     def get(self, prefix, paths, data_type, use_models):
         log.debug("==> prefix=%s, paths=%s, data_type=%s, use_models=%s",
@@ -355,19 +432,41 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         log.debug("<== notifications=%s", notifications)
         return notifications
 
-    def set(self, prefix, path, val):
+    def set_update(self, prefix, path, val):
         log.info("==> prefix=%s, path=%s, val=%s", prefix, path, val)
         path_str = make_xpath_path(path, prefix)
         op = gnmi_pb2.UpdateResult.INVALID
-        if path_str in self.demo_db:
-            if hasattr(val, "string_val"):
+        if self._nsless_xpath(path_str) in self.demo_db:
+            if val.string_val:
                 str_val = val.string_val
+            elif val.json_ietf_val:
+                str_val = json.loads(val.json_ietf_val)
+            elif val.json_val:
+                str_val = json.loads(val.json_val)
             else:
                 # TODO
                 str_val = "{}".format(val)
+            str_val = str_val.replace(self.NS_IANA, "")
             with self.db_lock:
                 self.demo_db[path_str] = str_val
             op = gnmi_pb2.UpdateResult.UPDATE
 
         log.info("==> op=%s", op)
         return op
+
+    def set(self, prefix, updates):
+        log.info("==> prefix=%s, updates=%s", prefix, updates)
+        ops = [(up.path, self.set_update(prefix, up.path, up.val))
+               for up in updates]
+
+
+        log.info("==> ops=%s", ops)
+        return ops
+
+    def delete(self, prefix, paths):
+        log.info("==> prefix=%s, paths=%s", prefix, paths)
+        ops = []
+        # TODO
+        log.info("==> ops=%s", ops)
+        return ops
+

@@ -40,11 +40,11 @@ class GrpcBase(object):
     def _setup(self):
         self.leaves = ["name", "type"]
         self.leaf_paths_str = [f"interface[name={{}}if_{{}}]/{leaf}" for leaf in self.leaves]
-        self.list_paths_str = ["interface[name={}if_{}]", "interface"]
+        self.list_paths_str = ["interface[name={}if_{}]", "interface", "ietf-interfaces:interfaces{}" ]
 
     @staticmethod
     def mk_gnmi_if_path(path_str, if_state_str="", if_id=None):
-        if if_id is not None:
+        if if_id is not None and if_state_str is not None:
             path_str = path_str.format(if_state_str, if_id)
         return make_gnmi_path(path_str)
 
@@ -105,7 +105,8 @@ class GrpcBase(object):
         log.debug("notification=%s", notification)
         for n in notification:
             log.debug("n=%s", n)
-            assert (n.prefix == prefix)
+            if prefix:
+                assert (n.prefix == prefix)
             assert_fun(n.update, path_value)
 
     def verify_sub_sub_response_updates(self, prefix, paths, path_value,
@@ -130,7 +131,8 @@ class GrpcBase(object):
                 response_count += 1
                 log.debug("response=%s response_count=%i", response,
                           response_count)
-                assert (response.update.prefix == prefix)
+                if prefix:
+                    assert (response.update.prefix == prefix)
                 pv_to_check = path_value
                 if pv_idx != -1:
                     assert pv_idx < len(path_value)
@@ -170,9 +172,12 @@ class GrpcBase(object):
 
         kwargs = {"assert_fun": GrpcBase.assert_updates}
         if_state_str = prefix_state_str = ""
+        db = GnmiDemoServerAdapter.get_adapter().demo_db
         if datatype == gnmi_pb2.GetRequest.DataType.STATE:
             prefix_state_str = "-state"
             if_state_str = "state_"
+            db = GnmiDemoServerAdapter.demo_state_db
+        map_db = GnmiDemoServerAdapter._demo_db_to_key_elem_map(db)
         prefix = make_gnmi_path("/ietf-interfaces:interfaces{}".format(prefix_state_str))
         kwargs["prefix"] = prefix
         if_id = 8
@@ -184,8 +189,8 @@ class GrpcBase(object):
         list_paths = [
             GrpcBase.mk_gnmi_if_path(self.list_paths_str[0], if_state_str,
                                      if_id),
-            GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
-                                     if_id)]
+            GrpcBase.mk_gnmi_if_path(self.list_paths_str[1]),
+            GrpcBase.mk_gnmi_if_path(self.list_paths_str[2].format(prefix_state_str))]
         ifname = "{}if_{}".format(if_state_str, if_id)
 
         if is_subscribe:
@@ -220,6 +225,14 @@ class GrpcBase(object):
         kwargs["paths"] = [list_paths[1]]
         kwargs["path_value"] = pv
         kwargs["assert_fun"] = GrpcBase.assert_in_updates
+        verify_response_updates(**kwargs)
+
+        kwargs["paths"] = [list_paths[2]]
+
+        kwargs["path_value"] = [(list_paths[2],
+                                {"interface": list(map_db.values())})]
+        kwargs["assert_fun"] = None
+        kwargs["prefix"] = None
         verify_response_updates(**kwargs)
         pass
 
@@ -359,7 +372,8 @@ class GrpcBase(object):
         path_value.extend(self._changes_list_to_pv(changes_list))
 
         prefix_str = "interfaces{}".format(prefix_state_str)
-        prefix = make_gnmi_path('/ietf-interfaces:' + prefix_str)
+        prefix = make_gnmi_path("/" + GnmiDemoServerAdapter.NS_PREFIX + prefix_str)
+
         paths = [GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
                                           "N/A")]
 
