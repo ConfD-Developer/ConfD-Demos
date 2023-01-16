@@ -427,8 +427,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 root = maagic.get_root(t)
                 values = []
                 count = 0
-                # format
-                # http://tail-f.com/ns/confd-progress?module=tailf-confd-progress&revision=2020-06-29
                 for module in root.modules_state.module:
                     log.debug("val=%s", module.name)
                     name = f'{module.namespace}:{module.name}'
@@ -503,10 +501,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     def get_updates(self, trans, path_str, save_flags):
         log.debug("==> path_str=%s", path_str)
         csnode = _confd.cs_node_cd(None, path_str)
-        if csnode is None:
-            log.warning('failed to find the cs-node')
-            # TODO: raise the right exception
-            return []
         updates = []
 
         def add_update_json(keypath, _value):
@@ -531,7 +525,10 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(data).encode())
                 updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
 
-        trans.xpath_eval(path_str, add_update_json, None, '/')
+        if csnode is None:
+            log.warning('failed to find the cs-node')
+        else:
+            trans.xpath_eval(path_str, add_update_json, None, '/')
         log.debug("<== save_str=%s", updates)
         return updates
 

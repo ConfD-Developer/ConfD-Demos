@@ -167,7 +167,7 @@ def prefix_gnmi_paths(path, prefix):
 
 
 def remove_path_prefix(path, prefix):
-    assert path.elem[:len(prefix.elem)] == prefix.elem
+    assert path.elem[:len(prefix.elem)] == prefix.elem[:]
     return gnmi_pb2.Path(elem=path.elem[len(prefix.elem):],
                          origin=path.origin,
                          target=path.target)
