@@ -13,12 +13,11 @@ from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_common import make_xpath_path, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_demo_adapter')
-log.setLevel(logging.DEBUG)
 
 
 class GnmiDemoServerAdapter(GnmiServerAdapter):
-    NS_PREFIX="ietf-interfaces:"
-    NS_IANA="iana-if-type:"
+    NS_INTERFACES = "ietf-interfaces:"
+    NS_IANA = "iana-if-type:"
 
     # simple demo database
     # map with XPath, value - both strings
@@ -104,8 +103,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
 
     @staticmethod
     def _nsless_xpath(xpath: str):
-        return xpath.replace(GnmiDemoServerAdapter.NS_PREFIX, "")
-
+        return xpath.replace(GnmiDemoServerAdapter.NS_INTERFACES, "")
 
     @staticmethod
     def _get_key_from_xpath(xpath):
@@ -137,7 +135,6 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
             map_db[key] = elem_map
         log.debug("<== map_db={}".format(map_db))
         return map_db
-
 
     class SubscriptionHandler(GnmiServerAdapter.SubscriptionHandler):
 
@@ -459,7 +456,6 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         ops = [(up.path, self.set_update(prefix, up.path, up.val))
                for up in updates]
 
-
         log.info("==> ops=%s", ops)
         return ops
 
@@ -469,4 +465,3 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         # TODO
         log.info("==> ops=%s", ops)
         return ops
-

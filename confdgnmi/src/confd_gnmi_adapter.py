@@ -49,10 +49,7 @@ class GnmiServerAdapter(ABC):
     @abstractmethod
     def set(self, prefix, updates):
         """
-        Set value for given path
-        TODO this is simple version for initial implementation
-        To reflect fully gNMI Set,
-        we should pass all delete, replace and update lists
+        Apply given updates.
         :param prefix: gNMI path prefix
         :param updates: gNMI updates (with path and val) to be set
         :return: gNMI UpdateResult operation
@@ -212,8 +209,8 @@ class GnmiServerAdapter(ABC):
 
         def changes(self):
             """
-            Get subscription response for changes (subscribed values).
-            `update` array contains changes
+            Get subscription responses for changes (subscribed values).
+            `update` arrays contain changes
             TODO `delete` is processed and `delete` array is empty
             TODO `alias` is dummy string, atomic is always False
             TODO timestamp is 0
@@ -221,10 +218,10 @@ class GnmiServerAdapter(ABC):
             """
             log.debug("==>")
             notifications = self.get_subscription_notifications()
-            response = [gnmi_pb2.SubscribeResponse(update=notif)
-                        for notif in notifications]
-            log.debug("<== response=%s", response)
-            return response
+            responses = [gnmi_pb2.SubscribeResponse(update=notif)
+                         for notif in notifications]
+            log.debug("<== responses=%s", responses)
+            return responses
 
         def get_subscription_notifications(self):
             update = self.get_monitored_changes()

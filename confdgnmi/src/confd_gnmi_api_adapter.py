@@ -16,7 +16,7 @@ import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
 from confd_gnmi_common import make_xpath_path, make_formatted_path, \
-    prefix_gnmi_paths, remove_path_prefix, make_gnmi_path
+    add_path_prefix, remove_path_prefix, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
@@ -111,7 +111,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     for prefix, updates in self._get_subscription_notifications()]
 
         def _get_subscription_notifications(self):
-            # TODO reuse with demo adapter ?
             with self.change_db_lock:
                 log.debug("self.change_db=%s", self.change_db)
                 assert len(self.change_db) > 0
@@ -141,7 +140,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         def add_path_for_monitoring(self, path, prefix):
             log.debug("==>")
-            self.monitored_paths.append(prefix_gnmi_paths(path, prefix))
+            self.monitored_paths.append(add_path_prefix(path, prefix))
             log.debug("<==")
 
         @staticmethod
@@ -427,8 +426,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 root = maagic.get_root(t)
                 values = []
                 count = 0
-                # format
-                # http://tail-f.com/ns/confd-progress?module=tailf-confd-progress&revision=2020-06-29
                 for module in root.modules_state.module:
                     log.debug("val=%s", module.name)
                     name = f'{module.namespace}:{module.name}'
@@ -503,10 +500,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     def get_updates(self, trans, path_str, save_flags):
         log.debug("==> path_str=%s", path_str)
         csnode = _confd.cs_node_cd(None, path_str)
-        if csnode is None:
-            log.warning('failed to find the cs-node')
-            # TODO: raise the right exception
-            return []
         updates = []
 
         def add_update_json(keypath, _value):
@@ -531,7 +524,10 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(data).encode())
                 updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
 
-        trans.xpath_eval(path_str, add_update_json, None, '/')
+        if csnode is None:
+            log.warning('failed to find the cs-node')
+        else:
+            trans.xpath_eval(path_str, add_update_json, None, '/')
         log.debug("<== save_str=%s", updates)
         return updates
 
