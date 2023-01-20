@@ -16,7 +16,7 @@ import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
 from confd_gnmi_common import make_xpath_path, make_formatted_path, \
-    prefix_gnmi_paths, remove_path_prefix, make_gnmi_path
+    add_path_prefix, remove_path_prefix, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
@@ -111,7 +111,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                     for prefix, updates in self._get_subscription_notifications()]
 
         def _get_subscription_notifications(self):
-            # TODO reuse with demo adapter ?
             with self.change_db_lock:
                 log.debug("self.change_db=%s", self.change_db)
                 assert len(self.change_db) > 0
@@ -141,7 +140,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
         def add_path_for_monitoring(self, path, prefix):
             log.debug("==>")
-            self.monitored_paths.append(prefix_gnmi_paths(path, prefix))
+            self.monitored_paths.append(add_path_prefix(path, prefix))
             log.debug("<==")
 
         @staticmethod
