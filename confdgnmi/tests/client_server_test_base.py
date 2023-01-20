@@ -372,7 +372,7 @@ class GrpcBase(object):
         path_value.extend(self._changes_list_to_pv(changes_list))
 
         prefix_str = "interfaces{}".format(prefix_state_str)
-        prefix = make_gnmi_path("/" + GnmiDemoServerAdapter.NS_PREFIX + prefix_str)
+        prefix = make_gnmi_path("/" + GnmiDemoServerAdapter.NS_INTERFACES + prefix_str)
 
         paths = [GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
                                           "N/A")]
