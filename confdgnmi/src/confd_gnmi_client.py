@@ -2,8 +2,9 @@
 import argparse
 import logging
 import sys
-import threading
+import json
 from time import sleep
+from contextlib import closing
 
 from grpc import channel_ready_future, insecure_channel
 
@@ -92,13 +93,17 @@ class ConfDgNMIClient:
 
     @staticmethod
     def print_notification(n):
-        print("timestamp {} prefix {} atomic {}".format(n.timestamp,
-                                                        make_xpath_path(
-                                                            gnmi_prefix=n.prefix),
-                                                        n.atomic))
+        pfx_str = make_xpath_path(gnmi_prefix=n.prefix)
+        print("timestamp {} prefix {} atomic {}".format(n.timestamp, pfx_str, n.atomic))
         print("Updates:")
         for u in n.update:
-            print("path: {} value {}".format(make_xpath_path(u.path), u.val))
+            if u.val.json_val:
+                value = json.loads(u.val.json_val)
+            elif u.val.json_ietf_val:
+                value = json.loads(u.val.json_ietf_val)
+            else:
+                value = str(u.val)
+            print("path: {} value {}".format(pfx_str + make_xpath_path(u.path), value))
 
     @staticmethod
     def read_subscribe_responses(responses, read_count=-1):
@@ -159,6 +164,13 @@ class ConfDgNMIClient:
         log.info("<== response=%s", response)
         return response
 
+    def delete(self, prefix, paths):
+        log.info("==> prefix=%s paths=%s", prefix, paths)
+        request = gnmi_pb2.SetRequest(prefix=prefix, delete=paths)
+        response = self.stub.Set(request, metadata=self.metadata)
+        log.info("<== response=%s", response)
+        return response
+
 
 def parse_args(args):
     log.debug("==> args=%s", args)
@@ -166,7 +178,7 @@ def parse_args(args):
     parser.add_argument("--version", action="version",
                         version="%(prog)s {}".format(VERSION))
     parser.add_argument("-o", "--oper", action="store", dest="operation",
-                        choices=["capabilities", "set", "get", "subscribe"],
+                        choices=["capabilities", "set", "get", "delete", "subscribe"],
                         help="gNMI operation",
                         default="capabilities")
     common_optparse_options(parser)
@@ -199,7 +211,8 @@ def parse_args(args):
                         type=int,
                         help="Number of read requests for STREAM subscription (default 4)",
                         default=4)
-    (opt, args) = parser.parse_known_args(args=args)
+    parser.add_argument("--encoding", choices=["BYTES", "JSON", "JSON_IETF"], default="JSON_IETF")
+    opt = parser.parse_args(args=args)
     log.debug("opt=%s", opt)
     return opt
 
@@ -212,7 +225,7 @@ if __name__ == '__main__':
     prefix_str = opt.prefix
     prefix = make_gnmi_path(prefix_str)
     paths = [make_gnmi_path(p) for p in opt.paths]
-    vals = [gnmi_pb2.TypedValue(string_val=v) for v in opt.vals]
+    vals = [gnmi_pb2.TypedValue(json_ietf_val=v.encode()) for v in opt.vals]
 
     datatype = get_data_type(opt.datatype)
     subscription_mode = get_sub_mode(opt.submode)
@@ -225,38 +238,43 @@ if __name__ == '__main__':
               datatype, subscription_mode, poll_interval, poll_count,
               read_count)
 
-    encoding = gnmi_pb2.Encoding.BYTES
+    encoding = dict(BYTES=gnmi_pb2.Encoding.BYTES,
+                    JSON=gnmi_pb2.Encoding.JSON,
+                    JSON_IETF=gnmi_pb2.Encoding.JSON_IETF)[opt.encoding]
     subscription_list = ConfDgNMIClient.make_subscription_list(
         prefix, paths, subscription_mode)
 
-    client = ConfDgNMIClient(HOST, PORT)
-    if opt.operation == "capabilities":
-        supported_models = client.get_capabilities()
-        print("Capabilities - supported models:")
-        for m in supported_models:
-            print("name:{} organization:{} version: {}".format(m.name,
-                                                               m.organization,
-                                                               m.version))
-    elif opt.operation == "subscribe":
-        print("Starting subscription ....")
-        client.subscribe(subscription_list,
-                         read_fun=ConfDgNMIClient.read_subscribe_responses,
-                         poll_interval=poll_interval, poll_count=poll_count,
-                         read_count=read_count)
-        print(".... subscription done")
-    elif opt.operation == "get":
-        notification = client.get(prefix, paths, datatype, encoding)
-        print("Get - Notifications:")
-        for n in notification:
-            ConfDgNMIClient.print_notification(n)
-    elif opt.operation == "set":
-        if len(paths) != len(vals):
-            log.warning("len(paths) != len(vals); %i != %i", len(paths),
-                        len(vals))
-            print(
-                "Number of paths (--path) must be the same as number of vals (--val)!")
-        else:
-            response = client.set(prefix, list(zip(paths, vals)))
+    with closing(ConfDgNMIClient(HOST, PORT)) as client:
+        if opt.operation == "capabilities":
+            supported_models = client.get_capabilities()
+            print("Capabilities - supported models:")
+            for m in supported_models:
+                print("name:{} organization:{} version: {}".format(m.name,
+                                                                   m.organization,
+                                                                   m.version))
+        elif opt.operation == "subscribe":
+            print("Starting subscription ....")
+            client.subscribe(subscription_list,
+                             read_fun=ConfDgNMIClient.read_subscribe_responses,
+                             poll_interval=poll_interval, poll_count=poll_count,
+                             read_count=read_count)
+            print(".... subscription done")
+        elif opt.operation == "get":
+            notification = client.get(prefix, paths, datatype, encoding)
+            print("Get - Notifications:")
+            for n in notification:
+                ConfDgNMIClient.print_notification(n)
+        elif opt.operation in ("set", "delete"):
+            if opt.operation == "set":
+                if len(paths) != len(vals):
+                    log.warning("len(paths) != len(vals); %i != %i", len(paths),
+                                len(vals))
+                    raise RuntimeError(
+                        "Number of paths (--path) must be the same as number of vals (--val)!")
+                else:
+                    response = client.set(prefix, list(zip(paths, vals)))
+            else:
+                response = client.delete(prefix, paths)
             print("Set - UpdateResult:")
             print("timestamp {} prefix {}".format(response.timestamp,
                                                   make_xpath_path(
@@ -266,6 +284,5 @@ if __name__ == '__main__':
                                                           r.op,
                                                           make_xpath_path(
                                                               r.path)))
-    else:
-        log.warning("Unknown operation %s", opt.operation)
-    client.close()
+        else:
+            log.warning("Unknown operation %s", opt.operation)

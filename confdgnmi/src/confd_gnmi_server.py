@@ -14,6 +14,7 @@ from confd_gnmi_common import PORT, common_optparse_options, \
     common_optparse_process, VERSION
 from gnmi_pb2_grpc import gNMIServicer, add_gNMIServicer_to_server
 
+
 log = logging.getLogger('confd_gnmi_server')
 
 
@@ -92,8 +93,7 @@ class ConfDgNMIServicer(gNMIServicer):
             )
         response = gnmi_pb2.CapabilityResponse(
             supported_models=supported_models,
-            supported_encodings=[gnmi_pb2.Encoding.JSON,
-                                 gnmi_pb2.Encoding.BYTES],
+            supported_encodings=[gnmi_pb2.Encoding.JSON_IETF],
             gNMI_version="proto3",
             extension=[])
         # context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -129,15 +129,16 @@ class ConfDgNMIServicer(gNMIServicer):
         log.info("==> request=%s context=%s", request, context)
         adapter = self.get_connected_adapter(context)
 
-        response = []
-        # TODO for now we only process update list
-        for up in request.update:
-            op = adapter.set(request.prefix, up.path, up.val)
-            ur = gnmi_pb2.UpdateResult(timestamp=0, path=up.path, op=op)
-            response.append(ur)
+        # TODO for now we do not process replace list
+        # TODO: changes should be part of one transaction (gNMI spec. 3.4.3)
+        ops = adapter.set(request.prefix, request.update)
+        ops += adapter.delete(request.prefix, request.delete)
+
+        results = [gnmi_pb2.UpdateResult(timestamp=0, path=path, op=op)
+                   for path, op in ops]
 
         response = gnmi_pb2.SetResponse(prefix=request.prefix,
-                                        response=response, timestamp=0)
+                                        response=results, timestamp=0)
 
         log.info("<== response=%s", response)
         return response
@@ -289,4 +290,7 @@ if __name__ == '__main__':
         log.warning("Unknown server type %s", opt.type)
 
     server = ConfDgNMIServicer.serve(PORT, adapter_type)
-    server.wait_for_termination()
+    try:
+        server.wait_for_termination()
+    except KeyboardInterrupt:
+        log.info('exit on interrupt')

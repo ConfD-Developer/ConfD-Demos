@@ -1,12 +1,12 @@
 import logging
 import os
+import re
 import select
 import sys
 import threading
-import xml.etree.ElementTree as ET
+import json
 from enum import Enum
 from socket import socket
-from typing import List
 
 import _confd
 from confd import maapi, maagic
@@ -15,11 +15,17 @@ from confd.cdb import cdb
 import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
-from confd_gnmi_common import make_xpath_path, make_gnmi_path, \
-    make_formatted_path
+from confd_gnmi_common import make_xpath_path, make_formatted_path, \
+    add_path_prefix, remove_path_prefix, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
 log.setLevel(logging.DEBUG)
+
+
+INT_VALS = {_confd.C_INT8, _confd.C_INT16, _confd.C_INT32,
+            _confd.C_UINT8, _confd.C_UINT16, _confd.C_UINT32}
+
+EXT_SPOINT = -1  # no subscription point for external changes
 
 
 class GnmiConfDApiServerAdapter(GnmiServerAdapter):
@@ -34,6 +40,13 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         self.username: str = ""
         self.password: str = ""
         self.mp_inst = None
+        # make sure schemas are loaded
+        with maapi.Maapi():
+            pass
+        nslist = _confd.get_nslist()
+        self.module_to_pfx = {nsentry[-1]: nsentry[1] for nsentry in nslist}
+        self.pfx_to_module = {nsentry[1]: nsentry[-1] for nsentry in nslist}
+        self.ns_to_module = {nsentry[0]: nsentry[-1] for nsentry in nslist}
 
     # call only once!
     @staticmethod
@@ -86,40 +99,48 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             self.change_db_lock = threading.Lock()
             self.change_thread = None
             self.stop_pipe = None
+            self.subpoint_paths = {}
 
-        def get_monitored_changes(self) -> List:
-            # TODO reuse with demo adapter ?
+        def get_subscription_notifications(self):
+            return [gnmi_pb2.Notification(timestamp=0,
+                                          prefix=prefix,
+                                          alias="/alias",
+                                          update=updates,
+                                          delete=[],
+                                          atomic=False)
+                    for prefix, updates in self._get_subscription_notifications()]
+
+        def _get_subscription_notifications(self):
             with self.change_db_lock:
-                log.debug("==> self.change_db=%s", self.change_db)
+                log.debug("self.change_db=%s", self.change_db)
                 assert len(self.change_db) > 0
-                update = []
-                for c in self.change_db:
-                    prefix_str = make_xpath_path(
-                        gnmi_prefix=self.subscription_list.prefix)
-                    p = c[0]
-                    if c[0].startswith(prefix_str):
-                        p = c[0][len(prefix_str):]
-                    update.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                                  val=gnmi_pb2.TypedValue(
-                                                      string_val=c[1])))
+                for sub_point, changes in self.change_db:
+                    prefix = self.subpoint_paths[sub_point]
+                    updates = [gnmi_pb2.Update(path=remove_path_prefix(path, prefix),
+                                               val=value)
+                               for _op, path, value in changes]
+                    log.debug("update=%s", updates)
+                    yield prefix, updates
                 self.change_db = []
-            log.debug("<== update=%s", update)
-            return update
+
+        def get_monitored_changes(self):
+            raise NotImplementedError
 
         def get_sample(self, path, prefix,
                        start_change_processing=False):
-            update = []
             log.debug("==>")
-            update.extend(self.adapter.get_updates_with_maapi_save(path,
-                                                                   prefix,
-                                                                   gnmi_pb2.GetRequest.DataType.ALL))
-            log.debug("<== update=%s", update)
-            return update
+            pathstr = make_xpath_path(path, prefix, quote_val=True)
+            datatype = gnmi_pb2.GetRequest.DataType.ALL
+            updates = self.adapter.get_updates_with_maapi_save(pathstr, datatype)
+            sample = [gnmi_pb2.Update(path=remove_path_prefix(u.path, prefix),
+                                      val=u.val)
+                      for u in updates]
+            log.debug("<== sample=%s", sample)
+            return sample
 
         def add_path_for_monitoring(self, path, prefix):
             log.debug("==>")
-            path_with_prefix_str = make_formatted_path(path, prefix)
-            self.monitored_paths.append(path_with_prefix_str)
+            self.monitored_paths.append(add_path_prefix(path, prefix))
             log.debug("<==")
 
         @staticmethod
@@ -141,33 +162,32 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         class ChangeOp(Enum):
             MODIFIED = "mod"
 
-        def _append_changes(self, change_tuple):
+        def _append_changes(self, sub_point, changes):
             """
-            :param change_tuple: 3 elem tuple (o, xpath, val)
+            :param sub_point:
+            :param change_tuple: 3 elem tuple (o, gnmi path, val)
             :return:
             """
-            log.debug("==> change_tuple=%s", change_tuple)
+            log.debug("==> change_tuple=%s", changes)
             with self.change_db_lock:
-                for c in change_tuple:
-                    assert c[0] == self.ChangeOp.MODIFIED or \
-                           c[0] == self.ChangeOp.MODIFIED.value
-                    self.change_db.append((c[1], c[2]))
+                self.change_db.append((sub_point, changes))
             log.debug("<==")
 
         def process_subscription(self, sub_sock, sub_point):
             log.debug("==>")
 
-            def cdb_iter(kp, op, oldv, newv, state):
+            def cdb_iter(kp, op, oldv, newv, changes):
                 log.debug("==> kp=%s, op=%r, oldv=%s, newv=%s, state=%r", kp,
-                          op, oldv, newv, state)
+                          op, oldv, newv, changes)
+                csnode = _confd.cs_node_cd(None, _confd.pp_kpath(kp))
                 if op == _confd.MOP_CREATED:
                     log.debug("_confd.MOP_CREATED")
                     # TODO CREATE not handled for now
                 if op == _confd.MOP_VALUE_SET:
                     log.debug("_confd.MOP_VALUE_SET")
-                    self._append_changes([(self.ChangeOp.MODIFIED,
-                                           self.kp_to_xpath(kp),
-                                           str(newv))])
+                    changes.append((self.ChangeOp.MODIFIED,
+                                    self.adapter.make_gnmi_keypath(kp, csnode),
+                                    self.adapter.make_gnmi_json_value(newv, csnode)))
                     # TODO MOP_VALUE_SET implement
                 elif op == _confd.MOP_DELETED:
                     log.debug("_confd.MOP_DELETED")
@@ -181,10 +201,22 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                         op, kp)
                 return _confd.ITER_RECURSE
 
-            cdb.diff_iterate(sub_sock, sub_point, cdb_iter, 0, None)
+            changes = []
+            cdb.diff_iterate(sub_sock, sub_point, cdb_iter, 0, changes)
+            self._append_changes(sub_point, changes)
             self.put_event(self.SubscriptionEvent.SEND_CHANGES)
             log.debug("self.change_db=%s", self.change_db)
             log.debug("<==")
+
+        def _external_changes(self, data):
+            data_iter = iter(data)
+            for op, xpath, value in zip(data_iter, data_iter, data_iter):
+                fxpath = self.adapter.fix_path_prefixes(xpath)
+                csnode = _confd.cs_node_cd(None, fxpath)
+                path = make_gnmi_path(xpath)
+                cval = _confd.Value.str2val(value, csnode.info().type())
+                json_value = self.adapter.make_gnmi_json_value(cval, csnode)
+                yield op, path, json_value
 
         def process_external_change(self, ext_sock):
             log.info("==>")
@@ -203,8 +235,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 # the size must be smaller then size in recv
                 data = msg.decode().split('\n')
                 assert len(data) % 3 == 0
-                chunks = ((data[x], data[x+1], data[x+2]) for x in range(0, len(data), 3))
-                self._append_changes(chunks)
+                self._append_changes(EXT_SPOINT, list(self._external_changes(data)))
                 self.put_event(self.SubscriptionEvent.SEND_CHANGES)
                 log.debug("data=%s", data)
             log.info("<==")
@@ -219,20 +250,30 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             prio = 10
             subscribed = has_non_cdb = False
             # make subscription for all self.monitored_paths in CDB
-            for p in self.monitored_paths:
-                log.debug("subscribing config p=%s", p)
+            for path in self.monitored_paths:
+                log.debug("subscribing config path=%s", path)
                 # TODO hash - breaks generic usage
                 # TODO for now we subscribe path for both, config and oper,
                 # TODO subscribe only for paths that exist
                 # it may be more efficient to find out type of path and subscribe
                 # only for one type
-                cs_node = _confd.cs_node_cd(None, p)
-                is_cdb = cs_node.info().flags() & _confd.CS_NODE_IS_CDB
+                path_str = self.adapter.fix_path_prefixes(make_formatted_path(path))
+                cs_node = _confd.cs_node_cd(None, path_str)
+                if cs_node.info().flags() & _confd.CS_NODE_IS_LIST != 0 \
+                   and not path.elem[-1].key:
+                    subpoint_path = gnmi_pb2.Path(elem=path.elem[:-1],
+                                                  origin=path.origin,
+                                                  target=path.target)
+                else:
+                    subpoint_path = path
+                flags = cs_node.info().flags()
+                is_cdb = flags & _confd.CS_NODE_IS_CDB
                 if is_cdb:
                     subscribed = True
-                    cdb.subscribe2(sub_sock, cdb.SUB_RUNNING, 0, prio, 0, p)
-                    log.debug("subscribing operational p=%s", p)
-                    cdb.subscribe2(sub_sock, cdb.SUB_OPERATIONAL, 0, prio, 0, p)
+                    cdb_type = cdb.SUB_RUNNING if flags & _confd.CS_NODE_IS_WRITE \
+                        else cdb.SUB_OPERATIONAL
+                    spoint = cdb.subscribe2(sub_sock, cdb_type, 0, prio, 0, path_str)
+                    self.subpoint_paths[spoint] = subpoint_path
                 else:
                     has_non_cdb = True
             if subscribed:
@@ -300,12 +341,14 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 try:
                     if external_changes and has_non_cdb:
                         ext_server_sock = self.start_external_change_server()
+                        self.subpoint_paths[EXT_SPOINT] = gnmi_pb2.Path()
                         with ext_server_sock:
                             self.socket_loop(sub_sock, ext_server_sock)
                     else:
                         self.socket_loop(sub_sock)
                 except Exception as e:
                     log.exception(e)
+                    self.stop()
             log.debug("<==")
 
         def start_monitoring(self):
@@ -375,7 +418,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
     # TODO pass username from request context
     def get_netconf_capabilities(self):
         log.info("==>")
-        context = "maapi"
+        context = "netconf"
         groups = [self.username]
         try:
             with maapi.single_read_trans(self.username, context, groups,
@@ -383,21 +426,10 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
                 root = maagic.get_root(t)
                 values = []
                 count = 0
-                # format
-                # http://tail-f.com/ns/confd-progress?module=tailf-confd-progress&revision=2020-06-29
-                for val in root.netconf_state.capabilities.capability:
-                    log.debug("val=%s", val)
-                    if "module=" in val:
-                        el = val.split("?")
-                        if len(el) > 1:
-                            cap = el[1].split("&")
-                            name = cap[0]
-                            ver = ''
-                            if len(cap) > 1:
-                                ver = cap[1]
-                            values.append(
-                                (el[0], name.replace("module=", ""), "",
-                                 ver.replace("revision=", "")))
+                for module in root.modules_state.module:
+                    log.debug("val=%s", module.name)
+                    name = f'{module.namespace}:{module.name}'
+                    values.append((module.namespace, name, "", module.revision))
                     count += 1
                     log.debug("Value element count=%d" % count)
             log.debug("values=%s", values)
@@ -420,151 +452,184 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("<== models=%s", models)
         return models
 
-    def get_maapi_save_string(self, path_str, save_flags):
-        log.debug("==> path_str=%s", path_str)
-        save_str = ""
-        context = "maapi"
-        groups = [self.username]
-        try:
-            with maapi.single_read_trans(self.username, context, groups,
-                                         src_ip=self.addr) as t:
-                save_id = t.save_config(save_flags, path_str)
-                with socket() as save_sock:
-                    _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
-                                          ip=self.addr, port=self.port)
-                    # based on
-                    # https://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
-                    fragments = []
-                    max_msg_size = 1024
-                    while True:
-                        chunk = save_sock.recv(max_msg_size)
-                        if not chunk:
-                            break
-                        fragments.append(chunk)
-                    save_str = b''.join(fragments)
-                    log.debug("save_str=%s", save_str)
-                    save_result = t.maapi.save_config_result(save_id)
-                    log.debug("save_result=%s", save_result)
-                    assert save_result == 0
-        except Exception as e:
-            log.exception(e)
+    def make_gnmi_keypath_elems(self, keypath, csnode):
+        i = len(keypath) - 1
+        ns = 0
 
-        log.debug("<== save_str=%s", save_str)
-        return save_str
+        def csnode_list():
+            node = csnode
+            while node is not None:
+                yield node
+                node = node.parent()
 
-    def get_xml_paths(self, elem, orig_path_str, parent_path_cand=""):
-        log.debug("==> elem=%s orig_path_str=%s parent_path_cand=%s", elem,
-                  orig_path_str, parent_path_cand)
-        path_vals = []
-        # skip top level 'config' element
-        if not (
-                parent_path_cand == "" and elem.tag == "{http://tail-f.com/ns/config/1.0}config"):
-            parent_path_cand += "/" + elem.tag.split("}")[-1]
-        if len(elem) > 0:
-            # we (simplification) assume that if there are more sibling elements,
-            # this is list and first element is key, this should be fixed with
-            # help of `cs_nodes`
-            # in this way we can detect some (non list) paths incorrectly, we try to fix
-            # by comparing original path
-            if len(elem) > 1:
-                if elem[0].text is not None:
-                    parent_path_cand2 = parent_path_cand + "[{}={}]".format(
-                        elem[0].tag.split("}")[-1], elem[0].text)
-                    if parent_path_cand2.startswith(
-                            orig_path_str) or \
-                            orig_path_str.startswith(parent_path_cand2):
-                        parent_path_cand = parent_path_cand2
+        for node in reversed(list(csnode_list())):
+            assert i >= 0
+            keys = {}
+            name = _confd.hash2str(keypath[i].tag)
+            if keypath[i].ns != ns:
+                ns = keypath[i].ns
+                name = f'{self.ns_to_module[ns]}:{name}'
+            i -= 1
+            if node.info().flags() & _confd.CS_NODE_IS_LIST != 0:
+                assert i >= 0 and isinstance(keypath[i], tuple)
+                keys = {_confd.hash2str(key): str(val)
+                        for (key, val) in zip(node.info().keys(), keypath[i])}
+                i -= 1
+            yield gnmi_pb2.PathElem(name=name, key=keys)
 
-            for e in elem:
-                path_vals.extend(self.get_xml_paths(e, orig_path_str,
-                                                    parent_path_cand))
+    def make_gnmi_keypath(self, keypath, csnode=None):
+        if csnode is None:
+            csnode = _confd.cs_node_cd(None, _confd.pp_kpath(keypath))
+        return gnmi_pb2.Path(elem=list(self.make_gnmi_keypath_elems(keypath, csnode)))
+
+    def make_gnmi_json_value(self, value, csnode):
+        if value.confd_type() in INT_VALS:
+            json_value = int(value)
+        elif value.confd_type() == _confd.C_BOOL:
+            json_value = bool(value)
+        elif value.confd_type() == _confd.C_IDENTITYREF:
+            # JSON formatting is different than what ConfD does by default
+            [prefix,idref] = value.val2str(csnode.info().type()).split(":")
+            json_value = f"{self.pfx_to_module[prefix]}:{idref}"
+        # empty, leaf-lists...
         else:
-            # check if this is path for exact key
-            keypath_cand = None
-            if elem.text is not None:
-                val = elem.text.split(":")[-1]
-                path_list = parent_path_cand.split('/')
-                if len(path_list) >= 2:
-                    keypath_cand = "/".join(path_list[:-1]) + "[{}={}]".format(
-                        path_list[-1], val) + "/" + path_list[-1]
-                if keypath_cand is not None and orig_path_str == keypath_cand:
-                    path = keypath_cand
-                    parent_path_cand = path
-                else:
-                    path = parent_path_cand
-                # if path != orig_path_str:
-                #     path += "/" + elem.tag.split("}")[-1]
-                # we also need to check possibility this is exact key leaf
-                # skip not correctly detected paths
-                if path.startswith(parent_path_cand):
-                    path_vals.append((path, val))
-        log.debug("<== paths=%s", path_vals)
-        return path_vals
+            json_value = value.val2str(csnode.info().type())
+        gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(json_value).encode())
+        return gnmi_value
 
-    def get_updates_with_maapi_save(self, path, prefix, data_type):
-        log.debug("==> path=%s prefix=%s data_type=%s", path, prefix, data_type)
-        path_str = make_xpath_path(path, prefix, quote_val=False)
-        # we need ariant with quoted values for maapi_save
-        path_str_quote = make_xpath_path(path, prefix, quote_val=True)
-        prefix_str = make_xpath_path(gnmi_prefix=prefix)
-        log.debug("path_str=%s", path_str)
-        save_flags = _confd.maapi.CONFIG_XML | _confd.maapi.CONFIG_XPATH
+    def get_updates(self, trans, path_str, save_flags):
+        log.debug("==> path_str=%s", path_str)
+        csnode = _confd.cs_node_cd(None, path_str)
+        updates = []
+
+        def add_update_json(keypath, _value):
+            save_id = trans.save_config(save_flags, _confd.pp_kpath(keypath))
+            with socket() as save_sock:
+                _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
+                                      ip=self.addr, port=self.port)
+                max_msg_size = 1024
+                save_str = b''.join(iter(lambda: save_sock.recv(max_msg_size), b''))
+                if not save_str:
+                    return
+                saved_data = json.loads(save_str)
+                log.debug("data=%s", saved_data)
+                save_result = trans.maapi.save_config_result(save_id)
+                log.debug("save_result=%s", save_result)
+                assert save_result == 0
+                gnmi_path = self.make_gnmi_keypath(keypath, csnode)
+                # the format of saved_data is {"node": {data}}
+                # we need only the data part
+                assert len(saved_data) == 1
+                [data] = saved_data.values()
+                gnmi_value = gnmi_pb2.TypedValue(json_ietf_val=json.dumps(data).encode())
+                updates.append(gnmi_pb2.Update(path=gnmi_path, val=gnmi_value))
+
+        if csnode is None:
+            log.warning('failed to find the cs-node')
+        else:
+            trans.xpath_eval(path_str, add_update_json, None, '/')
+        log.debug("<== save_str=%s", updates)
+        return updates
+
+    def fix_path_prefixes(self, path):
+        def module_to_prefix(match):
+            name = match.groups()[0]
+            return self.module_to_pfx.get(name, name) + ':'
+        return re.sub(r'([^/:]+):', module_to_prefix, path)
+
+    def get_updates_with_maapi_save(self, path, data_type):
+        log.debug("==> path=%s data_type=%s", path, data_type)
+
+        pfx_path = self.fix_path_prefixes(path)
+        save_flags = _confd.maapi.CONFIG_JSON | _confd.maapi.CONFIG_NO_PARENTS
+        db = _confd.OPERATIONAL
 
         if data_type == gnmi_pb2.GetRequest.DataType.ALL:
             save_flags |= _confd.maapi.CONFIG_WITH_OPER
         elif data_type == gnmi_pb2.GetRequest.DataType.CONFIG:
-            pass
+            db = _confd.RUNNING
         elif data_type == gnmi_pb2.GetRequest.DataType.STATE:
             save_flags |= _confd.maapi.CONFIG_OPER_ONLY
         elif data_type == gnmi_pb2.GetRequest.DataType.OPERATIONAL:
             save_flags |= _confd.maapi.CONFIG_OPER_ONLY
 
-        save_xml = self.get_maapi_save_string(path_str_quote, save_flags)
-        root = ET.fromstring(save_xml)
-        xml_paths = self.get_xml_paths(root, path_str)
-        up = []
-        for pv in xml_paths:
-            # skip incorrecly detected paths
-            if pv[0].startswith(path_str):
-                p = pv[0][len(prefix_str):]
-                up.append(gnmi_pb2.Update(path=make_gnmi_path(p),
-                                          val=gnmi_pb2.TypedValue(
-                                              string_val=pv[1])))
-        log.debug("<== up=%s", up)
-        return up
+        context = "netconf"
+        groups = [self.username]
+        updates = []
+        try:
+            with maapi.single_read_trans(self.username, context, groups, db=db,
+                                         src_ip=self.addr) as t:
+                updates = self.get_updates(t, pfx_path, save_flags)
+        except Exception as e:
+            log.exception(e)
+
+        log.debug("<== up=%s", updates)
+        return updates
 
     def get(self, prefix, paths, data_type, use_models):
         log.info("==> prefix=%s, paths=%s, data_type=%s, use_models=%s",
                  prefix, paths, data_type, use_models)
         notifications = []
-        update = []
-        for path in paths:
-            update.extend(
-                self.get_updates_with_maapi_save(path, prefix, data_type))
+        updates2 = [self.get_updates_with_maapi_save(make_xpath_path(path, prefix, quote_val=True),
+                                                     data_type)
+                    for path in paths]
+        updates = [gnmi_pb2.Update(path=remove_path_prefix(update.path, prefix), val=update.val)
+                   for u_list in updates2
+                   for update in u_list]
         notif = gnmi_pb2.Notification(timestamp=1, prefix=prefix,
-                                      update=update,
+                                      update=updates,
                                       delete=[],
                                       atomic=True)
         notifications.append(notif)
         log.info("<== notifications=%s", notifications)
         return notifications
 
-    def set(self, prefix, path, val):
-        log.info("==> prefix=%s, path=%s, val=%s", prefix, path, val)
-        path_str = make_formatted_path(path, prefix)
-        context = "maapi"
-        groups = [self.username]
-        if hasattr(val, "string_val"):
-            str_val = val.string_val
-        else:
-            # TODO
-            str_val = "{}".format(val)
+    def set_update(self, trans, prefix, path, val):
+        path_str = self.fix_path_prefixes(make_formatted_path(path, prefix))
+        if val.string_val:
+            trans.set_elem(val.string_val, path_str)
+        elif val.json_ietf_val:
+            jval = json.loads(val.json_ietf_val)
 
+            def update_paths(path, val, parent_node):
+                # TODO: no support for list instances
+                csnode = _confd.cs_node_cd(parent_node, path)
+                if isinstance(val, dict):
+                    trans.pushd(path)
+                    for leaf, value in val.items():
+                        update_paths(self.fix_path_prefixes(leaf), value, csnode)
+                else:
+                    if csnode.info().shallow_type() == _confd.C_IDENTITYREF:
+                        # in JSON, identityrefs are prefixed by module name
+                        val = self.fix_path_prefixes(val)
+                    trans.set_elem(val, path)
+            update_paths(path_str, jval, None)
+        op = gnmi_pb2.UpdateResult.UPDATE
+        return op
+
+    def set(self, prefix, updates):
+        log.info("==> prefix=%s, updates=%s", prefix, updates)
+        context = "netconf"
+        groups = [self.username]
         with maapi.single_write_trans(self.username, context, groups,
                                       src_ip=self.addr) as t:
-            t.set_elem(str_val, path_str)
+            ops = [(up.path, self.set_update(t, prefix, up.path, up.val))
+                   for up in updates]
             t.apply()
-            op = gnmi_pb2.UpdateResult.UPDATE
 
-        log.info("==> op=%s", op)
-        return op
+        log.info("==> ops=%s", ops)
+        return ops
+
+    def delete(self, prefix, paths):
+        log.info("==> prefix=%s, paths=%s", prefix, paths)
+        context = "netconf"
+        groups = [self.username]
+        with maapi.single_write_trans(self.username, context, groups, src_ip=self.addr) as t:
+            ops = []
+            for path in paths:
+                t.delete(self.fix_path_prefixes(make_formatted_path(path, prefix)))
+                ops.append((path, gnmi_pb2.UpdateResult.DELETE))
+            t.apply()
+
+        log.info("==> ops=%s", ops)
+        return ops

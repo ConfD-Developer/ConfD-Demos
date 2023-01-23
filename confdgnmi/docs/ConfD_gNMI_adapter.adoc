@@ -324,49 +324,49 @@ NOTE: Other parameters (e.g. username, password, encoding) are currently hardcod
 .get values of `leaf` elements
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+./src/confd_gnmi_client.py -o  get --prefix /ietf-interfaces:interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
 ----
 
 .get values of `list` entry
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface[name=if_8]
+./src/confd_gnmi_client.py -o  get --prefix /ietf-interfaces:interfaces --path interface[name=if_8]
 ----
 
 .get values of state `list` entry
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --prefix /interfaces-state --path interface[name=state_if_8] -t STATE
+./src/confd_gnmi_client.py -o  get --prefix /ietf-interfaces:interfaces-state --path interface[name=state_if_8] -t STATE
 ----
 
 .get values of `list` entries
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o  get --prefix /interfaces --path interface
+./src/confd_gnmi_client.py -o  get --prefix /ietf-interfaces:interfaces --path interface
 ----
 
 .set value of `leaf` element
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o set  --prefix /interfaces --path interface[name=if_8]/type --val fastEther
+./src/confd_gnmi_client.py -o set  --prefix /ietf-interfaces:interfaces --path interface[name=if_8]/type --val \"fastEther\"
 ----
 
 .ONCE subscribe for `leaf` elements
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe -s ONCE --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+./src/confd_gnmi_client.py -o subscribe -s ONCE --prefix /ietf-interfaces:interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
 ----
 
 .POLL subscribe for `leaf` elements
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe -s POLL --poll-count=2 --poll-interval=1.5 --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+./src/confd_gnmi_client.py -o subscribe -s POLL --poll-count=2 --poll-interval=1.5 --prefix /ietf-interfaces:interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
 ----
 
 .STREAM subscribe for `leaf` elements
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
+./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /ietf-interfaces:interfaces --path interface[name=if_8]/name --path interface[name=if_8]/type
 ----
 
 NOTE: Following subscribe examples use `ONCE` (default) subscription mode. It is possible to use `POLL` (with `--poll-count` and `--poll-interval`) and `STREAM` (with `--read-count`) mode as well.
@@ -393,32 +393,32 @@ For operational data: +
 .subscribe for `list` entry
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface[name=if_8]
+./src/confd_gnmi_client.py -o subscribe --prefix /ietf-interfaces:interfaces --path interface[name=if_8]
 ----
 
 .subscribe for `list` entries
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --prefix /interfaces --path interface
+./src/confd_gnmi_client.py -o subscribe --prefix /ietf-interfaces:interfaces --path interface
 ----
 
 .subscribe for `list` entries (without `--prefix`)
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --path /interfaces/interface
+./src/confd_gnmi_client.py -o subscribe --path /ietf-interfaces:interfaces/interface
 ----
 
 .subscribe for state data `list` entry
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --prefix /interfaces-state --path interface[name=state_if_8]
+./src/confd_gnmi_client.py -o subscribe --prefix /ietf-interfaces:interfaces-state --path interface[name=state_if_8]
 ----
 
 
 .subscribe for `list` entries (without `--prefix`) or config and state data
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --path /interfaces-state/interface --path /interfaces/interface
+./src/confd_gnmi_client.py -o subscribe --path /ietf-interfaces:interfaces-state/interface --path /interfaces/interface
 ----
 [#c_stats]
 ==== Against running `examples.confd/intro/5-c_stats`
@@ -426,19 +426,19 @@ For operational data: +
 .get values of state `list` (with prefix)
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o get --prefix /arpentries --path arpe -t STATE
+./src/confd_gnmi_client.py -o get --prefix /arpe:arpentries --path arpe -t STATE
 ----
 
 .get values of state `list` (without prefix)
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o get --path /arpentries/arpe -t STATE
+./src/confd_gnmi_client.py -o get --path /arpe:arpentries/arpe -t STATE
 ----
 
 .subscribe values of state `list` (with prefix)
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --prefix /arpentries --path arpe
+./src/confd_gnmi_client.py -o subscribe --prefix /arpe:arpentries --path arpe
 ----
 
 [#iter-c]
@@ -455,31 +455,31 @@ confd_cmd -c "mcreate /root/node-b/rf-head{12}; mset /root/node-b/rf-head{12}/se
 .get specific `leaf`
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o get --path /root/node-b/rf-head[dn=10]/sector-id
+./src/confd_gnmi_client.py -o get --path /root:root/node-b/rf-head[dn=10]/sector-id
 ----
 
 .get `leaf` with prefix
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o get --prefix /root/node-b/rf-head[dn=10] --path sector-id
+./src/confd_gnmi_client.py -o get --prefix /root:root/node-b/rf-head[dn=10] --path sector-id
 ----
 
 .get one `list` entry
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o get --prefix /root/node-b --path rf-head[dn=10]
+./src/confd_gnmi_client.py -o get --prefix /root:root/node-b --path rf-head[dn=10]
 ----
 
 .get  `list`
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o get --path /root/node-b/rf-head
+./src/confd_gnmi_client.py -o get --path /root:root/node-b/rf-head
 ----
 
 .set specific `leaf`
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o set --path /root/node-b/rf-head[dn=10]/sector-id --val id100
+./src/confd_gnmi_client.py -o set --path /root/node-b/rf-head[dn=10]/sector-id ---val \"dn:id100\"
 ----
 
 NOTE: `set` is supported only with CDB RUNNING - see <<Limitations and TODOs>>)
@@ -487,17 +487,17 @@ NOTE: `set` is supported only with CDB RUNNING - see <<Limitations and TODOs>>)
 .subscribe for `list` entries
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe --prefix /root --path node-b/rf-head[dn=10]
+./src/confd_gnmi_client.py -o subscribe --prefix /root:root --path node-b/rf-head[dn=10]
 ----
 
 .subscribe for `list` entries as `STREAM` subscription
 [source, shell, role="acopy"]
 ----
-./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /root --path node-b/rf-head[dn=10]
+./src/confd_gnmi_client.py -o subscribe -s STREAM --read-count=3 --prefix /root:root --path node-b/rf-head[dn=10]
 ----
 
 TIP: Use gNMI `set` operation or `confd_cmd -c "mset ..."` to invoke changes visible in the STREAMing subscription. +
-E.g.:  `./src/confd_gnmi_client.py -o set --path /root/node-b/rf-head[dn=10]/sector-id --val id1000` or
+E.g.:  `./src/confd_gnmi_client.py -o set --path /root:root/node-b/rf-head[dn=10]/sector-id --val \"dn:id1000\"` or
 `confd_cmd -c "mset /root/node-b/rf-head{10}/sector-id id10000"`
 
 NOTE: Changes to configuration are also visible in the console of started example `examples.confd/cdb_subscription/iter_c` as it uses under ConfD subscriber. It is interesting to compare
@@ -602,8 +602,8 @@ mod
 [.output]
 ----
 Updates:
-path: /route-status[route=95rt1]/leaf1 value string_val: "5"
-path: /route-status[route=84rt8]/leaf1 value string_val: "1"
+path: /route-status/route[id=95rt1]/leaf1 value string_val: "5"
+path: /route-status/route[id=84rt8]/leaf1 value string_val: "1"
 ----
 
 == Implementation

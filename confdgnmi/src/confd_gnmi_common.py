@@ -160,6 +160,19 @@ def make_formatted_path(gnmi_path, gnmi_prefix=None, quote_val=False) -> str:
     return path_str
 
 
+def add_path_prefix(path, prefix):
+    return gnmi_pb2.Path(elem=list(prefix.elem) + list(path.elem),
+                         origin=path.origin,
+                         target=path.target)
+
+
+def remove_path_prefix(path, prefix):
+    assert path.elem[:len(prefix.elem)] == prefix.elem[:]
+    return gnmi_pb2.Path(elem=path.elem[len(prefix.elem):],
+                         origin=path.origin,
+                         target=path.target)
+
+
 def get_data_type(datatype_str):
     datatype_map = {
         "ALL": gnmi_pb2.GetRequest.DataType.ALL,
