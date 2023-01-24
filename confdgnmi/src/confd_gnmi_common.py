@@ -1,14 +1,14 @@
 import logging
 from typing import Tuple, Dict
 
-import gnmi_pb2
+import gnmi.proto as gp
 
 VERSION = "0.2.0"
 HOST = "localhost"
 PORT = 50061
 logging.basicConfig(
-    format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s [%(threadName)s]',
-    level=logging.WARNING)
+    format='%(asctime)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s [%(threadName)s]',
+    level=logging.DEBUG)
 log = logging.getLogger('confd_gnmi_common')
 
 
@@ -66,7 +66,7 @@ def make_name_keys(elem_string) -> Tuple[str, Dict[str, str]]:
 # Crate gNMI Path object from string representation of path
 # see: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#222-paths
 # TODO tests
-def make_gnmi_path(xpath_string, origin=None, target=None) -> gnmi_pb2.Path:
+def make_gnmi_path(xpath_string, origin=None, target=None) -> gp.Path:
     """
     Create gnmi path from string path
     :param xpath_string:
@@ -82,9 +82,9 @@ def make_gnmi_path(xpath_string, origin=None, target=None) -> gnmi_pb2.Path:
     for e in elem_strings:
         if e != '':
             (name, keys) = make_name_keys(e)
-            elem = gnmi_pb2.PathElem(name=name, key=keys)
+            elem = gp.PathElem(name=name, key=keys)
             elems.append(elem)
-    path = gnmi_pb2.Path(elem=elems, target=target, origin=origin)
+    path = gp.Path(elem=elems, target=target, origin=origin)
     log.debug("<== path=%s", path)
     return path
 
@@ -161,32 +161,32 @@ def make_formatted_path(gnmi_path, gnmi_prefix=None, quote_val=False) -> str:
 
 
 def add_path_prefix(path, prefix):
-    return gnmi_pb2.Path(elem=list(prefix.elem) + list(path.elem),
-                         origin=path.origin,
-                         target=path.target)
+    return gp.Path(elem=list(prefix.elem) + list(path.elem),
+                   origin=path.origin,
+                   target=path.target)
 
 
 def remove_path_prefix(path, prefix):
     assert path.elem[:len(prefix.elem)] == prefix.elem[:]
-    return gnmi_pb2.Path(elem=path.elem[len(prefix.elem):],
-                         origin=path.origin,
-                         target=path.target)
+    return gp.Path(elem=path.elem[len(prefix.elem):],
+                   origin=path.origin,
+                   target=path.target)
 
 
 def get_data_type(datatype_str):
     datatype_map = {
-        "ALL": gnmi_pb2.GetRequest.DataType.ALL,
-        "CONFIG": gnmi_pb2.GetRequest.DataType.CONFIG,
-        "STATE": gnmi_pb2.GetRequest.DataType.STATE,
-        "OPERATIONAL": gnmi_pb2.GetRequest.DataType.OPERATIONAL,
+        "ALL": gp.GetRequestDataType.ALL,
+        "CONFIG": gp.GetRequestDataType.CONFIG,
+        "STATE": gp.GetRequestDataType.STATE,
+        "OPERATIONAL": gp.GetRequestDataType.OPERATIONAL,
     }
     return datatype_map[datatype_str]
 
 
 def get_sub_mode(mode_str):
     mode_map = {
-        "ONCE": gnmi_pb2.SubscriptionList.ONCE,
-        "POLL": gnmi_pb2.SubscriptionList.POLL,
-        "STREAM": gnmi_pb2.SubscriptionList.STREAM,
+        "ONCE": gp.SubscriptionListMode.ONCE,
+        "POLL": gp.SubscriptionListMode.POLL,
+        "STREAM": gp.SubscriptionListMode.STREAM,
     }
     return mode_map[mode_str]
