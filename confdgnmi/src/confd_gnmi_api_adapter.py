@@ -104,7 +104,6 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         def get_subscription_notifications(self):
             return [gnmi_pb2.Notification(timestamp=0,
                                           prefix=prefix,
-                                          alias="/alias",
                                           update=updates,
                                           delete=[],
                                           atomic=False)

@@ -152,9 +152,6 @@ class ConfDgNMIServicer(gNMIServicer):
                 log.debug("req=%s", req)
                 if hasattr(req, "poll"):
                     handler.poll()
-                elif hasattr(req, "alias"):
-                    # TODO exception, "alias: request not yet implemented
-                    assert False
                 else:
                     # TODO exception, not expected other type of request
                     assert False
