@@ -219,9 +219,11 @@ class ConfDgNMIServicer(gNMIServicer):
             server.add_insecure_port("[::]:{}".format(port))
         else:
             assert key_file!= None and crt_file != None
-            key = open(key_file).read().encode()
-            crt = open(crt_file).read().encode()
-            server.add_secure_port("[::]:{}".format(port),
+            with open(key_file) as k:
+                key = k.read().encode("utf-8")
+                with open(crt_file) as c:
+                    crt = c.read().encode("utf-8")
+                    server.add_secure_port("[::]:{}".format(port),
                                    grpc.ssl_server_credentials([(key, crt)]))
         server.start()
         log.info("<== server=%s", server)

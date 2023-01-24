@@ -23,8 +23,8 @@ endif::[]
 :Author:    Michal Novák
 :email:     micnovak@cisco.com
 :URL:       https://www.tail-f.com/
-:Date:      2022-12-21
-:Revision:  0.3.0-dev
+:Date:      2023-01-24
+:Revision:  0.3.0
 
 == Version history
 
@@ -34,8 +34,7 @@ endif::[]
 | 0.0.1           | Initial document version.                       | 2021-02-09      | {author} {email}
 | 0.1.0          | Run options updated, added seq. diagrams for Subscribe operation.                      |  2021-03-23     | {author} {email}
 | 0.2.0   | External data provider description, fixes, documentation update.                      | 2021-04-27      | {author} {email}
-| {revision}   | External data provider description, fixes, documentation update.                      | {date}      | {author} {email}
-
+| {revision}   | Update command line options, added Encoding description            | {date}      | {author} {email}
 |======
 
 toc::[]
@@ -268,7 +267,7 @@ options:
   --confd-addr CONFD_ADDR
                         ConfD IP address (default is 127.0.0.1)
   --confd-port CONFD_PORT
-                        ConfD port (default is None)
+                        ConfD port (default is 4565)
   --monitor-external-changes
                         start external changes service
   --external-port EXTERNAL_PORT
@@ -283,7 +282,7 @@ host interface and port the server listens for gRPC communication, specify serve
 or just use insecure communication connection channel.
 
 
-NOTE: Other parameters mapy be hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
+NOTE: Other parameters may be hardcoded in the source code (mainly in the `./src/confd_gnmi_common.py`).
 
 === Client
 

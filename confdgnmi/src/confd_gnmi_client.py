@@ -29,19 +29,16 @@ class ConfDgNMIClient:
         if insecure:
             self.channel = insecure_channel("{}:{}".format(host, port))
         else:
-            # key = open('client.key').read().encode("utf-8"))
-            # crt = open('client.crt').read().encode("utf-8"))
-            # crt_s = open('server.crt').read().encode("utf-8"))
             options = ()
-            ssl_crt = None
             if server_crt_file:
-                ssl_cert = open(server_crt_file).read().encode("utf-8")
+                with open(server_crt_file) as s:
+                    ssl_cert = s.read().encode("utf-8")
             else:
-                # options = (("grpc.ssl_target_name_override", ""),)
+                # Example of overriding target name in options, if needed:
+                #  options = (("grpc.ssl_target_name_override", ""),)
                 ssl_cert = ssl.get_server_certificate((host, port)).encode(
                     "utf-8")
-            assert ssl_cert != None
-            # self.channel = secure_channel("{}:{}".format(host, port), ssl_channel_credentials(root_certificates=crt_s, private_key=key, certificate_chain=crt), options=[options])
+            assert ssl_cert is not None
             self.channel = secure_channel("{}:{}".format(host, port),
                                           ssl_channel_credentials(
                                               root_certificates=ssl_cert),
@@ -116,7 +113,8 @@ class ConfDgNMIClient:
     @staticmethod
     def print_notification(n):
         pfx_str = make_xpath_path(gnmi_prefix=n.prefix)
-        print("timestamp {} prefix {} atomic {}".format(n.timestamp, pfx_str, n.atomic))
+        print("timestamp {} prefix {} atomic {}".format(n.timestamp, pfx_str,
+                                                        n.atomic))
         print("Updates:")
         for u in n.update:
             if u.val.json_val:
@@ -125,7 +123,8 @@ class ConfDgNMIClient:
                 value = json.loads(u.val.json_ietf_val)
             else:
                 value = str(u.val)
-            print("path: {} value {}".format(pfx_str + make_xpath_path(u.path), value))
+            print("path: {} value {}".format(pfx_str + make_xpath_path(u.path),
+                                             value))
 
     @staticmethod
     def read_subscribe_responses(responses, read_count=-1):
