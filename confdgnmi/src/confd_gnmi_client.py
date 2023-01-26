@@ -31,8 +31,8 @@ class ConfDgNMIClient:
         else:
             options = ()
             if server_crt_file:
-                with open(server_crt_file) as s:
-                    ssl_cert = s.read().encode("utf-8")
+                with open(server_crt_file, "rb") as s:
+                    ssl_cert = s.read()
             else:
                 # Example of overriding target name in options, if needed:
                 #  options = (("grpc.ssl_target_name_override", ""),)
