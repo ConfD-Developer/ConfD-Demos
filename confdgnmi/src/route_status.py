@@ -20,7 +20,7 @@ LOG_LEVEL = logging.INFO
 RUN_FOR_TIME: int = 1000
 
 logging.basicConfig(
-    format="%(asctime)s:%(relativeCreated)s "
+    format="%(asctime)s "
            "%(levelname)s:%(filename)s:%(lineno)s:%(funcName)s  %(message)s",
     level=LOG_LEVEL)
 log = logging.getLogger("route_status")

@@ -9,7 +9,8 @@ PORT = 50061
 
 
 def config_logging(
-        format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s [%(threadName)s]',
+        format='%(asctime)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s '
+               '%(message)s [%(threadName)s]',
         level=logging.WARNING,
         force=False):
     logging.basicConfig(format=format, level=level, force=force)

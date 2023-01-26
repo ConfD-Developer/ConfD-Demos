@@ -266,7 +266,7 @@ def parse_args(args, parser = None):
     parser.add_argument("--crt", action="store", dest="crt",
                         help="Path to the server certificate.",
                         default="server.crt")
-    (opt, args) = parser.parse_known_args(args=args)
+    opt = parser.parse_args(args=args)
     log.debug("opt=%s", opt)
     return opt
 
