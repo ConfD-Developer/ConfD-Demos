@@ -152,9 +152,6 @@ class ConfDgNMIServicer(gNMIServicer):
                 log.debug("req=%s", req)
                 if hasattr(req, "poll"):
                     handler.poll()
-                elif hasattr(req, "alias"):
-                    # TODO exception, "alias: request not yet implemented
-                    assert False
                 else:
                     # TODO exception, not expected other type of request
                     assert False
@@ -209,12 +206,21 @@ class ConfDgNMIServicer(gNMIServicer):
         log.info("<==")
 
     @staticmethod
-    def serve(port=PORT, adapter_type=AdapterType.DEMO):
+    def serve(port=PORT, adapter_type=AdapterType.DEMO, insecure=False,
+              key_file=None, crt_file=None):
         log.info("==> port=%s adapter_type=%s", port, adapter_type)
 
         server = grpc.server(ThreadPoolExecutor(max_workers=10))
         add_gNMIServicer_to_server(ConfDgNMIServicer(adapter_type), server)
-        server.add_insecure_port("[::]:{}".format(port))
+        if insecure:
+            server.add_insecure_port("[::]:{}".format(port))
+        else:
+            assert key_file!= None and crt_file != None
+            with open(key_file, "rb") as k, open(crt_file, "rb") as c:
+                key = k.read()
+                crt = c.read()
+            server.add_secure_port("[::]:{}".format(port),
+                           grpc.ssl_server_credentials([(key, crt)]))
         server.start()
         log.info("<== server=%s", server)
         return server
@@ -254,6 +260,12 @@ def parse_args(args, parser = None):
                         default=ApiAdapterDefaults.EXTERNAL_PORT, type=int)
     parser.add_argument("--cfg", action="store", dest="cfg",
                         help="config file")
+    parser.add_argument("--key", action="store", dest="key",
+                        help="Path to the server key.",
+                        default="server.key")
+    parser.add_argument("--crt", action="store", dest="crt",
+                        help="Path to the server certificate.",
+                        default="server.crt")
     (opt, args) = parser.parse_known_args(args=args)
     log.debug("opt=%s", opt)
     return opt
@@ -289,7 +301,8 @@ if __name__ == '__main__':
     else:
         log.warning("Unknown server type %s", opt.type)
 
-    server = ConfDgNMIServicer.serve(PORT, adapter_type)
+    server = ConfDgNMIServicer.serve(PORT, adapter_type, insecure=opt.insecure,
+                                     key_file=opt.key, crt_file=opt.crt)
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:

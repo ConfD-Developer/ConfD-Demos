@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import ssl
 import sys
 import json
 from time import sleep
 from contextlib import closing
 
-from grpc import channel_ready_future, insecure_channel
+from grpc import channel_ready_future, insecure_channel, secure_channel, \
+    ssl_channel_credentials
 
 import gnmi_pb2
 from confd_gnmi_common import HOST, PORT, make_xpath_path, VERSION, \
@@ -19,11 +21,28 @@ log = logging.getLogger('confd_gnmi_client')
 
 class ConfDgNMIClient:
 
-    def __init__(self, host=HOST, port=PORT, metadata=None):
+    def __init__(self, host=HOST, port=PORT, metadata=None, insecure=False,
+                 server_crt_file=None, username="admin", password="admin"):
         if metadata is None:
-            metadata = [('username', 'admin'), ('password', 'admin')]
+            metadata = [('username', username), ('password', password)]
         log.info("==> host=%s, port=%i, metadata-%s", host, port, metadata)
-        self.channel = insecure_channel("{}:{}".format(host, port))
+        if insecure:
+            self.channel = insecure_channel("{}:{}".format(host, port))
+        else:
+            options = ()
+            if server_crt_file:
+                with open(server_crt_file, "rb") as s:
+                    ssl_cert = s.read()
+            else:
+                # Example of overriding target name in options, if needed:
+                #  options = (("grpc.ssl_target_name_override", ""),)
+                ssl_cert = ssl.get_server_certificate((host, port)).encode(
+                    "utf-8")
+            assert ssl_cert is not None
+            self.channel = secure_channel("{}:{}".format(host, port),
+                                          ssl_channel_credentials(
+                                              root_certificates=ssl_cert),
+                                          options=options)
         channel_ready_future(self.channel).result(timeout=5)
         self.metadata = metadata
         self.stub = gNMIStub(self.channel)
@@ -41,7 +60,7 @@ class ConfDgNMIClient:
         return response.supported_models
 
     @staticmethod
-    def make_subscription_list(prefix, paths, mode):
+    def make_subscription_list(prefix, paths, mode, encoding):
         log.debug("==> mode=%s", mode)
         qos = gnmi_pb2.QOSMarking(marking=1)
         subscriptions = []
@@ -59,7 +78,7 @@ class ConfDgNMIClient:
             mode=mode,
             allow_aggregation=False,
             use_models=[],
-            encoding=gnmi_pb2.Encoding.BYTES,
+            encoding=encoding,
             updates_only=False
         )
 
@@ -94,7 +113,8 @@ class ConfDgNMIClient:
     @staticmethod
     def print_notification(n):
         pfx_str = make_xpath_path(gnmi_prefix=n.prefix)
-        print("timestamp {} prefix {} atomic {}".format(n.timestamp, pfx_str, n.atomic))
+        print("timestamp {} prefix {} atomic {}".format(n.timestamp, pfx_str,
+                                                        n.atomic))
         print("Updates:")
         for u in n.update:
             if u.val.json_val:
@@ -103,7 +123,8 @@ class ConfDgNMIClient:
                 value = json.loads(u.val.json_ietf_val)
             else:
                 value = str(u.val)
-            print("path: {} value {}".format(pfx_str + make_xpath_path(u.path), value))
+            print("path: {} value {}".format(pfx_str + make_xpath_path(u.path),
+                                             value))
 
     @staticmethod
     def read_subscribe_responses(responses, read_count=-1):
@@ -211,7 +232,18 @@ def parse_args(args):
                         type=int,
                         help="Number of read requests for STREAM subscription (default 4)",
                         default=4)
-    parser.add_argument("--encoding", choices=["BYTES", "JSON", "JSON_IETF"], default="JSON_IETF")
+    parser.add_argument("--server-crt", action="store", dest="servercrt",
+                        help="Path to the server certificate.",
+                        default=None)
+    parser.add_argument("--user", action="store", dest="username",
+                        help="User (default 'admin')",
+                        default='admin')
+    parser.add_argument("--password", action="store", dest="password",
+                        help="Password (default 'admin')",
+                        default='admin')
+    parser.add_argument("--encoding", choices=["JSON", "JSON_IETF"],
+                        help="Requested encoding for get and subscribe (default 'JSON_IETF')",
+                        default="JSON_IETF")
     opt = parser.parse_args(args=args)
     log.debug("opt=%s", opt)
     return opt
@@ -238,13 +270,15 @@ if __name__ == '__main__':
               datatype, subscription_mode, poll_interval, poll_count,
               read_count)
 
-    encoding = dict(BYTES=gnmi_pb2.Encoding.BYTES,
-                    JSON=gnmi_pb2.Encoding.JSON,
+    encoding = dict(JSON=gnmi_pb2.Encoding.JSON,
                     JSON_IETF=gnmi_pb2.Encoding.JSON_IETF)[opt.encoding]
     subscription_list = ConfDgNMIClient.make_subscription_list(
-        prefix, paths, subscription_mode)
+        prefix, paths, subscription_mode, encoding)
 
-    with closing(ConfDgNMIClient(HOST, PORT)) as client:
+    with closing(ConfDgNMIClient(opt.host, opt.port, insecure=opt.insecure,
+                                 server_crt_file=opt.servercrt,
+                                 username=opt.username,
+                                 password=opt.password)) as client:
         if opt.operation == "capabilities":
             supported_models = client.get_capabilities()
             print("Capabilities - supported models:")
