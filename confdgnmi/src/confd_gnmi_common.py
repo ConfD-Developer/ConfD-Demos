@@ -7,9 +7,16 @@ VERSION = "0.3.0-dev"
 HOST = "localhost"
 PORT = 50061
 
-logging.basicConfig(
-    format='%(asctime)s:%(relativeCreated)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s %(message)s [%(threadName)s]',
-    level=logging.WARNING)
+
+def config_logging(
+        format='%(asctime)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s '
+               '%(message)s [%(threadName)s]',
+        level=logging.WARNING,
+        force=False):
+    logging.basicConfig(format=format, level=level, force=force)
+
+
+config_logging()
 log = logging.getLogger('confd_gnmi_common')
 
 
@@ -50,6 +57,7 @@ def set_logging_level(level):
         # Thanks https://stackoverflow.com/a/53250066
         [logging.getLogger(name).setLevel(level) for name in
          logging.root.manager.loggerDict]
+    config_logging(level=level, force=True)
 
 
 # TODO tests

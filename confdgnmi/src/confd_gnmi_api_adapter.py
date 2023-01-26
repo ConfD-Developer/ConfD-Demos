@@ -19,7 +19,6 @@ from confd_gnmi_common import make_xpath_path, make_formatted_path, \
     add_path_prefix, remove_path_prefix, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
-log.setLevel(logging.DEBUG)
 
 
 INT_VALS = {_confd.C_INT8, _confd.C_INT16, _confd.C_INT32,
