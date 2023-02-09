@@ -297,10 +297,17 @@ Client is implemented by `./src/confd_gnmi_client.py` python script.
 .output
 [source, shell]
 ----
-usage: confd_gnmi_client.py [-h] [--version] [-o {capabilities,set,get,delete,subscribe}] [--logging {error,warning,info,debug}] [--insecure] [--port PORT]
-                            [--host HOST] [--prefix PREFIX] [-p PATHS] [-t {ALL,CONFIG,STATE,OPERATIONAL}] [-v VALS] [-s {ONCE,POLL,STREAM}]
-                            [--poll-count POLLCOUNT] [--poll-interval POLLINTERVAL] [--read-count READCOUNT] [--server-crt SERVERCRT] [--user USERNAME]
-                            [--password PASSWORD] [--encoding {JSON,JSON_IETF}]
+usage: confd_gnmi_client.py [-h] [--version]
+                            [-o {capabilities,set,get,delete,subscribe}]
+                            [--logging {error,warning,info,debug}] [--insecure]
+                            [--port PORT] [--host HOST] [--prefix PREFIX] [-p PATHS]
+                            [-t {ALL,CONFIG,STATE,OPERATIONAL}] [-v VALS]
+                            [-s {ONCE,POLL,STREAM}] [--poll-count POLLCOUNT]
+                            [--poll-interval POLLINTERVAL] [--interactive-poll]
+                            [--subscription-end-delay SUBSCRIPTION_END_DELAY]
+                            [--read-count READCOUNT] [--server-crt SERVERCRT]
+                            [--user USERNAME] [--password PASSWORD]
+                            [--encoding {JSON,JSON_IETF}]
 
 gNMI Adapter client
 
@@ -314,9 +321,11 @@ options:
   --insecure            Use insecure connection
   --port PORT           port number (default: 50061)
   --host HOST           host (name, ip, default: localhost)
-  --prefix PREFIX       'prefix' path for set, get and subscribe operation (empty by default)
+  --prefix PREFIX       'prefix' path for set, get and subscribe operation (empty by
+                        default)
   -p PATHS, --path PATHS
-                        'path' for get, set and subscribe operation, can be repeated (empty by default)
+                        'path' for get, set and subscribe operation, can be repeated
+                        (empty by default)
   -t {ALL,CONFIG,STATE,OPERATIONAL}, --data-type {ALL,CONFIG,STATE,OPERATIONAL}
                         'data type' for get operation (default 'CONFIG')
   -v VALS, --val VALS   'value' for set operation, can be repeated (empty by default)
@@ -326,6 +335,10 @@ options:
                         Number of POLLs (default 5)
   --poll-interval POLLINTERVAL
                         Interval (in seconds) between POLL requests (default 0.5)
+  --interactive-poll    Poll subscription invoked interactively.
+  --subscription-end-delay SUBSCRIPTION_END_DELAY
+                        Time to wait (in seconds) to finish stream after all
+                        subscription requests (default 0.0)
   --read-count READCOUNT
                         Number of read requests for STREAM subscription (default 4)
   --server-crt SERVERCRT
