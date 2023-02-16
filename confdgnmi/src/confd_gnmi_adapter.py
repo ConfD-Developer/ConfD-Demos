@@ -1,9 +1,11 @@
+from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
 from typing import List
+from confd_gnmi_common import PayloadEncoding
 
 import gnmi_pb2
 
@@ -23,6 +25,13 @@ class GnmiServerAdapter(ABC):
         """
         Invoke capabilities on adapter and return list of Capabilities
         :return: list of  CapabilityModel elements (schema is empty string for now TODO)
+        """
+        pass
+
+    @abstractmethod
+    def encodings(self) -> list[PayloadEncoding]:
+        """
+        Return list of encodings supported by server.
         """
         pass
 

@@ -81,19 +81,22 @@ class ConfDgNMIServicer(gNMIServicer):
         Reference: gNMI Specification Section 3.2
         """
         log.info("==> request=%s context=%s", request, context)
-        supported_models = []
 
         adapter = self.get_connected_adapter(context)
 
-        for cap in adapter.capabilities():
-            supported_models.append(
-                gnmi_pb2.ModelData(name=cap.name,
-                                   organization=cap.organization,
-                                   version=cap.version)
-            )
+        supported_models = [
+            gnmi_pb2.ModelData(
+                name=cap.name,
+                organization=cap.organization,
+                version=cap.version
+            ) for cap in adapter.capabilities()
+        ]
+
+        supported_encodings = [enc.value for enc in adapter.encodings()]
+
         response = gnmi_pb2.CapabilityResponse(
             supported_models=supported_models,
-            supported_encodings=[gnmi_pb2.Encoding.JSON_IETF],
+            supported_encodings=supported_encodings,
             gNMI_version="proto3",
             extension=[])
         # context.set_code(grpc.StatusCode.UNIMPLEMENTED)

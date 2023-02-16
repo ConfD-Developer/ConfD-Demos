@@ -19,6 +19,22 @@ from gnmi_pb2_grpc import gNMIStub
 log = logging.getLogger('confd_gnmi_client')
 
 
+def encoding_to_str(value: int) -> str:
+    """ Convert numeric value of `enum Encoding` to a text
+        according to `gnmi.proto` specification. """
+    if value == 0:
+        return "JSON"
+    if value == 1:
+        return "BYTES"
+    if value == 2:
+        return "PROTO"
+    if value == 3:
+        return "ASCII"
+    if value == 4:
+        return "JSON_IETF"
+    return f"UNKNOWN({value})"
+
+
 class ConfDgNMIClient:
 
     def __init__(self, host=HOST, port=PORT, metadata=None, insecure=False,
@@ -56,8 +72,8 @@ class ConfDgNMIClient:
         request = gnmi_pb2.CapabilityRequest()
         log.debug("Calling stub.Capabilities")
         response = self.stub.Capabilities(request, metadata=self.metadata)
-        log.info("<== response.supported_models=%s", response.supported_models)
-        return response.supported_models
+        log.info("<== response=%s", response)
+        return response
 
     @staticmethod
     def make_subscription_list(prefix, paths, mode, encoding):
@@ -280,12 +296,15 @@ if __name__ == '__main__':
                                  username=opt.username,
                                  password=opt.password)) as client:
         if opt.operation == "capabilities":
-            supported_models = client.get_capabilities()
-            print("Capabilities - supported models:")
-            for m in supported_models:
-                print("name:{} organization:{} version: {}".format(m.name,
+            capabilities = client.get_capabilities()
+            print("Capabilities:")
+            print("  supported models:")
+            for m in capabilities.supported_models:
+                print("name: {} organization: {} version: {}".format(m.name,
                                                                    m.organization,
                                                                    m.version))
+            encodings = [encoding_to_str(encoding) for encoding in capabilities.supported_encodings]
+            print(f"  supported encodings: {encodings}")
         elif opt.operation == "subscribe":
             print("Starting subscription ....")
             client.subscribe(subscription_list,

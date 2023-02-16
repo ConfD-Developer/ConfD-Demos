@@ -50,11 +50,11 @@ class GrpcBase(object):
 
     def test_capabilities(self, request):
         log.info("testing capabilities")
-        supported_models = self.client.get_capabilities()
+        capabilities = self.client.get_capabilities()
 
         def capability_supported(cap):
             supported = False
-            for s in supported_models:
+            for s in capabilities.supported_models:
                 if s.name == cap['name'] and s.organization == cap['organization']:
                     log.debug("capability cap=%s found in s=%s", cap, s)
                     supported = True
@@ -63,7 +63,12 @@ class GrpcBase(object):
 
         # check if selected capabilities are supported
         for cap in GnmiDemoServerAdapter.capability_list:
-            assert (capability_supported(cap))
+            assert capability_supported(cap)
+
+        # JSON - explicit value from gnmi.proto - mandatory according to standard
+        assert 0 in capabilities.supported_encodings
+        # JSON_IETF - supported by this codebase as well
+        assert 4 in capabilities.supported_encodings
 
     @staticmethod
     def assert_update(update, path_val):

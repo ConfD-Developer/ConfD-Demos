@@ -1,3 +1,4 @@
+from enum import Enum
 import logging
 from typing import Tuple, Dict
 
@@ -6,6 +7,13 @@ import gnmi_pb2
 VERSION = "0.3.0-dev"
 HOST = "localhost"
 PORT = 50061
+
+
+class PayloadEncoding(Enum):
+    """ Encodings of gNMI payload supported by this tool. """
+    # Standalone enumeration to abstract gNMI low level library used.
+    JSON = gnmi_pb2.Encoding.JSON
+    JSON_IETF = gnmi_pb2.Encoding.JSON_IETF
 
 
 def config_logging(
