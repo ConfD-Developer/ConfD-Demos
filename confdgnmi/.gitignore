@@ -1,0 +1,10 @@
+docs/.gradle
+# Python artifacts
+**/__pycache__
+src/gnmi_pb2*
+src/gnmi_ext_pb2*
+# ConfD/runtime related items
+confd-cdb/
+ssh-keydir
+*.fxs
+init_*.xml
