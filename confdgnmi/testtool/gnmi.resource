@@ -5,7 +5,7 @@ Library           GNMIClient.py
 
 *** Keywords ***
 Connect to Server
-    Connect    127.0.0.1:50061
+    Connect    ${SERVER}  ${USERNAME}  ${PASSWORD}  ${INSECURE}
 
 Close Server Connection
     Disconnect

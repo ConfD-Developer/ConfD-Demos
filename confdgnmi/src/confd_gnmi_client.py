@@ -25,7 +25,7 @@ class ConfDgNMIClient:
                  server_crt_file=None, username="admin", password="admin"):
         if metadata is None:
             metadata = [('username', username), ('password', password)]
-        log.info("==> host=%s, port=%i, metadata-%s", host, port, metadata)
+        log.info("==> host=%s, port=%i, metadata-%s", host, int(port), metadata)
         if insecure:
             self.channel = insecure_channel("{}:{}".format(host, port))
         else:
