@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import logging
 import ssl
 import sys
-import json
-from time import sleep
 from contextlib import closing
+from time import sleep
 
+import grpc
 from grpc import channel_ready_future, insecure_channel, secure_channel, \
     ssl_channel_credentials
-from grpc._channel import _MultiThreadedRendezvous
 
 import gnmi_pb2
 from confd_gnmi_common import HOST, PORT, make_xpath_path, VERSION, \
@@ -137,25 +137,27 @@ class ConfDgNMIClient:
         log.info("==> read_count=%s", read_count)
         # example to cancel
         # responses.cancel()
+        num_read = 0
         try:
             for response in responses:
                 log.info("******* Subscription received response=%s read_count=%i",
                          response, read_count)
                 print("subscribe - response read_count={}".format(read_count))
                 ConfDgNMIClient.print_notification(response.update)
+                num_read += 1
                 if read_count > 0:
                     read_count -= 1
                     if read_count == 0:
                         break
-        except _MultiThreadedRendezvous as e:
-            if "EOF" in e.details():
+        except grpc.RpcError as e:
+            if isinstance(e, grpc.Call) and "EOF" in e.details():
                 log.warning("e.details=%s", e.details())
             else:
                 raise e
-        log.info("Stopped reading SubscribeResponse(s)")
-        log.info("Canceling read")
+        log.info("Stopped reading SubscribeResponse(s), num_read=%s", num_read)
         # See https://stackoverflow.com/questions/54588382/
         # how-can-a-grpc-server-notice-that-the-client-has-cancelled-a-server-side-streami
+        log.debug("Notifying server (with cancel()) that all responses were read.")
         responses.cancel()
 
         log.info("<==")
