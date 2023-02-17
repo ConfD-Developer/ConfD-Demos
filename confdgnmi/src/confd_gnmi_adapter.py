@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
 from typing import List
-from confd_gnmi_common import PayloadEncoding
 
 import gnmi_pb2
 
@@ -29,7 +28,7 @@ class GnmiServerAdapter(ABC):
         pass
 
     @abstractmethod
-    def encodings(self) -> list[PayloadEncoding]:
+    def encodings(self) -> list[int]:
         """
         Return list of encodings supported by server.
         """

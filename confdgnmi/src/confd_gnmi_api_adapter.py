@@ -15,7 +15,7 @@ from confd.cdb import cdb
 import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
-from confd_gnmi_common import PayloadEncoding, make_xpath_path, make_formatted_path, \
+from confd_gnmi_common import make_xpath_path, make_formatted_path, \
     add_path_prefix, remove_path_prefix, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
@@ -451,7 +451,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         return models
 
     def encodings(self):
-        return [PayloadEncoding.JSON, PayloadEncoding.JSON_IETF]
+        return [gnmi_pb2.Encoding.JSON, gnmi_pb2.Encoding.JSON_IETF]
 
     def make_gnmi_keypath_elems(self, keypath, csnode):
         i = len(keypath) - 1

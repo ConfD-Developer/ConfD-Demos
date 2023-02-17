@@ -9,13 +9,6 @@ HOST = "localhost"
 PORT = 50061
 
 
-class PayloadEncoding(Enum):
-    """ Encodings of gNMI payload supported by this tool. """
-    # Standalone enumeration to abstract gNMI low level library used.
-    JSON = gnmi_pb2.Encoding.JSON
-    JSON_IETF = gnmi_pb2.Encoding.JSON_IETF
-
-
 def config_logging(
         format='%(asctime)s %(levelname)s:%(filename)s:%(lineno)s:%(funcName)s '
                '%(message)s [%(threadName)s]',

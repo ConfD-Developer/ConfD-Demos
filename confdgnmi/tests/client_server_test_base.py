@@ -65,10 +65,10 @@ class GrpcBase(object):
         for cap in GnmiDemoServerAdapter.capability_list:
             assert capability_supported(cap)
 
-        # JSON - explicit value from gnmi.proto - mandatory according to standard
-        assert 0 in capabilities.supported_encodings
-        # JSON_IETF - supported by this codebase as well
-        assert 4 in capabilities.supported_encodings
+        # mandatory according to standard
+        assert gnmi_pb2.Encoding.JSON in capabilities.supported_encodings
+        # supported by this codebase as well
+        assert gnmi_pb2.Encoding.JSON_IETF in capabilities.supported_encodings
 
     @staticmethod
     def assert_update(update, path_val):

@@ -10,7 +10,7 @@ from random import randint
 
 import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
-from confd_gnmi_common import PayloadEncoding, make_xpath_path, make_gnmi_path
+from confd_gnmi_common import make_xpath_path, make_gnmi_path
 
 log = logging.getLogger('confd_gnmi_demo_adapter')
 
@@ -351,7 +351,7 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
         return cap
 
     def encodings(self):
-        return [PayloadEncoding.JSON, PayloadEncoding.JSON_IETF]
+        return [gnmi_pb2.Encoding.JSON, gnmi_pb2.Encoding.JSON_IETF]
 
     def get_db_updates_for_path(self, path, prefix, db):
         log.debug("==> path={} prefix={}".format(path, prefix))

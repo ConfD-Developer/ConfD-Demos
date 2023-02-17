@@ -19,22 +19,6 @@ from gnmi_pb2_grpc import gNMIStub
 log = logging.getLogger('confd_gnmi_client')
 
 
-def encoding_to_str(value: int) -> str:
-    """ Convert numeric value of `enum Encoding` to a text
-        according to `gnmi.proto` specification. """
-    if value == 0:
-        return "JSON"
-    if value == 1:
-        return "BYTES"
-    if value == 2:
-        return "PROTO"
-    if value == 3:
-        return "ASCII"
-    if value == 4:
-        return "JSON_IETF"
-    return f"UNKNOWN({value})"
-
-
 class ConfDgNMIClient:
 
     def __init__(self, host=HOST, port=PORT, metadata=None, insecure=False,
@@ -303,7 +287,8 @@ if __name__ == '__main__':
                 print("name: {} organization: {} version: {}".format(m.name,
                                                                    m.organization,
                                                                    m.version))
-            encodings = [encoding_to_str(encoding) for encoding in capabilities.supported_encodings]
+            encodings = [gnmi_pb2.Encoding.Name(encoding)
+                         for encoding in capabilities.supported_encodings]
             print(f"  supported encodings: {encodings}")
         elif opt.operation == "subscribe":
             print("Starting subscription ....")

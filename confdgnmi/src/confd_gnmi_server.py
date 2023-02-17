@@ -92,7 +92,7 @@ class ConfDgNMIServicer(gNMIServicer):
             ) for cap in adapter.capabilities()
         ]
 
-        supported_encodings = [enc.value for enc in adapter.encodings()]
+        supported_encodings = adapter.encodings()
 
         response = gnmi_pb2.CapabilityResponse(
             supported_models=supported_models,
