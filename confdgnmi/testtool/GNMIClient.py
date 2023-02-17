@@ -31,3 +31,6 @@ class GNMIClient:
 
     def get_capabilities(self):
         return self._client.get_capabilities()
+
+    def model_names(self, capas):
+        return [m.name for m in capas.supported_models]
