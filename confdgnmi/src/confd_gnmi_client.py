@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import logging
 import ssl
 import sys
-import json
-from time import sleep
 from contextlib import closing
+from time import sleep
 
+import grpc
 from grpc import channel_ready_future, insecure_channel, secure_channel, \
     ssl_channel_credentials
 
@@ -94,7 +95,8 @@ class ConfDgNMIClient:
 
     @staticmethod
     def generate_subscriptions(subscription_list, poll_interval=0.0,
-                               poll_count=0):
+                               poll_count=0, subscription_end_delay=0.0,
+                               interactive_poll=False):
         log.debug("==> subscription_list=%s", subscription_list)
 
         sub = gnmi_pb2.SubscribeRequest(subscribe=subscription_list,
@@ -104,10 +106,16 @@ class ConfDgNMIClient:
 
         if subscription_list.mode == gnmi_pb2.SubscriptionList.POLL:
             for i in range(poll_count):
-                sleep(poll_interval)
+                if interactive_poll:
+                    print("Press Enter to Poll")
+                    sys.stdin.readline()
+                else:
+                    sleep(poll_interval)
                 log.debug("Generating POLL subscription")
+                log.info("poll #%s", i)
                 yield ConfDgNMIClient.make_poll_subscription()
-
+        sleep(subscription_end_delay)
+        log.info("Stopped generating SubscribeRequest(s)")
         log.debug("<==")
 
     @staticmethod
@@ -129,31 +137,42 @@ class ConfDgNMIClient:
     @staticmethod
     def read_subscribe_responses(responses, read_count=-1):
         log.info("==> read_count=%s", read_count)
-        # example to cancel
-        # responses.cancel()
-        for response in responses:
-            log.info("******* Subscription received response=%s read_count=%i",
-                     response, read_count)
-            print("subscribe - response read_count={}".format(read_count))
-            ConfDgNMIClient.print_notification(response.update)
-            if read_count > 0:
-                read_count -= 1
-                if read_count == 0:
-                    break
-        log.info("Canceling read")
+        num_read = 0
+        try:
+            for response in responses:
+                log.info("******* Subscription received response=%s read_count=%i",
+                         response, read_count)
+                print("subscribe - response read_count={}".format(read_count))
+                ConfDgNMIClient.print_notification(response.update)
+                num_read += 1
+                if read_count > 0:
+                    read_count -= 1
+                    if read_count == 0:
+                        break
+        except grpc.RpcError as e:
+            if isinstance(e, grpc.Call) and "EOF" in e.details():
+                log.warning("e.details=%s", e.details())
+            else:
+                raise
+        log.info("Stopped reading SubscribeResponse(s), num_read=%s", num_read)
         # See https://stackoverflow.com/questions/54588382/
         # how-can-a-grpc-server-notice-that-the-client-has-cancelled-a-server-side-streami
+        log.debug("Notifying server (with cancel()) that all responses were read.")
         responses.cancel()
 
         log.info("<==")
 
     # TODO this API would change with more subscription support
     def subscribe(self, subscription_list, read_fun=None,
-                  poll_interval=0.0, poll_count=0, read_count=-1):
+                  poll_interval=0.0, poll_count=0, read_count=-1,
+                  subscription_end_delay=0.0, interactive_poll=False):
         log.info("==>")
         responses = self.stub.Subscribe(
             ConfDgNMIClient.generate_subscriptions(subscription_list,
-                                                   poll_interval, poll_count),
+                                                   poll_interval=poll_interval,
+                                                   poll_count=poll_count,
+                                                   subscription_end_delay=subscription_end_delay,
+                                                   interactive_poll=interactive_poll),
             metadata=self.metadata)
         if read_fun is not None:
             read_fun(responses, read_count)
@@ -228,6 +247,13 @@ def parse_args(args):
                         type=float,
                         help="Interval (in seconds) between POLL requests (default 0.5)",
                         default=0.5)
+    parser.add_argument("--interactive-poll", action="store_true", dest="interactivepoll",
+                        help="Poll subscription invoked interactively.")
+    parser.add_argument("--subscription-end-delay", action="store", dest="subscription_end_delay",
+                        type=float,
+                        help="Time to wait (in seconds) to finish stream after all "
+                             "subscription requests (default 0.0)",
+                        default=0.0)
     parser.add_argument("--read-count", action="store", dest="readcount",
                         type=int,
                         help="Number of read requests for STREAM subscription (default 4)",
@@ -263,12 +289,17 @@ if __name__ == '__main__':
     subscription_mode = get_sub_mode(opt.submode)
     poll_interval: float = opt.pollinterval
     poll_count: int = opt.pollcount
+    interactive_poll: bool = opt.interactivepoll
     read_count: int = opt.readcount
+    subscription_end_delay: float = opt.subscription_end_delay
 
     log.debug("datatype=%s subscription_mode=%s poll_interval=%s "
-              "poll_count=%s read_count=%s",
+              "poll_count=%s read_count=%s subscription_end_delay=%s "
+              "interactive_poll=%s",
               datatype, subscription_mode, poll_interval, poll_count,
-              read_count)
+              read_count, subscription_end_delay, interactive_poll)
+    if opt.submode != "STREAM":
+        read_count = -1;
 
     encoding = dict(JSON=gnmi_pb2.Encoding.JSON,
                     JSON_IETF=gnmi_pb2.Encoding.JSON_IETF)[opt.encoding]
@@ -291,7 +322,9 @@ if __name__ == '__main__':
             client.subscribe(subscription_list,
                              read_fun=ConfDgNMIClient.read_subscribe_responses,
                              poll_interval=poll_interval, poll_count=poll_count,
-                             read_count=read_count)
+                             read_count=read_count,
+                             subscription_end_delay=subscription_end_delay,
+                             interactive_poll=interactive_poll)
             print(".... subscription done")
         elif opt.operation == "get":
             notification = client.get(prefix, paths, datatype, encoding)
