@@ -57,8 +57,8 @@ class ConfDgNMIClient:
         request = gnmi_pb2.CapabilityRequest()
         log.debug("Calling stub.Capabilities")
         response = self.stub.Capabilities(request, metadata=self.metadata)
-        log.info("<== response.supported_models=%s", response.supported_models)
-        return response.supported_models
+        log.info("<== response=%s", response)
+        return response
 
     @staticmethod
     def make_subscription_list(prefix, paths, mode, encoding):
@@ -311,12 +311,16 @@ if __name__ == '__main__':
                                  username=opt.username,
                                  password=opt.password)) as client:
         if opt.operation == "capabilities":
-            supported_models = client.get_capabilities()
-            print("Capabilities - supported models:")
-            for m in supported_models:
-                print("name:{} organization:{} version: {}".format(m.name,
+            capabilities = client.get_capabilities()
+            print("Capabilities:")
+            print("  supported models:")
+            for m in capabilities.supported_models:
+                print("name: {} organization: {} version: {}".format(m.name,
                                                                    m.organization,
                                                                    m.version))
+            encodings = [gnmi_pb2.Encoding.Name(encoding)
+                         for encoding in capabilities.supported_encodings]
+            print(f"  supported encodings: {encodings}")
         elif opt.operation == "subscribe":
             print("Starting subscription ....")
             client.subscribe(subscription_list,

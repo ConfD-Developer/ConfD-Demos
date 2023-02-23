@@ -350,6 +350,9 @@ class GnmiDemoServerAdapter(GnmiServerAdapter):
                                                   version=c['version']))
         return cap
 
+    def encodings(self):
+        return [gnmi_pb2.Encoding.JSON, gnmi_pb2.Encoding.JSON_IETF]
+
     def get_db_updates_for_path(self, path, prefix, db):
         log.debug("==> path={} prefix={}".format(path, prefix))
 

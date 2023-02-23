@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -23,6 +24,13 @@ class GnmiServerAdapter(ABC):
         """
         Invoke capabilities on adapter and return list of Capabilities
         :return: list of  CapabilityModel elements (schema is empty string for now TODO)
+        """
+        pass
+
+    @abstractmethod
+    def encodings(self) -> list[int]:
+        """
+        Return list of encodings supported by server.
         """
         pass
 
