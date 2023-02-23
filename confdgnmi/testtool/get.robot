@@ -1,109 +1,82 @@
 *** Settings ***
 Documentation   Basic tests for gNMI's "Get" operation.
+Resource        gnmi-common.resource
 Resource        get.resource
 Default Tags    get
 
-Test Setup      Setup gNMI Client
+Suite Setup     Setup gNMI Client
 Test Teardown   Clear GetRequest Parameters
 Suite Teardown  Close gNMI Client
 
-*** Variables ***
-${LIST_PATH}    '/interfaces'
-@{ALL_DATA_TYPES}   ALL  CONFIG  STATE  OPERATIONAL
-${GET_PATH}     /
-
-
 *** Test Cases ***
-Library Works
-    [Tags]      sanity
+Sanity check that robot Library works
     [Documentation]    Checks that the library is properly initialized
     ...                for use with this robot file.
+    [Tags]    sanity
     ${greeting}=  Get library Greeting
     Should Be Equal  ${greeting}  hello
 
-No parameters sanity check
-    [Tags]  sanity
+Sanity no parameters check
     [Documentation]    Sanity "no parameters" request to "ping" server for "ok"
     ...                response, ignoring the acutal payload.
-    Add path parameter  ${GET_PATH}
+    [Tags]    sanity
     Dispatch Get Request
-    Check received OK Response
+    Should receive OK Response
 
-Prefix only
-    [Tags]  get  prefix
+Parameter "prefix" - root check
+    # TODO - might be too costly for big models?
+    [Tags]    prefix
     Set prefix to  '/'
-    Add path parameter  ${GET_PATH}
     Dispatch Get Request
-    Check received OK Response
+    Should receive OK Response
 
-DataType only
-    [Tags]    DataType  type
-    FOR  ${element}  IN  @{ALL_DATA_TYPES}
-        Set DataType to  ${element}
-        Add path parameter  ${GET_PATH}
-        Dispatch Get Request
-        Check received OK Response
-    END
+Parameter "DataType"
+    [Documentation]    Check that all the possible `DataType` values can be used
+    ...                as "type" parameter of `GetRequest`
+    ...                (while not setting any other request parameters).
+    ...                Test suceeds when "OK" response with any data is received from server.
+    [Template]         Verify Get with DataType
+    ALL
+    CONFIG
+    STATE
+    OPERATIONAL
+    INVALID
 
-Invalid DataType check
-    [Tags]    negative  DataType  type
-        Set DataType to  'invalid'
-        Add path parameter  ${GET_PATH}
-        Dispatch Get Request
-        Check received Error Response
+Parameter "Encoding" - supported values
+    [Documentation]    Check which encodings server "advertises" as supported.
+    ...                Verify that all of them can be used as "encoding" parameter of `GetRequest`
+    ...                (while not setting any other request parameters).
+    ...                Test suceeds when "OK" response with any data is received from server.
+    [Tags]    encoding
+    @{supported}=    Get Supported Encodings
+    Verify Get with Encodings  ${supported}  Should receive OK response
 
-Encoding only
-    [Tags]    Encoding  encoding
-    @{encodings}=    Get Supported Encodings
-    FOR  ${element}  IN  @{encodings}
-        Set Encoding to  ${element}
-        Add path parameter  ${GET_PATH}
-        Dispatch Get Request
-        Check received OK Response
-    END
+Parameter "Encoding" - unsupported values
+    [Documentation]    Check which encodings server does NOT "advertise" as supported.
+    ...                Verify that all of them, when used as "encoding" parameter of `GetRequest`
+    ...                (while not setting any other request parameters),
+    ...                return errorenous response from server.
+    [Tags]    negative  encoding
+    @{unsupported}=    Get Unsupported Encodings
+    Verify Get with Encodings  ${unsupported}  Should receive Error response
 
-Unsupported Encoding check
-    [Tags]    negative  Encoding  encoding
-    @{encodings}=    Get Unsupported Encodings
-    FOR  ${element}  IN  @{ALL_ENCODINGS}
-            Set Encoding to  ${element}
-            Add path parameter  ${GET_PATH}
-            Dispatch Get Request
-            Check received OK Response
-    END
-
-Invalid Encoding check
-    [Tags]    negative  Encoding  encoding
+Parameter "Encoding" - invalid value
+    [Documentation]    Try a `GetRequest` with invalid encoding value
+    ...                (while not setting any other request parameters),
+    ...                and verify that server returns an errorenous response.
+    [Tags]    negative  encoding
         Set Encoding to  'invalid'
-        Add path parameter  ${GET_PATH}
         Dispatch Get Request
-        Check received Error Response
-
+        Should receive Error Response
 
 Iterate all ModelData one by one
-    [Tags]    ModelData  use_models
+    [Tags]    use_models
 
 Non-existing ModelData
-    [Tags]    ModelData  use_models
+    [Tags]    use_models
 
 All ModelData
-    [Tags]    ModelData  use_models
-
-Verify can receive list elements
-    [Tags]  list
-    Add Path Parameter    ${LIST_PATH}
-    Dispatch Get Request
-    Check Received Error Response
-    Check response includes  ${LIST_PATH}
-    $(interfaces)=  Get Payload path   ${LIST_PATH}
-    Check is list  $(interfaces)
-
-Get for list entry
-
-
-
-
-
+    [Tags]    use_models
 
 # // GetResponse is used by the target to respond to a GetRequest from a client.
 # // The set of Notifications corresponds to the data values that are requested
