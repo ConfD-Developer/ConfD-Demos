@@ -1,8 +1,9 @@
 *** Settings ***
 Documentation   Basic tests for gNMI's "Get" operation.
 Resource        gnmi-common.resource
+Library         Collections
 Resource        get.resource
-Default Tags    get
+Test Tags       get
 
 Suite Setup     Setup gNMI Client
 Test Teardown   Clear GetRequest Parameters
@@ -16,54 +17,65 @@ Sanity check that robot Library works
     ${greeting}=  Get library Greeting
     Should Be Equal  ${greeting}  hello
 
-Sanity no parameters check
-    [Documentation]    Sanity "no parameters" request to "ping" server for "ok"
-    ...                response, ignoring the acutal payload.
+Sanity check for no parameters in GetRequest check
+    [Documentation]    Make a sanity "no parameters" request to "ping" server for OK response,
+    ...                ignoring the actual payload.
     [Tags]    sanity
     Dispatch Get Request
     Should receive OK Response
 
-Parameter "prefix" - root check
+Parameter "prefix" on root path
     # TODO - might be too costly for big models?
     [Tags]    prefix
     Set prefix to  '/'
     Dispatch Get Request
     Should receive OK Response
 
-Parameter "DataType"
-    [Documentation]    Check that all the possible `DataType` values can be used
-    ...                as "type" parameter of `GetRequest`
+Parameter "DataType" - valid values return OK response
+    [Documentation]    Check that all the possible ``DataType`` values can be used
+    ...                as "type" parameter of ``GetRequest``
     ...                (while not setting any other request parameters).
-    ...                Test suceeds when "OK" response with any data is received from server.
+    ...                Test succeeds when "OK" response with any data is received from server.
     [Template]         Verify Get with DataType
     ALL
     CONFIG
     STATE
     OPERATIONAL
-    INVALID
 
-Parameter "Encoding" - supported values
-    [Documentation]    Check which encodings server "advertises" as supported.
-    ...                Verify that all of them can be used as "encoding" parameter of `GetRequest`
-    ...                (while not setting any other request parameters).
-    ...                Test suceeds when "OK" response with any data is received from server.
+Parameter "DataType" - invalid value returns Error response
+    Verify Get with DataType  INVALID  Should receive Error Response
+
+Parameter "Encoding" - mandatory JSON is advertised
+    [Documentation]    Get the list of supported encodings from server using ``CapabilityRequest``.
+    ...                Verify that the mandatory JSON encoding is included.
     [Tags]    encoding
     @{supported}=    Get Supported Encodings
-    Verify Get with Encodings  ${supported}  Should receive OK response
+    List should contain value  ${supported}  JSON
 
-Parameter "Encoding" - unsupported values
+Parameter "Encoding" - supported values get OK response
+    [Documentation]    Check which encodings server advertises as supported via ``CapabilityRequest``.
+    ...                Verify that all of them can be used as "encoding" parameter of ``GetRequest``
+    ...                (while not setting any other request parameters).
+    ...                Test succeeds when "OK" response with any data is received from server
+    ...                for all of the advertised encodings.
+    [Tags]    encoding
+    @{supported}=    Get Supported Encodings
+    Should Not Be Empty  ${supported}
+    Verify Get for Encodings  ${supported}
+
+Parameter "Encoding" - unsupported values get Error response
     [Documentation]    Check which encodings server does NOT "advertise" as supported.
-    ...                Verify that all of them, when used as "encoding" parameter of `GetRequest`
+    ...                Verify that all of them, when used as "encoding" parameter of ``GetRequest``
     ...                (while not setting any other request parameters),
-    ...                return errorenous response from server.
+    ...                return erroneous response from server.
     [Tags]    negative  encoding
     @{unsupported}=    Get Unsupported Encodings
-    Verify Get with Encodings  ${unsupported}  Should receive Error response
+    Verify Get for Encodings  ${unsupported}  Should receive Error response
 
-Parameter "Encoding" - invalid value
-    [Documentation]    Try a `GetRequest` with invalid encoding value
+Parameter "Encoding" - invalid value gets Error response
+    [Documentation]    Try a ``GetRequest`` with invalid encoding value
     ...                (while not setting any other request parameters),
-    ...                and verify that server returns an errorenous response.
+    ...                and verify that server returns an erroneous response.
     [Tags]    negative  encoding
         Set Encoding to  'invalid'
         Dispatch Get Request
@@ -71,20 +83,14 @@ Parameter "Encoding" - invalid value
 
 Iterate all ModelData one by one
     [Tags]    use_models
+    ${model_names}=  Get supported model names
+    ${model_count}=  Get Length  ${model_names}
+    Log  Received ${model_count} model names from device. Starting to iterate:
+    Verify Get for models  ${model_names}
 
 Non-existing ModelData
     [Tags]    use_models
+    Verify Get of model  'non-existing-model'
 
 All ModelData
     [Tags]    use_models
-
-# // GetResponse is used by the target to respond to a GetRequest from a client.
-# // The set of Notifications corresponds to the data values that are requested
-# // by the client in the GetRequest.# // Reference: gNMI Specification Section 3.3.2
-# message GetResponse {
-#   repeated Notification notification = 1;   // Data values.
-#   Error error = 2 [deprecated=true];        // Errors that occurred in the Get.
-#   // Extension messages associated with the GetResponse. See the
-#   // gNMI extension specification for further definition.
-#   repeated gnmi_ext.Extension extension = 3;
-# }

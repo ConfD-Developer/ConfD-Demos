@@ -2,3 +2,4 @@ server: xawin.lab.tail-f.com:32784
 username: admin
 password: admin
 insecure: true
+default_encoding: JSON_IETF # as mandatory JSON is not supported

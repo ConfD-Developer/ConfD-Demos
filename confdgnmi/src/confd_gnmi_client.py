@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 import argparse
 import logging
 import ssl
@@ -173,6 +174,11 @@ class ConfDgNMIClient:
             read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
         return responses
+
+    def get_public(self, prefix: str, paths: list[str], get_type: int, encoding: int):
+        path_prefix = None if prefix is None else make_gnmi_path(prefix)
+        path_paths = [make_gnmi_path(p) for p in paths]
+        return self.get(path_prefix, path_paths, get_type, encoding)
 
     def get(self, prefix, paths, get_type, encoding):
         log.info("==>")
