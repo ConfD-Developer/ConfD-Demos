@@ -14,7 +14,6 @@ from confd_gnmi_common import PORT, common_optparse_options, \
     common_optparse_process, VERSION
 from gnmi_pb2_grpc import gNMIServicer, add_gNMIServicer_to_server
 
-
 log = logging.getLogger('confd_gnmi_server')
 
 
@@ -56,6 +55,52 @@ class ConfDgNMIServicer(gNMIServicer):
                             username=username, password=password)
         log.debug("<== adapter=%s", adapter)
         return adapter
+
+    def get_val_encoding(self, val):
+        log.debug("==> val=%s", val)
+        encoding = None
+        if str(val).startswith("json_val"):
+            encoding = gnmi_pb2.Encoding.JSON
+        elif str(val).startswith("json_ietf_val"):
+            encoding = gnmi_pb2.Encoding.JSON_IETF
+        elif str(val).startswith("ascii_val"):
+            encoding = gnmi_pb2.Encoding.ASCII
+        elif  str(val).startswith("bytes_val"):
+            encoding = gnmi_pb2.Encoding.BYTES
+        else:
+            found = False
+            for a in ["string_val", "int_val", "uint_val", "bool_val", "bytes_val", "float_val", "leaflist_val"]:
+                if  str(val).startswith(a):
+                    found = True
+                    break
+            if found:
+                encoding = gnmi_pb2.Encoding.PROTO
+        log.debug("<== encoding=%s", encoding)
+        return encoding
+
+    def _encoding_supported(self, encoding, adapter, context):
+        log.debug("==> encoding=%s", encoding)
+        if encoding not in adapter.encodings():
+            text = f'gNMI: unsupported encoding: {encoding}'
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(text)
+            raise NotImplementedError(text)
+        log.debug("==>")
+
+    def verify_updates_encoding_supported(self, updates, adapter, context):
+        log.debug("==> updates=%s", updates)
+        for u in updates:
+            encoding = self.get_val_encoding(u.val)
+            self._encoding_supported(encoding, adapter, context)
+        log.debug("==>")
+
+    def verify_encoding_supported(self, encoding, adapter, context):
+        log.debug("==> encoding=%s", encoding)
+        if not encoding:
+            encoding = gnmi_pb2.Encoding.JSON
+        self._encoding_supported(encoding, adapter, context)
+        log.debug("==>")
+
 
     def get_connected_adapter(self, context):
         """
@@ -115,7 +160,7 @@ class ConfDgNMIServicer(gNMIServicer):
         """
         log.info("==> request=%s context=%s", request, context)
         adapter = self.get_connected_adapter(context)
-
+        self.verify_encoding_supported(request.encoding, adapter, context)
         notifications = adapter.get(request.prefix, request.path,
                                     request.type, request.use_models)
         response = gnmi_pb2.GetResponse(notification=notifications)
@@ -131,7 +176,7 @@ class ConfDgNMIServicer(gNMIServicer):
         """
         log.info("==> request=%s context=%s", request, context)
         adapter = self.get_connected_adapter(context)
-
+        self.verify_updates_encoding_supported(request.update, adapter, context)
         # TODO for now we do not process replace list
         # TODO: changes should be part of one transaction (gNMI spec. 3.4.3)
         ops = adapter.set(request.prefix, request.update)
@@ -186,6 +231,8 @@ class ConfDgNMIServicer(gNMIServicer):
 
         request = next(request_iterator)
         adapter = self.get_connected_adapter(context)
+        self.verify_encoding_supported(request.subscribe.encoding, adapter,
+                                       context)
         context.add_callback(subscribe_rpc_done)
         # first request, should contain subscription list (`subscribe`)
         assert hasattr(request, "subscribe")
