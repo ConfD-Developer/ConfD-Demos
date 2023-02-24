@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation    Resources specific to gNMI Capability operation.
-Library          CapabilityLibrary.py
+Library          gnmi_capability.CapabilityLibrary
 Resource         gnmi-common.resource
 
 

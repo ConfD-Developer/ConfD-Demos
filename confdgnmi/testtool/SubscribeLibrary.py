@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from robot_gnmi_client import GNMIClient
-from confd_gnmi_common import make_gnmi_path, get_encoding
+from confd_gnmi_common import make_gnmi_path
 from confd_gnmi_client import ConfDgNMIClient
+
+from gnmi_proto_helpers import encoding_str_to_int
 
 
 class SubscribeLibrary(GNMIClient):
@@ -13,6 +15,6 @@ class SubscribeLibrary(GNMIClient):
         slist = ConfDgNMIClient.make_subscription_list(make_gnmi_path(''),
                                                        [make_gnmi_path(path)],
                                                        mode,
-                                                       get_encoding('JSON_IETF'))
+                                                       encoding_str_to_int('JSON_IETF'))
         responses = self._client.subscribe(slist)
         return next(responses)
