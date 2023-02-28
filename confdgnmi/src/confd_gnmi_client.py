@@ -180,7 +180,8 @@ class ConfDgNMIClient:
         return responses
 
     def get(self, prefix, paths, get_type, encoding):
-        log.info("==>")
+        log.info("==> prefix=%s paths=%s get_type=%s encoding=%s self.metadata=%s",
+                 prefix, paths, get_type, encoding, self.metadata)
         path = []
         for p in paths:
             path.append(p)
@@ -281,7 +282,7 @@ if __name__ == '__main__':
     log.debug("opt=%s", opt)
     log.info("paths=%s vals=%s", opt.paths, opt.vals)
     prefix_str = opt.prefix
-    prefix = make_gnmi_path(prefix_str)
+    prefix = None #if prefix_str == "" else make_gnmi_path(prefix_str)
     paths = [make_gnmi_path(p) for p in opt.paths]
     vals = [gnmi_pb2.TypedValue(json_ietf_val=v.encode()) for v in opt.vals]
 

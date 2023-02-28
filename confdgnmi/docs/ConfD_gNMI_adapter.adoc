@@ -1040,19 +1040,30 @@ This not all gNMI functionality are currently supported. They may be added in th
 
 *Limitations*
 
+Client and Server
+
 * only `JSON and JSON_IETF` are used as `encoding`
-* `Set` works only on `leaf` elements
+* all `TypedValues` are used as strings (`json_ietf_val`)
 * `Subscribe`
 ** not all subscription parameters are supported
 ** `updates_only` not supported
 ** `heartbeat_interval` not supported
-* * `sync_response` not generated
-* all values `TypedValues` are used as strings (`json_ietf_val`)
+** `use_models` is not used
+** `qos` attribute is not used
+** `allow_aggregation` is not supported and results are aggregated
+(specification mentions aggregation should not be used for Subscriptions by default)
+
+Server
+
+* `Set` works only on `leaf` elements
+* `Get` results are aggregated (specification does not mention aggregation, but it mentions
+aggregation should not be used for Subscriptions by default)
+* `Subscribe`
+** Only `STREAM` mode `ON_CHANGE` subscriptions are supported by the server (not `STREAM` mode `SAMPLE`)
+** `TARGET_DEFINED` subscriptions not supported by the server
+** `sync_response` not generated
 * only `lists` with one `key` are supported
 * current implementation works only against RUNNING DB
-* list of models (e.g. `Get`) is not supported
-* `leaf-lists` not supported
-* `delete` in `Set` not supported
 
 *TODOs*
 
