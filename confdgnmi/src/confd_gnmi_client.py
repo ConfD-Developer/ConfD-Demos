@@ -276,6 +276,23 @@ def parse_args(args):
     return opt
 
 
+# TODO - move this into "common" and/or remove/sync with the same code in testtool/robot
+def encoding_int_to_str(encoding: int, no_error = True) -> str:
+    if encoding == 0:
+        return 'JSON'
+    if encoding == 1:
+        return 'BYTES'
+    if encoding == 2:
+        return 'PROTO'
+    if encoding == 3:
+        return 'ASCII'
+    if encoding == 4:
+        return 'JSON_IETF'
+    if no_error:
+        return f'UNKNOWN({encoding})'
+    raise ValueError(f'Unknown encoding! ({encoding})')
+
+
 if __name__ == '__main__':
     opt = parse_args(args=sys.argv[1:])
     common_optparse_process(opt, log)
@@ -319,7 +336,7 @@ if __name__ == '__main__':
                 print("name: {} organization: {} version: {}".format(m.name,
                                                                    m.organization,
                                                                    m.version))
-            encodings = [gnmi_pb2.Encoding.Name(encoding)
+            encodings = [encoding_int_to_str(encoding)
                          for encoding in capabilities.supported_encodings]
             print(f"  supported encodings: {encodings}")
         elif opt.operation == "subscribe":
