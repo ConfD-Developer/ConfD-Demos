@@ -1,11 +1,11 @@
 *** Settings ***
-Documentation    Resources specific to gNMI Get operation.
+Documentation    Resources specific to gNMI ``Get`` RPC/operation.
 Library          GetLibrary.py    ${DEFAULT_ENCODING}
 Variables        adapter.yaml
 
 *** Keywords ***
 Verify Get with DataType
-    [Arguments]    ${type}  ${pass-condition-keyword}=Should receive OK Response
+    [Arguments]    ${type}  ${pass-condition-keyword}=GetLibrary.Should received OK Response
     [Documentation]    Try sending `GetRequest` with specified DataType parameter value,
     ...                and verify that "ok" response is received.
     [Tags]    type
@@ -22,21 +22,21 @@ Verify Get with Encoding
 
 Verify Get for Encodings
     [Tags]    encoding  robot:continue-on-failure
-    [Arguments]    ${encodings}    ${pass-condition-keyword}=Should receive Ok response
+    [Arguments]    ${encodings}    ${pass-condition-keyword}=GetLibrary.Should received Ok response
     FOR  ${encoding}  IN  @{encodings}
         Verify Get with Encoding  ${encoding}  ${pass-condition-keyword}
     END
 
 Verify Get of model
     [Tags]    path
-    [Arguments]    ${model}  ${pass-condition-keyword}=
-    Add path parameter  ${model}
+    [Arguments]    ${model}  ${pass-condition-keyword}=GetLibrary.Should received Ok response
+    Add path parameter  /${model}
     Dispatch Get Request
     Run keyword  ${pass-condition-keyword}
 
 Verify Get for models
     [Tags]    path  robot:continue-on-failure
-    [Arguments]    ${model_names}    ${pass-condition-keyword}=Should receive Ok response
+    [Arguments]    ${model_names}    ${pass-condition-keyword}=Should received Ok response
     FOR  ${model}  IN  @{model_names}
         Verify Get of model  ${model}  ${pass-condition-keyword}
     END

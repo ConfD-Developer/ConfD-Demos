@@ -7,6 +7,7 @@ import sys
 import json
 from time import sleep
 from contextlib import closing
+from typing import Optional
 
 from grpc import channel_ready_future, insecure_channel, secure_channel, \
     ssl_channel_credentials
@@ -15,7 +16,7 @@ from grpc._channel import _MultiThreadedRendezvous
 import gnmi_pb2
 from confd_gnmi_common import HOST, PORT, make_xpath_path, VERSION, \
     common_optparse_options, common_optparse_process, make_gnmi_path, \
-    get_data_type, get_sub_mode
+    datatype_str_to_int, subscription_str_to_int
 from gnmi_pb2_grpc import gNMIStub
 
 log = logging.getLogger('confd_gnmi_client')
@@ -53,7 +54,7 @@ class ConfDgNMIClient:
     def close(self):
         self.channel.close()
 
-    def get_capabilities(self):
+    def get_capabilities(self) -> gnmi_pb2.CapabilityResponse:
         log.info("==>")
         request = gnmi_pb2.CapabilityRequest()
         log.debug("Calling stub.Capabilities")
@@ -175,12 +176,18 @@ class ConfDgNMIClient:
         log.info("<== responses=%s", responses)
         return responses
 
-    def get_public(self, prefix: str, paths: list[str], get_type: int, encoding: int):
-        path_prefix = None if prefix is None else make_gnmi_path(prefix)
-        path_paths = [make_gnmi_path(p) for p in paths]
-        return self.get(path_prefix, path_paths, get_type, encoding)
+    def get_public(self,
+                   prefix: Optional[str], paths: list[str],
+                   get_type: Optional[int], encoding: Optional[int]) -> gnmi_pb2.GetResponse:
+        sanitized_params = {
+            'prefix': None if prefix is None else make_gnmi_path(prefix),
+            'paths': [make_gnmi_path(p) for p in paths],
+            'get_type': get_type,
+            'encoding': gnmi_pb2.Encoding.JSON if encoding is None else encoding,
+        }
+        return self.get(**sanitized_params)
 
-    def get(self, prefix, paths, get_type, encoding):
+    def get(self, prefix, paths, get_type, encoding) -> gnmi_pb2.GetResponse:
         log.info("==>")
         path = []
         for p in paths:
@@ -191,8 +198,8 @@ class ConfDgNMIClient:
                                       extension=[])
         response = self.stub.Get(request, metadata=self.metadata)
 
-        log.info("<== response.notification=%s", response.notification)
-        return response.notification
+        log.info("<== response=%s", response)
+        return response
 
     def set(self, prefix, path_vals):
         log.info("==> prefix=%s path_vals=%s", prefix, path_vals)
@@ -284,8 +291,8 @@ if __name__ == '__main__':
     paths = [make_gnmi_path(p) for p in opt.paths]
     vals = [gnmi_pb2.TypedValue(json_ietf_val=v.encode()) for v in opt.vals]
 
-    datatype = get_data_type(opt.datatype)
-    subscription_mode = get_sub_mode(opt.submode)
+    datatype = datatype_str_to_int(opt.datatype)
+    subscription_mode = subscription_str_to_int(opt.submode)
     poll_interval: float = opt.pollinterval
     poll_count: int = opt.pollcount
     read_count: int = opt.readcount
@@ -296,7 +303,7 @@ if __name__ == '__main__':
               datatype, subscription_mode, poll_interval, poll_count,
               read_count, subscription_end_delay)
     if opt.submode != "STREAM":
-        read_count = -1;
+        read_count = -1
 
     encoding = dict(JSON=gnmi_pb2.Encoding.JSON,
                     JSON_IETF=gnmi_pb2.Encoding.JSON_IETF)[opt.encoding]
@@ -308,9 +315,9 @@ if __name__ == '__main__':
                                  username=opt.username,
                                  password=opt.password)) as client:
         if opt.operation == "capabilities":
-            capas = client.get_capabilities()
+            capa_response = client.get_capabilities()
             print("Capabilities - supported models:")
-            for m in capas.supported_models:
+            for m in capa_response.supported_models:
                 print("name:{} organization:{} version: {}".format(m.name,
                                                                    m.organization,
                                                                    m.version))
@@ -323,9 +330,9 @@ if __name__ == '__main__':
                              subscription_end_delay=subscription_end_delay)
             print(".... subscription done")
         elif opt.operation == "get":
-            notification = client.get(prefix, paths, datatype, encoding)
-            print("Get - Notifications:")
-            for n in notification:
+            get_response = client.get(prefix, paths, datatype, encoding)
+            print("Get - response Notifications:")
+            for n in get_response.notification:
                 ConfDgNMIClient.print_notification(n)
         elif opt.operation in ("set", "delete"):
             if opt.operation == "set":

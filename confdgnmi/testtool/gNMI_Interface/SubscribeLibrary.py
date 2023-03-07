@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from robot_gnmi_client import GNMIClient
 from confd_gnmi_common import make_gnmi_path
 from confd_gnmi_client import ConfDgNMIClient
+from gNMIRobotLibrary import gNMIRobotLibrary
 
-from gnmi_proto_helpers import encoding_str_to_int
 
-
-class SubscribeLibrary(GNMIClient):
+class SubscribeLibrary(gNMIRobotLibrary):
     "ROBOT test suite library for servicing the gNMI SubscribeRequest tests."
     ROBOT_LIBRARY_SCOPE = 'SUITE'
 

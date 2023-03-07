@@ -1,7 +1,7 @@
 *** Settings ***
 Documentation    Resources specific to gNMI Subscribe operation.
 Library          SubscribeLibrary.py
-Resource         gnmi-common.resource
+Resource         gNMIClient.resource
 
 
 *** Keywords ***
