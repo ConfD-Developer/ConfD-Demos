@@ -1,6 +1,6 @@
 import logging
+from typing import Tuple, Dict, List, Iterable
 import re
-from typing import Tuple, Dict
 
 import gnmi_pb2
 
@@ -83,24 +83,31 @@ def make_name_keys(elem_string) -> Tuple[str, Dict[str, str]]:
     return name, keys
 
 
+def parse_instance_path(xpath_string) -> Iterable[Tuple[str, List[Tuple[str, str]]]]:
+    """Parse instance path to a iterable of (tag, keys) tuples.
+
+    Instance paths are a limited form of XPath expressions - only
+    predicates in the form of a key assignment are accepted.
+    """
+
+    tag_rx = re.compile(r'/?(?P<tag>[^/\[\]]+)(?P<preds>(?:\[[^\]]*\])*)')
+    predicate_rx = re.compile(r'\[([^=]+)=([^\]]*)\]')
+
+    for match in tag_rx.finditer(xpath_string):
+        mdict = match.groupdict()
+        keys = [pred.groups() for pred in predicate_rx.finditer(mdict['preds'])]
+        yield (mdict['tag'], keys)
+
+
 # Crate gNMI Path object from string representation of path
 # see: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#222-paths
 # TODO tests
 def make_gnmi_path(xpath_string: str, origin: str = None, target: str = None) -> gnmi_pb2.Path:
     """ Create gNMI path from input string. """
     log.debug("==> xpath_string=%s origin=%s target=%s", xpath_string, origin, target)
-
-    tag_rx = re.compile(r'/?(?P<tag>[^/\[\]]+)(?P<preds>(?:\[[^\]]*\])*)')
-    predicate_rx = re.compile(r'\[([^=]+)=([^\]]*)\]')
-
-    def path_to_elems():
-        for match in tag_rx.finditer(xpath_string):
-            mdict = match.groupdict()
-            keys = dict(pred.groups() for pred in predicate_rx.finditer(mdict['preds']))
-            yield gnmi_pb2.PathElem(name=mdict['tag'], key=keys)
-
-    path = gnmi_pb2.Path(elem=list(path_to_elems()), target=target, origin=origin)
-
+    path_elms = [gnmi_pb2.PathElem(name=tag, key=dict(keys))
+                 for tag, keys in parse_instance_path(xpath_string)]
+    path = gnmi_pb2.Path(elem=path_elms, target=target, origin=origin)
     log.debug("<== path=%s", path)
     return path
 
