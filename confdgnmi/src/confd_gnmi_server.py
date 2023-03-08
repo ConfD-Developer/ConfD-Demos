@@ -56,29 +56,28 @@ class ConfDgNMIServicer(gNMIServicer):
         log.debug("<== adapter=%s", adapter)
         return adapter
 
-    def get_val_encoding(self, val):
+    @staticmethod
+    def get_val_encoding(val):
         log.debug("==> val=%s", val)
         encoding = None
-        if str(val).startswith("json_val"):
+        if val.HasField("json_val"):
             encoding = gnmi_pb2.Encoding.JSON
-        elif str(val).startswith("json_ietf_val"):
+        elif val.HasField("json_ietf_val"):
             encoding = gnmi_pb2.Encoding.JSON_IETF
-        elif str(val).startswith("ascii_val"):
+        elif val.HasField("ascii_val"):
             encoding = gnmi_pb2.Encoding.ASCII
-        elif  str(val).startswith("bytes_val"):
+        elif val.HasField("bytes_val"):
             encoding = gnmi_pb2.Encoding.BYTES
         else:
-            found = False
-            for a in ["string_val", "int_val", "uint_val", "bool_val", "bytes_val", "float_val", "leaflist_val"]:
-                if  str(val).startswith(a):
-                    found = True
-                    break
-            if found:
+            if any(val.HasField(a) for a in
+                   ["string_val", "int_val", "uint_val", "bool_val",
+                    "bytes_val", "float_val", "leaflist_val"]):
                 encoding = gnmi_pb2.Encoding.PROTO
         log.debug("<== encoding=%s", encoding)
         return encoding
 
-    def _encoding_supported(self, encoding, adapter, context):
+    @staticmethod
+    def _ensure_encoding_supported(encoding, adapter, context):
         log.debug("==> encoding=%s", encoding)
         if encoding not in adapter.encodings():
             text = f'gNMI: unsupported encoding: {encoding}'
@@ -91,14 +90,14 @@ class ConfDgNMIServicer(gNMIServicer):
         log.debug("==> updates=%s", updates)
         for u in updates:
             encoding = self.get_val_encoding(u.val)
-            self._encoding_supported(encoding, adapter, context)
+            self._ensure_encoding_supported(encoding, adapter, context)
         log.debug("==>")
 
     def verify_encoding_supported(self, encoding, adapter, context):
         log.debug("==> encoding=%s", encoding)
         if not encoding:
             encoding = gnmi_pb2.Encoding.JSON
-        self._encoding_supported(encoding, adapter, context)
+        self._ensure_encoding_supported(encoding, adapter, context)
         log.debug("==>")
 
 
