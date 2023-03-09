@@ -26,7 +26,7 @@ Mandatory JSON is advertised as supported encoding
     Then Supported encodings include  JSON
 
 Supported encodings include JSON or JSON_IETF
-    [Documentation]  Test if the device supports at least one onf JSON/JSON_IETF encodings.
+    [Documentation]  Test if the device supports at least one of JSON/JSON_IETF encodings.
     ...              This is a relaxed test in case that device does not follow the "if JSON_IETF is supported,
     ...              this implies JSON as it's superset automatically" theory.
     When Loaded Capabilities from device

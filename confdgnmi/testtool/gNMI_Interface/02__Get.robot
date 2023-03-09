@@ -41,8 +41,9 @@ Parameter "type" - valid values return OK response
     STATE
     OPERATIONAL
 
-Parameter "type" - invalid value returns Error response
-    [Documentation]    Check that setting invalid ``DataType`` value for ``GetRequest``
+Parameter "type" - an unsupported value returns Error response
+    [Documentation]    Check that setting an invalid value (other than all the standard
+    ...                specified ones for ``DataType`` value for ``GetRequest``
     ...                results in error response from server.
     [Tags]    type  negative
     Given DataType set to  INVALID

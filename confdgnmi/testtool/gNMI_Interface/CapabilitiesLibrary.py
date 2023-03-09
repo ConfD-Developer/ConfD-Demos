@@ -40,7 +40,7 @@ class CapabilitiesLibrary(gNMIRobotLibrary):
             response = self._client.get_capabilities()
             self._capabilities_data = CapabilitiesData(
                 model_names = [m.name for m in response.supported_models],
-                encodings = [encoding_int_to_str(e) for e in response.supported_encodings]
+                encodings = [encoding_int_to_str(e, no_error=True) for e in response.supported_encodings]
             )
             self.last_response = response
         except Exception as ex:

@@ -16,7 +16,7 @@ from grpc._channel import _MultiThreadedRendezvous
 import gnmi_pb2
 from confd_gnmi_common import HOST, PORT, make_xpath_path, VERSION, \
     common_optparse_options, common_optparse_process, make_gnmi_path, \
-    datatype_str_to_int, subscription_str_to_int
+    datatype_str_to_int, subscription_mode_str_to_int
 from gnmi_pb2_grpc import gNMIStub
 
 log = logging.getLogger('confd_gnmi_client')
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     vals = [gnmi_pb2.TypedValue(json_ietf_val=v.encode()) for v in opt.vals]
 
     datatype = datatype_str_to_int(opt.datatype)
-    subscription_mode = subscription_str_to_int(opt.submode)
+    subscription_mode = subscription_mode_str_to_int(opt.submode)
     poll_interval: float = opt.pollinterval
     poll_count: int = opt.pollcount
     read_count: int = opt.readcount
