@@ -141,3 +141,7 @@ class GetLibrary(CapabilitiesLibrary):
 
     def check_last_updates_not_include(self, text: str) -> bool:
         assert not self._updates_include(text), f'Unwanted text \"{text}\" found in some of updates'
+
+    def test_teardown(self):
+        super().test_teardown()
+        self.cleanup_getrequest_parameters()
