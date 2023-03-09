@@ -218,6 +218,6 @@ def encoding_int_to_str(encoding: int, no_error=False) -> str:
 
 def subscription_str_to_int(mode: str, no_error=False) -> int:
     """ Convert text representation of SubscriptionList to standardized integer. """
-    return _convert_enum_format(gnmi_pb2.SubscriptionList.Name, mode,
+    return _convert_enum_format(gnmi_pb2.SubscriptionList.Mode.Value, mode,
                                 f'Unknown subscription mode! ({mode})',
                                 no_error, f'UNKNOWN({mode})')
