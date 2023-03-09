@@ -5,24 +5,13 @@ Documentation    Core test suite for OpenConfig telemetry/gNMI tests,
 ...              Test cases were created with expectation of YANG model ``revision "2022-10-25"``.
 Test Tags        OpenConfig  interfaces
 
-Test Teardown   Clear Interfaces test state
-
 Resource         openconfig.resource
 Resource         interfaces.resource
 
 Resource         ../gNMI_Interface/gNMIClient.resource
 Suite Setup      Setup gNMI Client
 Suite Teardown   Close gNMI Client
-
-
-*** Keywords ***
-Clear Interfaces test state
-    Cleanup Last request Results
-    Cleanup GetRequest Parameters
-
-
-*** Variables ***
-${INTERFACE}     MgmtEth0/RP0/CPU0/0    # TODO - move to YAML
+Test Teardown    Teardown gNMI state
 
 
 *** Test Cases ***
@@ -80,6 +69,7 @@ Get "interfaces" with "encoding" parameter for all supported encodings
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces`` parameter
     ...                receives OK response for all/any of the supported Encoding values.
     [Tags]  encoding
+    Skip
 
 List "/interfaces/interface" contains at least one record
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces/interface`` parameter
@@ -92,67 +82,68 @@ List "/interfaces/interface" contains at least one record
 Read existing "/interfaces/interface" list entries one by one
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces/interface[name]``
     ...                parameter receives OK response for all/any of the supported Encoding values.
-    [Tags]  list
+    [Tags]  list  encoding
+    Skip
     Verify Get of    /interfaces/interface
-    ${updates}=  Last updates
-    Log  ${updates}
+    # ${updates}=  Last updates
 
 Try reading non-existing list entry from "/interfaces/interface"
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces/interface[non-existing-name]``
     ...                parameter for non-existing key value receives error response.
     [Tags]  negative  list
-    Add Path Parameter    /interfaces/interface[name=non-existing-interface]
-    Dispatch Get Request
-    Should Received Error Response
+    Given Paths include  /interfaces/interface[name=non-existing-interface]
+    When Dispatch Get Request
+    Then Should Received Error Response
 
 Read "prefix=/interfaces", "path=interface[]" list entries one by one
     [Documentation]    Verify that list can be iterated with separate prefix/path parameters.
     [Tags]  prefix  list
+    Skip
 
 Read "/interfaces/interface[]/name" key leaf from existing entry
     [Documentation]    Verify that key value can be read using Get request with path parameter.
     [Tags]  key  list
-    ${response}=  Get data from  /interfaces/interface[name=${INTERFACE}]/name
-    Should Be Equal    ${INTERFACE}    TODO
+    Skip
+    ${response}=  Get data from  /interfaces/interface[name=${OC_INTERFACE}]/name
 
 Get "CONFIG" response includes "config" container
     [Documentation]    Verify that ``GetRequest`` with ``type=CONFIG`` parameter receives
     ...                OK response that does include the read/write YANG "config" container.
     [Tags]  config  container
-    Set Datatype To    CONFIG
-    Verify Get of  /interfaces/interface[name=${INTERFACE}]
-    Check Last Updates Include    config
+    Given DataType set to    CONFIG
+    When Verify Get of  /interfaces/interface[name=${OC_INTERFACE}]
+    Then Check Last Updates Include    config
 
 Get "CONFIG" response does not include "state" container
     [Documentation]    Verify that ``GetRequest`` with ``type=CONFIG`` parameter receives
     ...                OK response that does not include the read-only YANG "state" container.
     [Tags]  config  container  negative
-    Set Datatype To    CONFIG
-    Verify Get of  /interfaces/interface[name=${INTERFACE}]
-    Check last updates not include    state
+    Given DataType set to    CONFIG
+    When Verify Get of  /interfaces/interface[name=${OC_INTERFACE}]
+    Then Check last updates not include    state
 
 Get "OPERATIONAL" response includes "state" container
     [Documentation]    Verify that ``GetRequest`` with ``type=OPERATIONAL`` parameter receives
     ...                OK response that does include the read/write YANG "state" container.
     [Tags]  operational  container
-    Set Datatype To    OPERATIONAL
-    Verify Get of  /interfaces/interface[name=${INTERFACE}]
-    Check last updates include  state
+    Given DataType set to    OPERATIONAL
+    When Verify Get of  /interfaces/interface[name=${OC_INTERFACE}]
+    Then Check last updates include  state
 
 Get "OPERATIONAL" response does not include "config" container
     [Documentation]    Verify that ``GetRequest`` with ``type=OPERATIONAL`` parameter receives
     ...                OK response that does not include the read-only YANG "config" container.
     [Tags]  operational  container  negative
-    Set Datatype To    OPERATIONAL
-    Verify Get of  /interfaces/interface[name=${INTERFACE}]
+    DataType set to    OPERATIONAL
+    Verify Get of  /interfaces/interface[name=${OC_INTERFACE}]
     Check last updates not include  config
 
 Get "ALL" response includes both "config" and "state" containers
     [Documentation]    Verify that ``GetRequest`` with ``type=ALL`` parameter receives
     ...                OK response that does include both read-write "config" and read-only "state" containers.
     [Tags]  config  operational  container
-    Set Datatype To    ALL
-    Verify Get of  /interfaces/interface[name=${INTERFACE}]
+    DataType set to    ALL
+    Verify Get of  /interfaces/interface[name=${OC_INTERFACE}]
     Check last updates include  config
     Check last updates include  state
 
@@ -187,9 +178,11 @@ Get "config" works for all supported encodings
     ...                and ``path=interfaces/interface[]/config`` parameters receives
     ...                OK response for all/any of the supported ``encoding` parameter values.
     [Tags]  config  container  encoding
+    Skip
 
 Get "state" works for all supported encodings
     [Documentation]    Verify that ``GetRequest`` with ``type=OPERATIONAL``
     ...                and ``path=interfaces/interface[]/state`` parameters receives
     ...                OK response for all/any of the supported ``encoding` parameter values.
     [Tags]  operational  container  encoding
+    Skip

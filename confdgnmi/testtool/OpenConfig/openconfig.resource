@@ -8,13 +8,13 @@ Verify Get of
     [Arguments]  ${path}
     [Documentation]    Send ``GetRequest`` with specified path parameter
     ...                and verify that "ok" response is received.
-    Add Path Parameter  ${path}
-    Dispatch Get Request
-    GetLibrary.Should Received Ok Response
+    Given Paths include  ${path}
+    When Dispatch Get Request
+    Then Should Received Ok Response
 
 Verify Get of "{path}" with supported encodings
     Get Capabilities From Device
-    ${supported_encodings}=  List Supported Encodings
+    ${supported_encodings}=  Last Supported Encodings
     FOR  ${encoding}  IN  @{supported_encodings}
         Log    ${encoding}
     END
@@ -29,7 +29,7 @@ Get data from
 
 
 Verify path "${path}" with DataType ${type}
-    Add Path Parameter  ${path}
-    Set Datatype To  ${type}
-    Dispatch Get Request
-    Should Received Ok Response
+    Given Paths include  ${path}
+    and DataType set to  ${type}
+    When Dispatch Get Request
+    Then Should Received Ok Response

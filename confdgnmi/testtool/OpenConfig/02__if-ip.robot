@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation     A test suite for gNMI OpenConfig tests.
-Test Tags         OpenConfig
+Test Tags         OpenConfig  if-ip
 Resource          ../gNMI_Interface/gNMIClient.resource
 Default Tags      positive
 
@@ -12,3 +12,4 @@ Default Tags      positive
 *** Test Cases ***
 
 Sanity TODO check
+    Skip

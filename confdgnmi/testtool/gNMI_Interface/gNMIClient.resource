@@ -11,7 +11,10 @@ Documentation    This is a common set of gNMI keywords used by all our Robot gNM
 
 *** Keywords ***
 Setup gNMI Client
-    Setup client     ${SERVER}  ${USERNAME}  ${PASSWORD}  ${INSECURE}
+    Setup client     ${HOST}  ${PORT}  ${USERNAME}  ${PASSWORD}  ${INSECURE}
 
 Close gNMI Client
     Close client
+
+Teardown gNMI state
+    Test teardown

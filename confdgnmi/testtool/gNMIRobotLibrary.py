@@ -13,9 +13,9 @@ class gNMIRobotLibrary(ABC):
     def __init__(self) -> None:
         self._client: Optional[ConfDgNMIClient] = None
 
-    def setup_client(self, ip, username, passwd, insecure):
+    def setup_client(self, host, port, username, passwd, insecure):
         """ Initialize new gNMI client instance for dispatching the requests to server. """
-        self._client = ConfDgNMIClient(*ip.split(':'), insecure=insecure,
+        self._client = ConfDgNMIClient(host=host, port=port, insecure=insecure,
                                        username=username, password=passwd)
         trace('gNMI client connection OK')
 
@@ -56,3 +56,7 @@ class gNMIRobotLibrary(ABC):
         """ Reset previously buffered response/exception. """
         self.last_response = None
         self.last_exception = None
+
+    def test_teardown(self):
+        """ To be used as robot's "Test teardown" for cleaning up any (sub)class state. """
+        self.cleanup_last_request_results()
