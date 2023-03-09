@@ -207,12 +207,12 @@ def datatype_str_to_int(data_type: str, no_error=False) -> int:
 
 def encoding_str_to_int(encoding: str, no_error=False) -> int:
     """ Convert text representation of Encoding to standardized integer. """
-    return _convert_enum_format(gnmi_pb2.Encoding.Name, encoding, f'Unknown Encoding! ({encoding})',
-                                no_error, -1)
+    return _convert_enum_format(gnmi_pb2.Encoding.Value, encoding,
+                                f'Unknown Encoding! ({encoding})', no_error, -1)
 
 def encoding_int_to_str(encoding: int, no_error=False) -> str:
     """ Convert integer representation of Encoding to standardized string. """
-    return _convert_enum_format(gnmi_pb2.Encoding.Value, encoding,
+    return _convert_enum_format(gnmi_pb2.Encoding.Name, encoding,
                                 f'Unknown Encoding value! ({encoding})',
                                 no_error, f'UNKNOWN({encoding})')
 
