@@ -13,17 +13,11 @@ Get container includes
     Check last updates include   ${leaf_name}
 
 Get interface "config" includes leaf
-    # [Arguments]    ${interface}  ${leaf_name}
-    # Get container includes  /interfaces/interface['${interface}']/config  ${leaf_name}
-    # TODO - interface
     [Arguments]    ${leaf_name}
     DataType set to    CONFIG
     Get container includes  /interfaces/interface[name=${OC_INTERFACE}]/config  ${leaf_name}
 
 Get interface "state" includes leaf
-    # [Arguments]    ${interface}  ${leaf_name}
-    # Get container includes  /interfaces/interface[${interface}]/state  ${leaf_name}
-    # TODO - interface
     [Arguments]    ${leaf_name}
     DataType set to    OPERATIONAL
     Get container includes  /interfaces/interface[name=${OC_INTERFACE}]/state  ${leaf_name}

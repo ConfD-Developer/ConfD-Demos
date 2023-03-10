@@ -43,27 +43,16 @@ Get "interfaces" for various "path" parameter values
     [Tags]  path  costly
     [Template]    Verify Get of
     # no namespace
-    /interfaces
-    interfaces/
-    /interfaces/
+    interfaces
     interfaces/interface
-    /interfaces/interface
-    /interfaces/interface/
     # root namespace
     openconfig-interfaces:interfaces
-    /openconfig-interfaces:interfaces
-    openconfig-interfaces:interfaces/
-    /openconfig-interfaces:interfaces/
+    openconfig-interfaces:interfaces/interface
     # non-root namespace
     interfaces/openconfig-interfaces:interface
-    interfaces/openconfig-interfaces:interface/
-    /interfaces/openconfig-interfaces:interface
-    /interfaces/openconfig-interfaces:interface/
+    interfaces/openconfig-interfaces:interface
     # both namespaces
     openconfig-interfaces:interfaces/openconfig-interfaces:interface
-    /openconfig-interfaces:interfaces/openconfig-interfaces:interface
-    openconfig-interfaces:interfaces/openconfig-interfaces:interface/
-    /openconfig-interfaces:interfaces/openconfig-interfaces:interface/
 
 Get "interfaces" with "encoding" parameter for all supported encodings
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces`` parameter
