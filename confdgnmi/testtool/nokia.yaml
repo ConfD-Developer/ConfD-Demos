@@ -1,4 +1,5 @@
-server: hera.lab.tail-f.com:50053
+host: hera.lab.tail-f.com
+port: 50053
 username: admin
 password: admin
 insecure: false

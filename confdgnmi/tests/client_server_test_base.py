@@ -8,7 +8,7 @@ import gnmi_pb2
 import pytest
 
 from confd_gnmi_client import ConfDgNMIClient
-from confd_gnmi_common import make_gnmi_path, get_data_type, \
+from confd_gnmi_common import make_gnmi_path, datatype_str_to_int, \
     make_formatted_path
 from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
 from confd_gnmi_server import AdapterType, ConfDgNMIServicer
@@ -50,11 +50,11 @@ class GrpcBase(object):
 
     def test_capabilities(self, request):
         log.info("testing capabilities")
-        supported_models = self.client.get_capabilities()
+        capa_response = self.client.get_capabilities()
 
         def capability_supported(cap):
             supported = False
-            for s in supported_models:
+            for s in capa_response.supported_models:
                 if s.name == cap['name'] and s.organization == cap['organization']:
                     log.debug("capability cap=%s found in s=%s", cap, s)
                     supported = True
@@ -101,9 +101,9 @@ class GrpcBase(object):
             assert_fun = GrpcBase.assert_updates
         log.debug("prefix=%s paths=%s pv_list=%s datatype=%s encoding=%s",
                   prefix, paths, path_value, datatype, encoding)
-        notification = self.client.get(prefix, paths, datatype, encoding)
-        log.debug("notification=%s", notification)
-        for n in notification:
+        get_response = self.client.get(prefix, paths, datatype, encoding)
+        log.debug("notification=%s", get_response.notification)
+        for n in get_response.notification:
             log.debug("n=%s", n)
             if prefix:
                 assert (n.prefix == prefix)
@@ -240,13 +240,13 @@ class GrpcBase(object):
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     def test_get(self, request, data_type):
         log.info("testing get")
-        self._test_get_subscribe(datatype=get_data_type(data_type))
+        self._test_get_subscribe(datatype=datatype_str_to_int(data_type))
 
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     def test_subscribe_once(self, request, data_type):
         log.info("testing subscribe_once")
         self._test_get_subscribe(is_subscribe=True,
-                                 datatype=get_data_type(data_type))
+                                 datatype=datatype_str_to_int(data_type))
 
     @pytest.mark.long
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
@@ -255,7 +255,7 @@ class GrpcBase(object):
     def test_subscribe_poll(self, request, data_type, poll_args):
         log.info("testing subscribe_poll")
         self._test_get_subscribe(is_subscribe=True,
-                                 datatype=get_data_type(data_type),
+                                 datatype=datatype_str_to_int(data_type),
                                  subscription_mode=gnmi_pb2.SubscriptionList.POLL,
                                  poll_interval=poll_args[0],
                                  poll_count=poll_args[1])
@@ -416,8 +416,8 @@ class GrpcBase(object):
         # fetch with get and see value has changed
         datatype = gnmi_pb2.GetRequest.DataType.CONFIG
         encoding = gnmi_pb2.Encoding.JSON_IETF
-        notification = self.client.get(prefix, paths, datatype, encoding)
-        for n in notification:
+        get_response = self.client.get(prefix, paths, datatype, encoding)
+        for n in get_response.notification:
             log.debug("n=%s", n)
             assert (n.prefix == prefix)
             GrpcBase.assert_updates(n.update, [(paths[0], "iana-if-type:fastEther")])
