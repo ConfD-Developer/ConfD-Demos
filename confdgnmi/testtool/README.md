@@ -98,14 +98,16 @@ Mandatory JSON is advertised as supported encoding :: Get the list... | FAIL |
 Supported encodings include JSON or JSON_IETF :: Test if the devic... | PASS |
 ------------------------------------------------------------------------------
 Device should support some models :: Check that the ``supported_mo... | PASS |
-------------------------------------------------------------------------------....
+------------------------------------------------------------------------------
+
+...output continued...
+
 Output:  .../output.xml
 Log:     .../log.html
 Report:  .../report.html
 ```
 
-This results in creation of previously mentioned log files of interest - `report.html`/`log.html`.
-
+This results in creation of previously mentioned log files of interest - `report.html` and `log.html`.
 
 ### running without target device - ConfD based "adapter"
 
@@ -114,8 +116,6 @@ You can run tests without having any target device, e.g. to see an example test 
 ConfD gNMI adapter serves as an proof-of-concept implementation of gNMI enabled device. It utilizes the ConfD to run and service the model-specific requests for some of OpenConfig standard models<span style="background-color:red">, and TODO...?</span> It includes a simple gNMI server written in Python to "proxy' the incoming gNMI requests into the ConfD database.
 
 <span style="background-color:red">TODO - some seq. diagram could be useful here?</span
-
-
 
 Previously mentioned `adapter.yaml` file already contains all the variables settings needed for this use-case.
 
