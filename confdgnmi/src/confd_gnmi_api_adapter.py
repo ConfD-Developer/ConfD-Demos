@@ -497,7 +497,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
     def get_updates(self, trans, path_str, save_flags):
         log.debug("==> path_str=%s", path_str)
-        tagpath = '/' + '/'.join(tag for tag, keys in parse_instance_path(path_str))
+        tagpath = '/' + '/'.join(tag for tag, _ in parse_instance_path(path_str))
         csnode = _confd.cs_node_cd(None, tagpath)
         updates = []
 

@@ -84,7 +84,7 @@ def make_name_keys(elem_string) -> Tuple[str, Dict[str, str]]:
 
 
 def parse_instance_path(xpath_string) -> Iterable[Tuple[str, List[Tuple[str, str]]]]:
-    """Parse instance path to a iterable of (tag, keys) tuples.
+    """Parse instance path to an iterable of (tag, keys) tuples.
 
     Instance paths are a limited form of XPath expressions - only
     predicates in the form of a key assignment are accepted.

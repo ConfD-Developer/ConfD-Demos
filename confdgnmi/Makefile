@@ -75,7 +75,7 @@ start:  stop
 	$(CONFD) -c confd.conf $(CONFD_FLAGS)
 	confd_load -m -l ./init_interfaces.xml
 	confd_load -m -O -l ./init_interfaces_state.xml
-	confd_load -mol ./oc-if.xml ./oc-comps.xml
+	confd_load -mol ./oc-interfaces.xml ./oc-components.xml
 
 ######################################################################
 stop:
