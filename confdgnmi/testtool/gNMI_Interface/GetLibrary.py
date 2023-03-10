@@ -41,6 +41,7 @@ class UpdatePayload:
     @staticmethod
     def from_obj(updateObj):
         path = _make_string_path(updateObj.path, xpath=True)
+        # TODO - bug - fix for proper data types/encodings/values...
         value = json.loads(updateObj.val.json_ietf_val)
         return UpdatePayload(path=path, value=value)
 
