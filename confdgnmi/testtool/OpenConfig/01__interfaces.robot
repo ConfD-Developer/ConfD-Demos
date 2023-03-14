@@ -31,7 +31,7 @@ Get "interfaces" with "type" parameter
     [Documentation]    Verify that OK response is retrieved for ``GetRequest`` having ``type=``
     ...                parameter with any of the defined ``DataType``s.
     [Tags]  type
-    [Template]  Verify path "${path}" with DataType ${type}
+    [Template]  Iterate path "${path}" with DataType ${type}
     interfaces  ALL
     interfaces  CONFIG
     interfaces  STATE
@@ -41,7 +41,7 @@ Get "interfaces" for various "path" parameter values
     [Documentation]    Verify that various valid formats of root container/list
     ...                can be requested using ``path=`` parameter, and are responded to correctly.
     [Tags]  path  costly
-    [Template]    Verify Get of
+    [Template]    Iterate Get of
     # no namespace
     interfaces
     interfaces/interface
@@ -140,7 +140,7 @@ Get "config" response includes significant leaves
     [Documentation]    Verify that ``GetRequest`` with ``type=CONFIG`` parameter receives
     ...                OK response that does include standardized leaf names/items.
     [Tags]  config  leaf
-    [Template]    Get interface "config" includes leaf
+    [Template]    Iterate interface "config" includes leaf
     name
     type
     mtu
@@ -153,7 +153,7 @@ Get "state" response includes significant leaves
     ...                OK response that does include standardized leaf names/items.
     [Tags]  operational  leaf
     # TODO - add all items to verify deviation from full official OC YANG?
-    [Template]    Get interface "state" includes leaf
+    [Template]    Iterate interface "state" includes leaf
     name
     type
     mtu

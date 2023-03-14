@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation    Resources specific to gNMI Subscribe operation.
-Library          SubscribeLibrary.py
+Library          SubscribeLibrary.py  ${DISABLE_EXTRA_LOGS}
 Resource         gNMIClient.resource
 
 
