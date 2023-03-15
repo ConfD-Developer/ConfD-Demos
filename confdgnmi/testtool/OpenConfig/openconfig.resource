@@ -18,13 +18,6 @@ Iterate Get of
     Verify Get of  ${path}
     [Teardown]    Teardown gNMI state
 
-# Verify Get of "{path}" with supported encodings
-#     Get Capabilities From Device
-#     ${supported_encodings}=  Last Supported Encodings
-#     FOR  ${encoding}  IN  @{supported_encodings}
-#         Log    ${encoding}
-#     END
-
 Get data from
     [Arguments]  ${path}
     [Documentation]    Verify that Get RPC succeeds for specified path,

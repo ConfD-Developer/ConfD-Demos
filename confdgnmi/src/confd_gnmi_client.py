@@ -22,6 +22,12 @@ from gnmi_pb2_grpc import gNMIStub
 log = logging.getLogger('confd_gnmi_client')
 log_rpc = logging.getLogger('confd_gnmi_rpc')   # "gNMI RPC only" dedicated logger
 
+def logged_rpc_call(rpc_name: str, request, rpc_call):
+    log_rpc.debug("RPC - %sRequest:\n%s", rpc_name, str(request))
+    response = rpc_call()
+    log_rpc.debug("RPC - %sResponse:\n%s", rpc_name, str(response))
+    return response
+
 
 class ConfDgNMIClient:
 
@@ -59,10 +65,8 @@ class ConfDgNMIClient:
         log.info("==>")
         request = gnmi_pb2.CapabilityRequest()
         log.debug("Calling stub.Capabilities")
-        log_rpc.debug("RPC - CapabilitiesRequest:\n%s", str(request))
-        response = self.stub.Capabilities(request, metadata=self.metadata)
-        log_rpc.debug("RPC - CapabilitiesResponse:\n%s", str(response))
-        log.info("<== response.supported_models=%s", response.supported_models)
+        response = logged_rpc_call("Capability", request,
+                                   lambda: self.stub.Capabilities(request, metadata=self.metadata))
         return response
 
     @staticmethod
@@ -172,9 +176,8 @@ class ConfDgNMIClient:
         log.info("==>")
         request = ConfDgNMIClient.generate_subscriptions(subscription_list, poll_interval,
                                                          poll_count, subscription_end_delay)
-        log_rpc.debug("RPC - SubscribeRequest:\n%s", str(request))
-        responses = self.stub.Subscribe(request, metadata=self.metadata)
-        log_rpc.debug("RPC - SubscribeResponse:\n%s", str(responses))
+        responses = logged_rpc_call("Subscribe", request,
+                                    lambda: self.stub.Subscribe(request, metadata=self.metadata))
         if read_fun is not None:
             read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
@@ -200,9 +203,8 @@ class ConfDgNMIClient:
                                       type=get_type,
                                       encoding=encoding,
                                       extension=[])
-        log_rpc.debug("RPC - GetRequest:\n%s", str(request))
-        response = self.stub.Get(request, metadata=self.metadata)
-        log_rpc.debug("RPC - GetResponse:\n%s", str(response))
+        response = logged_rpc_call("Get", request,
+                                   lambda: self.stub.Get(request, metadata=self.metadata))
         log.info("<== response=%s", response)
         return response
 
@@ -213,18 +215,16 @@ class ConfDgNMIClient:
             up = gnmi_pb2.Update(path=pv[0], val=pv[1])
             update.append(up)
         request = gnmi_pb2.SetRequest(prefix=prefix, update=update)
-        log_rpc.debug("RPC - SetRequest:\n%s", str(request))
-        response = self.stub.Set(request, metadata=self.metadata)
-        log_rpc.debug("RPC - SetResponse:\n%s", str(response))
+        response = logged_rpc_call("Set", request,
+                                   lambda: self.stub.Set(request, metadata=self.metadata))
         log.info("<== response=%s", response)
         return response
 
     def delete(self, prefix, paths):
         log.info("==> prefix=%s paths=%s", prefix, paths)
         request = gnmi_pb2.SetRequest(prefix=prefix, delete=paths)
-        log_rpc.debug("RPC - SetRequest (delete):\n%s", str(request))
-        response = self.stub.Set(request, metadata=self.metadata)
-        log_rpc.debug("RPC - SetResponse (delete):\n%s", str(response))
+        response = logged_rpc_call("(delete) Set", request,
+                                   lambda: self.stub.Set(request, metadata=self.metadata))
         log.info("<== response=%s", response)
         return response
 
