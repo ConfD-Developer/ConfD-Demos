@@ -57,7 +57,8 @@ Get "interfaces" for various "path" parameter values
 Get "interfaces" with "encoding" parameter for all supported encodings
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces`` parameter
     ...                receives OK response for all/any of the supported Encoding values.
-    [Tags]  encoding
+    # [Tags]  encoding
+    [Tags]    unimplemented
     Skip
 
 List "/interfaces/interface" contains at least one record
@@ -71,9 +72,10 @@ List "/interfaces/interface" contains at least one record
 Read existing "/interfaces/interface" list entries one by one
     [Documentation]    Verify that ``GetRequest`` with ``path=interfaces/interface[name]``
     ...                parameter receives OK response for all/any of the supported Encoding values.
-    [Tags]  list  encoding
+    # [Tags]  list  encoding
+    [Tags]    unimplemented
     Skip
-    Verify Get of    /interfaces/interface
+    # Verify Get of    /interfaces/interface
     # ${updates}=  Last updates
 
 Try reading non-existing list entry from "/interfaces/interface"
@@ -86,14 +88,16 @@ Try reading non-existing list entry from "/interfaces/interface"
 
 Read "prefix=/interfaces", "path=interface[]" list entries one by one
     [Documentation]    Verify that list can be iterated with separate prefix/path parameters.
-    [Tags]  prefix  list
+    # [Tags]  prefix  list
+    [Tags]    unimplemented
     Skip
 
 Read "/interfaces/interface[]/name" key leaf from existing entry
     [Documentation]    Verify that key value can be read using Get request with path parameter.
-    [Tags]  key  list
+    # [Tags]  key  list
+    [Tags]    unimplemented
     Skip
-    ${response}=  Get data from  /interfaces/interface[name=${OC_INTERFACE}]/name
+    # ${response}=  Get data from  /interfaces/interface[name=${OC_INTERFACE}]/name
 
 Get "CONFIG" response includes "config" container
     [Documentation]    Verify that ``GetRequest`` with ``type=CONFIG`` parameter receives
@@ -166,12 +170,14 @@ Get "config" works for all supported encodings
     [Documentation]    Verify that ``GetRequest`` with ``type=CONFIG``
     ...                and ``path=interfaces/interface[]/config`` parameters receives
     ...                OK response for all/any of the supported ``encoding` parameter values.
-    [Tags]  config  container  encoding
+    # [Tags]  config  container  encoding
+    [Tags]    unimplemented
     Skip
 
 Get "state" works for all supported encodings
     [Documentation]    Verify that ``GetRequest`` with ``type=OPERATIONAL``
     ...                and ``path=interfaces/interface[]/state`` parameters receives
     ...                OK response for all/any of the supported ``encoding` parameter values.
-    [Tags]  operational  container  encoding
+    # [Tags]  operational  container  encoding
+    [Tags]    unimplemented
     Skip

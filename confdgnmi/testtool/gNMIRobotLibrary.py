@@ -34,8 +34,8 @@ class gNMIRobotLibrary(ABC):
 
     def _assert_condition(self, condition: bool, message: str):
         if not condition:
-            trace(f'last response: {self.last_response}')
-            trace(f'last exception: {self.last_exception}')
+            trace(f'last response:\n{self.last_response}')
+            trace(f'last exception:\n{self.last_exception}')
         assert condition, message
 
     def should_received_ok_response(self):

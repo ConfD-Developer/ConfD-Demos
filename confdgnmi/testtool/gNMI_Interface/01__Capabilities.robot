@@ -11,10 +11,10 @@ Test Teardown    Teardown gNMI state
 
 
 *** Test Cases ***
-
 Device sends CapabilityResponse (any)
     [Documentation]    Device can respond with ``CapabilityResponse`` to incoming ``CapabilityRequest``.
-    ...                Do not check response format or received data in any way, just the ability to provide response as such.
+    ...                Do not check response format or received data in any way,
+    ...                just the ability to provide response as such.
     When Get capabilities from device
     Then Should Received Ok Response
 
