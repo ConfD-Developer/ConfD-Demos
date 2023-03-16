@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation    Resources specific to ``openconfig-interfaces.yang`` model.
-Library          ../gNMI_Interface/GetLibrary.py  ${DISABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
+Library          ../gNMI_Interface/GetLibrary.py  ${ENABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
 Library    Collections
 Resource  openconfig.resource
 

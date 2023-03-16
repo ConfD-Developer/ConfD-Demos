@@ -5,4 +5,4 @@ password: admin
 insecure: true
 default_encoding: # "None" for no overload of default encoding for Get requests
 
-disable_extra_logs: True # configuration of gNMI library - whether to disable internal implementation logs
+enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs

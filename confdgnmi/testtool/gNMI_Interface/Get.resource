@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation    Resources specific to gNMI ``Get`` RPC/operation.
-Library          GetLibrary.py  ${DISABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
+Library          GetLibrary.py  ${ENABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
 Resource    gNMIClient.resource
 
 *** Keywords ***

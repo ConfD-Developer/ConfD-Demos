@@ -11,9 +11,9 @@ class gNMIRobotLibrary(ABC):
     last_exception: Optional[Exception] = None
 
     """ Common gNMI related functionality used across Robot tests and all libraries inheriting. """
-    def __init__(self, disable_extra_logs = True) -> None:
+    def __init__(self, enable_extra_logs = False) -> None:
         self._client: Optional[ConfDgNMIClient] = None
-        if disable_extra_logs:
+        if not enable_extra_logs:
             # disable all confg_gnmi_ loggers to not pollute robot logs
             for name in logging.root.manager.loggerDict:
                 if name.startswith('confd_gnmi_'):

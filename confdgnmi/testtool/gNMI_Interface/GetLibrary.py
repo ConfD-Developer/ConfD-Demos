@@ -53,8 +53,8 @@ class GetLibrary(CapabilitiesLibrary):
     default_encoding: Optional[str]
     params: GetRequestParameters
 
-    def __init__(self, disable_extra_logs = True, default_encoding: str = None) -> None:
-        super().__init__(disable_extra_logs)
+    def __init__(self, enable_extra_logs = False, default_encoding: str = None) -> None:
+        super().__init__(enable_extra_logs)
         self.default_encoding = encoding_str_to_int(default_encoding) if default_encoding is not None else None
         self.params = GetRequestParameters()
 
