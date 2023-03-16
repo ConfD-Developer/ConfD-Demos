@@ -1,6 +1,7 @@
 *** Settings ***
 Documentation    Resources specific to OpenConfig telemetry testing.
-Library          ../gNMI_Interface/GetLibrary.py    ${DEFAULT_ENCODING}
+Library          ../gNMI_Interface/GetLibrary.py  ${ENABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
+Resource    ../gNMI_Interface/gNMIClient.resource
 
 *** Keywords ***
 
@@ -12,12 +13,10 @@ Verify Get of
     When Dispatch Get Request
     Then Should Received Ok Response
 
-Verify Get of "{path}" with supported encodings
-    Get Capabilities From Device
-    ${supported_encodings}=  Last Supported Encodings
-    FOR  ${encoding}  IN  @{supported_encodings}
-        Log    ${encoding}
-    END
+Iterate Get of
+    [Arguments]  ${path}
+    Verify Get of  ${path}
+    [Teardown]    Teardown gNMI state
 
 Get data from
     [Arguments]  ${path}
@@ -28,8 +27,9 @@ Get data from
     [Return]  ${response}
 
 
-Verify path "${path}" with DataType ${type}
+Iterate path "${path}" with DataType ${type}
     Given Paths include  ${path}
     and DataType set to  ${type}
     When Dispatch Get Request
     Then Should Received Ok Response
+    [Teardown]    Teardown gNMI state

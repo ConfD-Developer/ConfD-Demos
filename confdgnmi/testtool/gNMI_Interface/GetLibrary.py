@@ -17,11 +17,6 @@ class GetRequestParameters:
     encoding: int = None
     use_models: List[dict] = None
 
-    @staticmethod
-    def new():
-        """ Returns new instance of GetRequest parameters' placeholder. """
-        return GetRequestParameters()
-
     def to_kwargs(self, default_encoding: Optional[int]):
         return {
             'prefix': self.prefix,
@@ -36,14 +31,18 @@ class GetRequestParameters:
 @dataclass
 class UpdatePayload:
     path: str
+    value_type: str
     value: Dict[str, object]
 
     @staticmethod
     def from_obj(updateObj):
         path = _make_string_path(updateObj.path, xpath=True)
         # TODO - bug - fix for proper data types/encodings/values...
-        value = json.loads(updateObj.val.json_ietf_val)
-        return UpdatePayload(path=path, value=value)
+        (value_type, dict_data) = str(updateObj.val).split(': ', 1)
+        value = json.loads(dict_data)
+        if isinstance(value, str) and len(value) > 0:
+            value = json.loads(value)
+        return UpdatePayload(path=path, value_type=value_type, value=value)
 
 
 class GetLibrary(CapabilitiesLibrary):
@@ -54,10 +53,10 @@ class GetLibrary(CapabilitiesLibrary):
     default_encoding: Optional[str]
     params: GetRequestParameters
 
-    def __init__(self, default_encoding: str = None) -> None:
-        super().__init__()
+    def __init__(self, enable_extra_logs = False, default_encoding: str = None) -> None:
+        super().__init__(enable_extra_logs)
         self.default_encoding = encoding_str_to_int(default_encoding) if default_encoding is not None else None
-        self.params = GetRequestParameters.new()
+        self.params = GetRequestParameters()
 
     def get_last_updates_count(self):
         """ Return total number of updates in last response payload,
@@ -80,7 +79,7 @@ class GetLibrary(CapabilitiesLibrary):
 
     def cleanup_getrequest_parameters(self):
         """ Clear all parameters of following `GetRequest` to be empty. """
-        self.params = GetRequestParameters.new()
+        self.params = GetRequestParameters()
 
     def prefix_set_to(self, prefix: str):
         """ Set the `prefix` parameter of the next `GetRequest` to specified value. """
@@ -126,22 +125,22 @@ class GetLibrary(CapabilitiesLibrary):
         updates = []
         for n in notifications:
             for update in n.update:
-                trace(update)
                 updates.append(UpdatePayload.from_obj(update))
+        trace(f"Last updates: {str(updates)}")
         return updates
 
     def _updates_include(self, text: str) -> bool:
         updates = self.get_last_flattened_updates()
         if updates is None:
             return False
-        trace(updates)
+        # TODO - fix for nested items etc.
         return any(text in update.value for update in updates)
 
     def check_last_updates_include(self, text: str) -> bool:
-        assert self._updates_include(text), f'Wanted text \"{text}\" not found in any of updates'
+        assert self._updates_include(text), f'Expected \"{text}\" not found in any of updates'
 
     def check_last_updates_not_include(self, text: str) -> bool:
-        assert not self._updates_include(text), f'Unwanted text \"{text}\" found in some of updates'
+        assert not self._updates_include(text), f'Unexpected \"{text}\" found in some of updates'
 
     def test_teardown(self):
         super().test_teardown()
