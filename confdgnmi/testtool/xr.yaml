@@ -10,3 +10,6 @@ enable_extra_logs: False # configuration of gNMI library - whether to enable int
 
 # test-case specific settings
 oc_interface: MgmtEth0/RP0/CPU0/0
+
+get-path: /interfaces
+secondary-path: /components

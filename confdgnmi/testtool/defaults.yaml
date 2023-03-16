@@ -1,0 +1,2 @@
+get-path: /ietf-interfaces:interfaces
+secondary-path: /route-status:route-status/route

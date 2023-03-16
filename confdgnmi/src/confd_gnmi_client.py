@@ -170,22 +170,26 @@ class ConfDgNMIClient:
         log.info("<==")
 
     # TODO this API would change with more subscription support
-    def subscribe(self, subscription_list, read_fun=None,
+    def subscribe(self, requests, read_fun=None,
                   poll_interval=0.0, poll_count=0, read_count=-1,
                   subscription_end_delay=0.0):
         log.info("==>")
-        request = ConfDgNMIClient.generate_subscriptions(subscription_list, poll_interval,
-                                                         poll_count, subscription_end_delay)
+        if isinstance(requests, list):
+            requests = ConfDgNMIClient.generate_subscriptions(requests,
+                                                              poll_interval,
+                                                              poll_count,
+                                                              subscription_end_delay)
         responses = logged_rpc_call("Subscribe", request,
-                                    lambda: self.stub.Subscribe(request, metadata=self.metadata))
+                                    lambda: self.stub.Subscribe(requests, metadata=self.metadata))
         if read_fun is not None:
             read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
         return responses
 
     def get_public(self,
-                   prefix: Optional[str], paths: list[str],
-                   get_type: Optional[int], encoding: Optional[int]) -> gnmi_pb2.GetResponse:
+                   prefix: Optional[str] = None, paths: list[str] = [],
+                   get_type: Optional[int] = None, encoding: Optional[int] = None) \
+            -> gnmi_pb2.GetResponse:
         sanitized_params = {
             'prefix': None if prefix is None else make_gnmi_path(prefix),
             'paths': [make_gnmi_path(p) for p in paths],
