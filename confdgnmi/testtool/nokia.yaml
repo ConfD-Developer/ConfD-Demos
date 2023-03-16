@@ -4,3 +4,5 @@ username: admin
 password: admin
 insecure: false
 default_encoding: JSON_IETF
+
+enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs

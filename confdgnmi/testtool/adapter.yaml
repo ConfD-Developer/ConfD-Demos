@@ -8,6 +8,9 @@ username: admin
 password: admin
 # insecure/certificate-based gNMI server mode for all requests
 insecure: true
+
 # default_encoding - leave "empty" for no overload of default encoding for Get requests,
 # use standard values otherwise - JSON|BYTES|PROTO|ASCII|JSON_IETF
-default_encoding:
+default_encoding: # "None" for no overload of default encoding for Get requests
+
+enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs

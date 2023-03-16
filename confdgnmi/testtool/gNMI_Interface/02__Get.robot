@@ -35,7 +35,7 @@ Parameter "type" - valid values return OK response
     ...                (while not setting any other request parameters).
     ...
     ...                Test succeeds when "OK" response with any data is received from server.
-    [Template]         Verify Get with DataType
+    [Template]         Iterate Get with DataType
     ALL
     CONFIG
     STATE

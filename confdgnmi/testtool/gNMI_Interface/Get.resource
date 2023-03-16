@@ -1,9 +1,10 @@
 *** Settings ***
 Documentation    Resources specific to gNMI ``Get`` RPC/operation.
-Library          GetLibrary.py    ${DEFAULT_ENCODING}
+Library          GetLibrary.py  ${ENABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
+Resource    gNMIClient.resource
 
 *** Keywords ***
-Verify Get with DataType
+Iterate Get with DataType
     [Documentation]    Try sending `GetRequest` with specified DataType parameter value,
     ...                and verify that "ok" response is received.
     [Tags]    type
@@ -11,6 +12,7 @@ Verify Get with DataType
     Given DataType set to  ${type}
     When Dispatch Get Request
     Then Should Received Ok Response
+    [Teardown]    Teardown gNMI state
 
 Verify Get with Encoding
     [Documentation]    Try sending `GetRequest` with specified Encoding parameter value,
