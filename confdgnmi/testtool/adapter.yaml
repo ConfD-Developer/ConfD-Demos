@@ -1,8 +1,16 @@
+# hostname of a target gNMI server
 host: 127.0.0.1
+# gNMI port
 port: 50061
+# gNMI server username for all gNMI requests
 username: admin
+# gNMI server password for all gNMI requests
 password: admin
+# insecure/certificate-based gNMI server mode for all requests
 insecure: true
+
+# default_encoding - leave "empty" for no overload of default encoding for Get requests,
+# use standard values otherwise - JSON|BYTES|PROTO|ASCII|JSON_IETF
 default_encoding: # "None" for no overload of default encoding for Get requests
 
 enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs
