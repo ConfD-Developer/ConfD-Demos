@@ -133,24 +133,28 @@ class GrpcBase(object):
         def read_subscribe_responses(responses, read_count=-1):
             nonlocal response_count, pv_idx
             for response in responses:
-                response_count += 1
                 log.debug("response=%s response_count=%i", response,
                           response_count)
-                if prefix:
-                    assert (response.update.prefix == prefix)
-                pv_to_check = path_value
-                if pv_idx != -1:
-                    assert pv_idx < len(path_value)
-                    pv_to_check = path_value[pv_idx]
-                    pv_idx += 1
-                if len(pv_to_check) > 0:  # skip empty arrays
-                    assert_fun(response.update.update, pv_to_check)
-                log.info("response_count=%i", response_count)
-                if read_count > 0:
-                    read_count -= 1
-                    if read_count == 0:
-                        log.info("read count reached")
-                        break
+                if response.sync_response:
+                    log.info("sync_response")
+                    assert response_count == 1  # sync expected only after first response
+                else:
+                    response_count += 1
+                    if prefix:
+                        assert (response.update.prefix == prefix)
+                    pv_to_check = path_value
+                    if pv_idx != -1:
+                        assert pv_idx < len(path_value)
+                        pv_to_check = path_value[pv_idx]
+                        pv_idx += 1
+                    if len(pv_to_check) > 0:  # skip empty arrays
+                        assert_fun(response.update.update, pv_to_check)
+                    log.info("response_count=%i", response_count)
+                    if read_count > 0:
+                        read_count -= 1
+                        if read_count == 0:
+                            log.info("read count reached")
+                            break
             assert read_count == -1 or read_count == 0
 
         read_fun = read_subscribe_responses
