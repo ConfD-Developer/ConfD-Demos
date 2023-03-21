@@ -136,7 +136,7 @@ class GrpcBase(object):
                 log.debug("response=%s response_count=%i", response,
                           response_count)
                 if response.sync_response:
-                    log.info("sync_response")
+                    log.debug("sync_response")
                     assert response_count == 1  # sync expected only after first response
                 else:
                     response_count += 1
@@ -149,7 +149,7 @@ class GrpcBase(object):
                         pv_idx += 1
                     if len(pv_to_check) > 0:  # skip empty arrays
                         assert_fun(response.update.update, pv_to_check)
-                    log.info("response_count=%i", response_count)
+                    log.debug("response_count=%i", response_count)
                     if read_count > 0:
                         read_count -= 1
                         if read_count == 0:
