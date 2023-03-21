@@ -13,7 +13,7 @@ insecure: true
 # use standard values otherwise - JSON|BYTES|PROTO|ASCII|JSON_IETF
 default_encoding: # "None" for no overload of default encoding for Get requests
 
-# configuration of gNMI library - whether to enable internal implementation logs
+# configuration of gNMI library - whether to disable internal implementation logs
 enable_extra_logs: False
 
 # ---- generic gNMI test cases settings

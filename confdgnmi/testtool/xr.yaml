@@ -6,7 +6,8 @@ password: admin
 insecure: true
 default_encoding: JSON_IETF # as mandatory JSON is not supported
 
-enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs
+# configuration of gNMI library - whether to enable internal implementation logs
+enable_extra_logs: False
 
 
 # ---- generic gNMI test cases settings
