@@ -35,20 +35,6 @@ Verify Get for Encodings
         Verify root Get with Encoding  ${encoding}
     END
 
-# Verify Get of model
-#     [Tags]    path
-#     [Arguments]    ${model}  ${pass-condition-keyword}=Should received Ok response
-#     Given Paths include  /${model}
-#     When Dispatch Get Request
-#     Then Run keyword  ${pass-condition-keyword}
-
-# Verify Get for models
-#     [Tags]    path  robot:continue-on-failure
-#     [Arguments]    ${model_names}    ${pass-condition-keyword}=Should received Ok response
-#     FOR  ${model}  IN  @{model_names}
-#         Verify Get of model  ${model}  ${pass-condition-keyword}
-#     END
-
 Iterate leaves "${leaves}"" of path "${path}"
     [Documentation]    Retrieve the item from specified path, and verify that response
     ...                includes some data for it.
@@ -56,8 +42,6 @@ Iterate leaves "${leaves}"" of path "${path}"
     Should Be True    ${leaves} is not ${None}  Missing leaves to test for path "${path}"!
     Should Not Be Empty    ${leaves}
     When Verify Get of  ${path}
-    ${count}=  Get Last Updates Count
-    # Then Should Be Equal As Integers    ${count}  1
     FOR  ${leaf}  IN  @{leaves}
         Run Keyword And Continue On Failure  Then Check Last Updates Include    ${leaf}
     END

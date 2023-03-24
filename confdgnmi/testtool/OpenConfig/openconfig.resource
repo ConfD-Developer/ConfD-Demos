@@ -13,18 +13,3 @@ Iterate path "${path}" with DataType ${type}
     When Dispatch Get Request
     Then Should Received Ok Response
     [Teardown]    Teardown gNMI state
-
-# Verify Get of "{path}" with supported encodings
-#     Get Capabilities From Device
-#     ${supported_encodings}=  Last Supported Encodings
-#     FOR  ${encoding}  IN  @{supported_encodings}
-#         Log    ${encoding}
-#     END
-
-# Get data from
-#     [Arguments]  ${path}
-#     [Documentation]    Verify that Get RPC succeeds for specified path,
-#     ...                and return the retrieved response data.
-#     Verify Get of  ${path}
-#     ${response}=  Retrieve Last Response
-#     [Return]  ${response}

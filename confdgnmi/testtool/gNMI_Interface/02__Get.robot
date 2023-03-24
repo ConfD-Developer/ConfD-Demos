@@ -108,7 +108,7 @@ Get leaf for configured paths
     [Documentation]    Verify that request for a specific leaf (declared in config file)
     ...                YANG node can be issued against server, and that OK response with data is received.
     [Tags]    leaf
-    [Template]    Iterate leaves "${leaves}"" of path "${path}"
+    [Template]    Iterate leaves "${leaves}" of path "${path}"
     FOR  ${item}  IN  @{GNMI_GET_LEAF}
         ${item.leaves}    ${item.path}
     END
