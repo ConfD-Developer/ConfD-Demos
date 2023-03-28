@@ -3,16 +3,17 @@ Documentation    Generic device agnostic test suite for gNMI ``Get`` RPC/operati
 Test Tags        get
 
 Library          Collections
-Resource         Get.resource
+Library          GetLibrary.py  ${ENABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
 
+Resource         Get.resource
 Resource         gNMIClient.resource
+
 Suite Setup      Setup gNMI Client
 Suite Teardown   Close gNMI Client
 Test Teardown    Teardown gNMI state
 
 
 *** Test Cases ***
-
 Sanity check for no parameters in GetRequest check
     [Documentation]    Make a sanity "no parameters" request to "ping" server for OK response,
     ...                ignoring the actual payload.
@@ -23,8 +24,7 @@ Sanity check for no parameters in GetRequest check
 Parameter "prefix" on root path
     [Documentation]    Try getting whole config by setting ``prefix=/`` parameter.
     ...                Check that OK response is received without any internal data verification.
-    # TODO - might be too costly for big models?
-    [Tags]    prefix
+    [Tags]    prefix    costly
     Given Prefix set to  /
     When Dispatch Get Request
     Then Should received OK Response
@@ -35,7 +35,7 @@ Parameter "type" - valid values return OK response
     ...                (while not setting any other request parameters).
     ...
     ...                Test succeeds when "OK" response with any data is received from server.
-    [Template]         Iterate Get with DataType
+    [Template]         Iterate root Get with DataType
     ALL
     CONFIG
     STATE
@@ -63,9 +63,8 @@ Parameter "encoding" - supported values get OK response
     Then Should Received Ok Response
 
     @{supported}=  Last Supported Encodings
-    Should Not Be Empty  ${supported}
-    # TODO - fix buggy default DataType
-    Verify Get for Encodings  ${supported}
+    Then Should Not Be Empty  ${supported}
+    And Verify Get for Encodings  ${supported}
 
 Parameter "encoding" - unsupported value gets Error response
     [Documentation]    Check which encodings server does NOT "advertise" as supported.
@@ -104,3 +103,30 @@ Parameter "encoding" - invalid value gets Error response
 #     ${model_count}=  Get Length  ${model_names}
 #     Log  Received ${model_count} model names from device. Starting to iterate:
 #     Verify Get for models  ${model_names}
+
+Get leaf for configured paths
+    [Documentation]    Verify that request for a specific leaf (declared in config file)
+    ...                YANG node can be issued against server, and that OK response with data is received.
+    [Tags]    leaf
+    [Template]    Iterate leaves "${leaves}" of path "${path}"
+    FOR  ${item}  IN  @{GNMI_GET_LEAF}
+        ${item.leaves}    ${item.path}
+    END
+
+Get list for configured paths
+    [Documentation]    Verify that request for a list YANG node (declared in config file)
+    ...                can be issued against server, and that OK response with data is received.
+    [Tags]    list
+    [Template]    Iterate container path "${path}"
+    FOR  ${path}  IN  @{GNMI_GET_LIST}
+        ${path}
+    END
+
+Get list-entry for configured paths
+    [Documentation]    Verify that request for a specific list entry (declared in config file)
+    ...                YANG node can be issued against server, and that OK response with data is received.
+    [Tags]    list
+    [Template]    Iterate list-entry path "${}" for keys "${}"
+    FOR  ${item}  IN  @{GNMI_GET_LIST_ENTRY}
+        ${item.path}    ${item.projections}
+    END

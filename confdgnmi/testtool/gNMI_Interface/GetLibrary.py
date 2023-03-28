@@ -44,6 +44,9 @@ class UpdatePayload:
             value = json.loads(value)
         return UpdatePayload(path=path, value_type=value_type, value=value)
 
+    def is_empty(self):
+        return not self.value
+
 
 class GetLibrary(CapabilitiesLibrary):
     """ ROBOT test suite library for servicing the gNMI GetRequest tests.\n
@@ -133,15 +136,35 @@ class GetLibrary(CapabilitiesLibrary):
         updates = self.get_last_flattened_updates()
         if updates is None:
             return False
-        # TODO - fix for nested items etc.
-        return any(text in update.value for update in updates)
+        for update in updates:
+            if update.is_empty():
+                continue
+            if isinstance(update.value, dict) and text in update.value:
+                return True
+            if update.path.endswith(text):
+                return True
+        return False
 
     def check_last_updates_include(self, text: str) -> bool:
-        assert self._updates_include(text), f'Expected \"{text}\" not found in any of updates'
+        assert self._updates_include(text), f"Expected \"{text}\" not found in any of updates!"
 
     def check_last_updates_not_include(self, text: str) -> bool:
-        assert not self._updates_include(text), f'Unexpected \"{text}\" found in some of updates'
+        assert not self._updates_include(text), f"Unexpected \"{text}\" found in some of updates!"
+
+    def check_last_updates_not_empty(self) -> bool:
+        last_updates = self.get_last_flattened_updates()
+        non_empty_contents = not any(update.is_empty() for update in last_updates)
+        assert non_empty_contents, "No updates with payload from last request!"
 
     def test_teardown(self):
         super().test_teardown()
         self.cleanup_getrequest_parameters()
+
+    def get_projections_from_key_dictionary(self, key_dictionary: Dict[str, str]) -> str:
+        """ Helper method to convert a dictionary of list-entry key mappings
+            into XPath like string portion, e.g.:
+                { "name": "eth0"} --> [name=eth0]
+                { "name": "eth0", "type": "ethernet" } --> [name=eth0][type=ethernet]
+          """
+        projections = [f"[{name}={value}]" for [name, value] in key_dictionary.items()]
+        return "".join(projections)

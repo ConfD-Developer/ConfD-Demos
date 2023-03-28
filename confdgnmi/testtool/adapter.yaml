@@ -13,4 +13,26 @@ insecure: true
 # use standard values otherwise - JSON|BYTES|PROTO|ASCII|JSON_IETF
 default_encoding: # "None" for no overload of default encoding for Get requests
 
-enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs
+# configuration of gNMI library - whether to disable internal implementation logs
+enable_extra_logs: False
+
+# ---- generic gNMI test cases settings
+
+gnmi_get_leaf:
+  - path: /interfaces-state/interface[name=state_if_2]/
+    leaves:
+      - name
+      - type
+
+gnmi_get_list:
+  - /interfaces/interface
+
+gnmi_get_list_entry:
+  - path: /interfaces-state/interface
+    projections:
+      - name: state_if_1
+      - name: state_if_3
+      - name: state_if_7
+      - name: state_if_10
+
+oc_interface:

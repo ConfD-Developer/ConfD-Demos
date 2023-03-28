@@ -1,4 +1,4 @@
-# device (gNMI server) specific settings for our gNMI client
+# ---- device (gNMI server) specific settings for our gNMI client
 host: xawin.lab.tail-f.com
 port: 32784
 username: admin
@@ -6,7 +6,45 @@ password: admin
 insecure: true
 default_encoding: JSON_IETF # as mandatory JSON is not supported
 
-enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs
+# configuration of gNMI library - whether to enable internal implementation logs
+enable_extra_logs: False
 
-# test-case specific settings
+
+# ---- generic gNMI test cases settings
+
+# End-user specific test data for checking the "leaf" values in models.
+# - is a list - can contain multiple entries
+gnmi_get_leaf:
+  - path: /interfaces/interface[name=MgmtEth0/RP0/CPU0/0]/state
+    # list of a leaf names to be checked inside of the parent container
+    leaves:
+      - type
+      - admin-status
+      # - fail-on-this-item-item
+      - oper-status
+  - path: /interfaces/interface[name=MgmtEth0/RP0/CPU0/0]/state/counters
+    leaves:
+      - in-pkts
+      - out-pkts
+  # - path: /fail-on-this-path-path
+  #   leaves:
+
+# End-user specific test data for checking the "container/list" values in models.
+# - is a list of "non-leaf" items - either containers/lists/list-entries
+gnmi_get_list:
+  - /interfaces/interface
+  - /interfaces/interface[name=MgmtEth0/RP0/CPU0/0]
+  - /components/component
+
+# End-user specific test data for checking the "list-entry" values in models.
+# - is a list of paths to a list
+gnmi_get_list_entry:
+  # each path has a list of entries
+  - path: /interfaces/interface
+    # each entry has list of key:value projections
+    projections:
+      - name: MgmtEth0/RP0/CPU0/0
+        #other-key: 123
+
+# ---- OpenConfig test-case settings
 oc_interface: MgmtEth0/RP0/CPU0/0

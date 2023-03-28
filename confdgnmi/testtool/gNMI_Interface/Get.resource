@@ -1,10 +1,13 @@
 *** Settings ***
 Documentation    Resources specific to gNMI ``Get`` RPC/operation.
-Library          GetLibrary.py  ${ENABLE_EXTRA_LOGS}  ${DEFAULT_ENCODING}
-Resource    gNMIClient.resource
+Library          String
+Library          Collections
+Resource         gNMIClient.resource
+Resource         BasicGet.resource
+
 
 *** Keywords ***
-Iterate Get with DataType
+Iterate root Get with DataType
     [Documentation]    Try sending `GetRequest` with specified DataType parameter value,
     ...                and verify that "ok" response is received.
     [Tags]    type
@@ -14,7 +17,7 @@ Iterate Get with DataType
     Then Should Received Ok Response
     [Teardown]    Teardown gNMI state
 
-Verify Get with Encoding
+Verify root Get with Encoding
     [Documentation]    Try sending `GetRequest` with specified Encoding parameter value,
     ...                and verify that "ok" response is received.
     [Tags]    encoding
@@ -24,25 +27,48 @@ Verify Get with Encoding
     Then Should received OK response
 
 Verify Get for Encodings
+    [Documentation]    Iterate all the specified encodings, and verify that
+    ...                they work for the basic ``GetRequest``.
     [Tags]    encoding  robot:continue-on-failure
     [Arguments]    ${encodings}
     FOR  ${encoding}  IN  @{encodings}
-        Verify Get with Encoding  ${encoding}
+        Verify root Get with Encoding  ${encoding}
     END
 
-Verify Get failure for unsupported encodings
+Iterate leaves "${leaves}"" of path "${path}"
+    [Documentation]    Retrieve the item from specified path, and verify that response
+    ...                includes some data for it.
+    ...                Cleanup the gNMI library state after to allow other clean iterations.
+    Should Be True    ${leaves} is not ${None}  Missing leaves to test for path "${path}"!
+    Should Not Be Empty    ${leaves}
+    When Verify Get of  ${path}
+    FOR  ${leaf}  IN  @{leaves}
+        Run Keyword And Continue On Failure  Then Check Last Updates Include    ${leaf}
+    END
+    [Teardown]    Teardown gNMI state
 
-# TODO - uncomment/use when use_models functionality is added to servicing robot lib
-# Verify Get of model
-#     [Tags]    path
-#     [Arguments]    ${model}  ${pass-condition-keyword}=Should received Ok response
-#     Given Paths include  /${model}
-#     When Dispatch Get Request
-#     Then Run keyword  ${pass-condition-keyword}
+Iterate container path "${path}"
+    [Documentation]    Verify that ``GetRequest`` on a configured path pointing to a "container" node
+    ...                succeeds and gets non-empty OK response.
+    When Verify Get of  ${path}
+    Then Check last updates not empty
+    [Teardown]    Teardown gNMI state
 
-# Verify Get for models
-#     [Tags]    path  robot:continue-on-failure
-#     [Arguments]    ${model_names}    ${pass-condition-keyword}=Should received Ok response
-#     FOR  ${model}  IN  @{model_names}
-#         Verify Get of model  ${model}  ${pass-condition-keyword}
-#     END
+Iterate get of list-entry "${path}" with "${keys}"
+    [Documentation]    Verify that ``GetRequest`` on a configured path pointing to a "list-entry" node
+    ...                succeeds and gets non-empty OK response.
+    [Tags]    robot:private
+    ${projections}=  Get projections from key dictionary  ${keys}
+    When Verify Get of  ${path}${projections}
+    Then Check last updates not empty
+    [Teardown]    Teardown gNMI state
+
+Iterate list-entry path "${path}" for keys "${keys}"
+    [Documentation]    Retrieve the item from specified path, and verify that response
+    ...                includes some data for it.
+    ...                Cleanup the gNMI library state after to allow other clean iterations.
+    [Tags]    robot:continue-on-failure
+    FOR  ${key_dictionary}  IN  @{keys}
+        Iterate get of list-entry "${path}" with "${key_dictionary}"
+    END
+    [Teardown]    Teardown gNMI state

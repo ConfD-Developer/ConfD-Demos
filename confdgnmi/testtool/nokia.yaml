@@ -5,4 +5,12 @@ password: admin
 insecure: false
 default_encoding: JSON_IETF
 
-enable_extra_logs: False # configuration of gNMI library - whether to enable internal implementation logs
+# configuration of gNMI library - whether to enable internal implementation logs
+enable_extra_logs: False
+
+# ---- generic gNMI test cases settings
+
+# TODO - add paths for test-cases adjusting the xr.yaml to this device specific models
+
+# ---- OpenConfig test-case settings
+oc_interface:

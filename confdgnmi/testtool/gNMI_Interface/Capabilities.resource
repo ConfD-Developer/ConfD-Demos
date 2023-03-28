@@ -5,7 +5,6 @@ Library          CapabilitiesLibrary.py  ${ENABLE_EXTRA_LOGS}
 
 
 *** Keywords ***
-
 Loaded Capabilities from device
     [Documentation]    Try getting the ``CapabilityResponse`` from device,
     ...                and verify that OK response is received.
