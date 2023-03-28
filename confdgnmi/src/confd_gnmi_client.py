@@ -71,14 +71,14 @@ class ConfDgNMIClient:
         return response
 
     @staticmethod
-    def make_subscription_list(prefix, paths, mode, encoding):
+    def make_subscription_list(prefix, paths, mode, encoding,
+                               stream_mode=gnmi_pb2.SubscriptionMode.ON_CHANGE):
         log.debug("==> mode=%s", mode)
         qos = gnmi_pb2.QOSMarking(marking=1)
         subscriptions = []
         for path in paths:
             if mode == gnmi_pb2.SubscriptionList.STREAM:
-                sub = gnmi_pb2.Subscription(path=path,
-                                            mode=gnmi_pb2.SubscriptionMode.ON_CHANGE)
+                sub = gnmi_pb2.Subscription(path=path, mode=stream_mode)
             else:
                 sub = gnmi_pb2.Subscription(path=path)
             subscriptions.append(sub)
@@ -173,25 +173,27 @@ class ConfDgNMIClient:
         log.info("<==")
 
     # TODO this API would change with more subscription support
-    def subscribe(self, subscription_list, read_fun=None,
+    def subscribe(self, requests, read_fun=None,
                   poll_interval=0.0, poll_count=0, read_count=-1,
                   subscription_end_delay=0.0, interactive_poll=False):
         log.info("==>")
-        request = ConfDgNMIClient.generate_subscriptions(subscription_list,
-                                                         poll_interval=poll_interval,
-                                                         poll_count=poll_count,
-                                                         subscription_end_delay=subscription_end_delay,
-                                                         interactive_poll=interactive_poll)
-        responses = logged_rpc_call("Subscribe", request,
-                                    lambda: self.stub.Subscribe(request, metadata=self.metadata))
+        if isinstance(requests, gnmi_pb2.SubscriptionList):
+            requests = ConfDgNMIClient.generate_subscriptions(requests,
+                                                              poll_interval=poll_interval,
+                                                              poll_count=poll_count,
+                                                              subscription_end_delay=subscription_end_delay,
+                                                              interactive_poll=interactive_poll)
+        responses = logged_rpc_call("Subscribe", requests,
+                                    lambda: self.stub.Subscribe(requests, metadata=self.metadata))
         if read_fun is not None:
             read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
         return responses
 
     def get_public(self,
-                   prefix: Optional[str], paths: list[str],
-                   get_type: Optional[int], encoding: Optional[int]) -> gnmi_pb2.GetResponse:
+                   prefix: Optional[str] = None, paths: list[str] = [],
+                   get_type: Optional[int] = None, encoding: Optional[int] = None) \
+            -> gnmi_pb2.GetResponse:
         sanitized_params = {
             'prefix': None if prefix is None else make_gnmi_path(prefix),
             'paths': [make_gnmi_path(p) for p in paths],
