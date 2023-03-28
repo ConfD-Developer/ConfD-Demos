@@ -4,8 +4,7 @@ import sys
 
 
 def gen_intf(name):
-    interface = """<interface xmlns:ns0="urn:ietf:params:xml:ns:netconf:base:1.0"
-               ns0:operation="create">
+    interface = """<interface>
         <name>{}</name>
         <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">
             gigabitEthernet

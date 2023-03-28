@@ -372,8 +372,8 @@ class GrpcBase(object):
         path_value = [[]]  # empty element means no check
         path_value.extend(self._changes_list_to_pv(changes_list))
 
-        prefix_str = "interfaces{}".format(prefix_state_str)
-        prefix = make_gnmi_path("/" + GnmiDemoServerAdapter.NS_INTERFACES + prefix_str)
+        prefix_str = "{{prefix}}interfaces{}".format(prefix_state_str)
+        prefix = make_gnmi_path("/" + prefix_str.format(prefix=GnmiDemoServerAdapter.NS_INTERFACES))
 
         paths = [GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
                                           "N/A")]
@@ -387,13 +387,15 @@ class GrpcBase(object):
         kwargs["assert_fun"] = GrpcBase.assert_in_updates
 
         if self.adapter_type == AdapterType.DEMO:
+            prefix_pfx = prefix_str.format(prefix='')
             GnmiDemoServerAdapter.load_config_string(
-                self._changes_list_to_xml(changes_list, prefix_str))
+                self._changes_list_to_xml(changes_list, prefix_pfx))
         if self.adapter_type == AdapterType.API:
+            prefix_pfx = prefix_str.format(prefix='if:')
             sleep(1)
             thr = threading.Thread(
                 target=self._send_change_list_to_confd_thread,
-                args=(prefix_str, changes_list,))
+                args=(prefix_pfx, changes_list,))
             thr.start()
 
         self.verify_sub_sub_response_updates(**kwargs)
