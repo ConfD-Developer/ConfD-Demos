@@ -205,9 +205,8 @@ def _convert_enum_format(constructor, value, exception_str, do_return_unknown, u
         if isinstance(value, str):
             # If the input is "UNKNOWN(x)" string - that ve most probably
             # created previously, convert it back to raw integer "x".
-            num_str = value.lstrip('UNKNOWN(').rstrip(')')
-            if len(num_str) > 0:
-                return str(num_str)
+            if mtch := re.match(value, r'UNKNOWN\(([0-9]+)\)') is not None:
+                return int(mtch.groups()[0])
         return constructor(value)
     except ValueError as ex:
         if do_return_unknown:

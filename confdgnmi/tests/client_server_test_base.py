@@ -274,7 +274,7 @@ class GrpcBase(object):
 
         @self.encoding_test_decorator
         def test_it(encoding):
-            self._test_get_subscribe(datatype=get_data_type(data_type),
+            self._test_get_subscribe(datatype=datatype_str_to_int(data_type),
                                      encoding=encoding)
 
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
@@ -290,7 +290,7 @@ class GrpcBase(object):
         @self.encoding_test_decorator
         def test_it(encoding):
             self._test_get_subscribe(is_subscribe=True,
-                                     datatype=get_data_type(data_type),
+                                     datatype=datatype_str_to_int(data_type),
                                      encoding=encoding)
 
     @pytest.mark.long
