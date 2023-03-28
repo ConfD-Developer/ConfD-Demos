@@ -1,12 +1,13 @@
+import json
 import subprocess
 import threading
 import xml.etree.cElementTree as ET
 from time import sleep
-import json
 
-import gnmi_pb2
+import grpc
 import pytest
 
+import gnmi_pb2
 from confd_gnmi_client import ConfDgNMIClient
 from confd_gnmi_common import make_gnmi_path, datatype_str_to_int, \
     make_formatted_path
@@ -50,11 +51,11 @@ class GrpcBase(object):
 
     def test_capabilities(self, request):
         log.info("testing capabilities")
-        capa_response = self.client.get_capabilities()
+        capabilities = self.client.get_capabilities()
 
         def capability_supported(cap):
             supported = False
-            for s in capa_response.supported_models:
+            for s in capabilities.supported_models:
                 if s.name == cap['name'] and s.organization == cap['organization']:
                     log.debug("capability cap=%s found in s=%s", cap, s)
                     supported = True
@@ -63,7 +64,12 @@ class GrpcBase(object):
 
         # check if selected capabilities are supported
         for cap in GnmiDemoServerAdapter.capability_list:
-            assert (capability_supported(cap))
+            assert capability_supported(cap)
+
+        # mandatory according to standard
+        assert gnmi_pb2.Encoding.JSON in capabilities.supported_encodings
+        # supported by this codebase as well
+        assert gnmi_pb2.Encoding.JSON_IETF in capabilities.supported_encodings
 
     @staticmethod
     def assert_update(update, path_val):
@@ -113,7 +119,8 @@ class GrpcBase(object):
                                         assert_fun=None,
                                         subscription_mode=gnmi_pb2.SubscriptionList.ONCE,
                                         poll_interval=0,
-                                        poll_count=0, read_count=-1):
+                                        poll_count=0, read_count=-1,
+                                        encoding=gnmi_pb2.Encoding.JSON_IETF):
         if assert_fun is None:
             assert_fun = GrpcBase.assert_updates
         log.debug("paths=%s path_value=%s", paths, path_value)
@@ -128,24 +135,28 @@ class GrpcBase(object):
         def read_subscribe_responses(responses, read_count=-1):
             nonlocal response_count, pv_idx
             for response in responses:
-                response_count += 1
                 log.debug("response=%s response_count=%i", response,
                           response_count)
-                if prefix:
-                    assert (response.update.prefix == prefix)
-                pv_to_check = path_value
-                if pv_idx != -1:
-                    assert pv_idx < len(path_value)
-                    pv_to_check = path_value[pv_idx]
-                    pv_idx += 1
-                if len(pv_to_check) > 0:  # skip empty arrays
-                    assert_fun(response.update.update, pv_to_check)
-                log.info("response_count=%i", response_count)
-                if read_count > 0:
-                    read_count -= 1
-                    if read_count == 0:
-                        log.info("read count reached")
-                        break
+                if response.sync_response:
+                    log.debug("sync_response")
+                    assert response_count == 1  # sync expected only after first response
+                else:
+                    response_count += 1
+                    if prefix:
+                        assert (response.update.prefix == prefix)
+                    pv_to_check = path_value
+                    if pv_idx != -1:
+                        assert pv_idx < len(path_value)
+                        pv_to_check = path_value[pv_idx]
+                        pv_idx += 1
+                    if len(pv_to_check) > 0:  # skip empty arrays
+                        assert_fun(response.update.update, pv_to_check)
+                    log.debug("response_count=%i", response_count)
+                    if read_count > 0:
+                        read_count -= 1
+                        if read_count == 0:
+                            log.info("read count reached")
+                            break
             assert read_count == -1 or read_count == 0
 
         read_fun = read_subscribe_responses
@@ -153,7 +164,7 @@ class GrpcBase(object):
             ConfDgNMIClient.make_subscription_list(prefix,
                                                    paths,
                                                    subscription_mode,
-                                                   gnmi_pb2.Encoding.JSON_IETF)
+                                                   encoding)
 
         responses = self.client.subscribe(subscription_list,
                                           read_fun=read_fun,
@@ -169,7 +180,8 @@ class GrpcBase(object):
                             datatype=gnmi_pb2.GetRequest.DataType.CONFIG,
                             subscription_mode=gnmi_pb2.SubscriptionList.ONCE,
                             poll_interval=0,
-                            poll_count=0, read_count=-1):
+                            poll_count=0, read_count=-1,
+                            encoding = gnmi_pb2.Encoding.JSON_IETF):
 
         kwargs = {"assert_fun": GrpcBase.assert_updates}
         if_state_str = prefix_state_str = ""
@@ -201,11 +213,10 @@ class GrpcBase(object):
             kwargs["poll_count"] = poll_count
             kwargs["read_count"] = read_count
         else:
-            encoding = gnmi_pb2.Encoding.JSON_IETF
             verify_response_updates = self.verify_get_response_updates
             kwargs["datatype"] = datatype
-            kwargs["encoding"] = encoding
 
+        kwargs["encoding"] = encoding
         kwargs["paths"] = [leaf_paths[0]]
         kwargs["path_value"] = [(leaf_paths[0], ifname)]
         verify_response_updates(**kwargs)
@@ -242,11 +253,45 @@ class GrpcBase(object):
         log.info("testing get")
         self._test_get_subscribe(datatype=datatype_str_to_int(data_type))
 
+    def encoding_test_decorator(self, func):
+        capabilities = self.client.get_capabilities()
+        for encoding in [gnmi_pb2.Encoding.JSON, gnmi_pb2.Encoding.BYTES,
+                         gnmi_pb2.Encoding.PROTO, gnmi_pb2.Encoding.ASCII,
+                         gnmi_pb2.Encoding.JSON_IETF,
+                         gnmi_pb2.Encoding.JSON_IETF + 100]:
+            try:
+                log.debug("testing encoding=%s", encoding)
+                func(encoding)
+            except grpc.RpcError as e:
+                if encoding in capabilities.supported_encodings:
+                    raise
+                else:
+                    assert e.code() == grpc.StatusCode.UNIMPLEMENTED
+
+    @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
+    def test_get_encoding(self, request, data_type):
+        log.info("testing get_encoding")
+
+        @self.encoding_test_decorator
+        def test_it(encoding):
+            self._test_get_subscribe(datatype=get_data_type(data_type),
+                                     encoding=encoding)
+
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     def test_subscribe_once(self, request, data_type):
         log.info("testing subscribe_once")
         self._test_get_subscribe(is_subscribe=True,
                                  datatype=datatype_str_to_int(data_type))
+
+    @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
+    def test_subscribe_once_encoding(self, request, data_type):
+        log.info("testing subscribe_once_encoding")
+
+        @self.encoding_test_decorator
+        def test_it(encoding):
+            self._test_get_subscribe(is_subscribe=True,
+                                     datatype=get_data_type(data_type),
+                                     encoding=encoding)
 
     @pytest.mark.long
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
@@ -426,6 +471,39 @@ class GrpcBase(object):
 
         # put value back
         vals = [gnmi_pb2.TypedValue(json_ietf_val=b"\"iana-if-type:gigabitEthernet\"")]
+        response = self.client.set(prefix, list(zip(paths, vals)))
+        GrpcBase.assert_set_response(response.response[0],
+                                     (paths[0], gnmi_pb2.UpdateResult.UPDATE))
+
+    def test_set_encoding(self, request):
+        log.info("testing set_encoding")
+        if_id = 8
+        prefix = make_gnmi_path("/ietf-interfaces:interfaces")
+        paths = [GrpcBase.mk_gnmi_if_path(self.leaf_paths_str[1], "", if_id)]
+
+        @self.encoding_test_decorator
+        def test_it(encoding):
+            vals = [gnmi_pb2.TypedValue(
+                json_ietf_val=b"\"iana-if-type:fastEther\"")]
+            if encoding == gnmi_pb2.Encoding.JSON:
+                vals = [
+                    gnmi_pb2.TypedValue(json_val=b"\"iana-if-type:fastEther\"")]
+            elif encoding == gnmi_pb2.Encoding.JSON_IETF:
+                vals = [gnmi_pb2.TypedValue(
+                    json_ietf_val=b"\"iana-if-type:fastEther\"")]
+            elif encoding == gnmi_pb2.Encoding.PROTO:
+                vals = [
+                    gnmi_pb2.TypedValue(string_val="iana-if-type:fastEther")]
+            elif encoding == gnmi_pb2.Encoding.ASCII:
+                vals = [gnmi_pb2.TypedValue(ascii_val="iana-if-type:fastEther")]
+            elif encoding == gnmi_pb2.Encoding.BYTES:
+                vals = [
+                    gnmi_pb2.TypedValue(bytes_val=b"iana-if-type:fastEther")]
+            self.client.set(prefix, list(zip(paths, vals)))
+
+        # put value back
+        vals = [gnmi_pb2.TypedValue(
+            json_ietf_val=b"\"iana-if-type:gigabitEthernet\"")]
         response = self.client.set(prefix, list(zip(paths, vals)))
         GrpcBase.assert_set_response(response.response[0],
                                      (paths[0], gnmi_pb2.UpdateResult.UPDATE))

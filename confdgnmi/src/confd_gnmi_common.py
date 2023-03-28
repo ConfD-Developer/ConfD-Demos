@@ -1,3 +1,4 @@
+from enum import Enum
 import logging
 from typing import Tuple, Dict, List, Iterable
 import re

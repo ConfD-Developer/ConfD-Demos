@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -23,6 +24,13 @@ class GnmiServerAdapter(ABC):
         """
         Invoke capabilities on adapter and return list of Capabilities
         :return: list of  CapabilityModel elements (schema is empty string for now TODO)
+        """
+        pass
+
+    @abstractmethod
+    def encodings(self) -> list[int]:
+        """
+        Return list of encodings supported by server.
         """
         pass
 
@@ -205,6 +213,17 @@ class GnmiServerAdapter(ABC):
             log.debug("<== response=%s", response)
             return response
 
+        def sync_response(self):
+            """
+            create SubscribeResponse with  sync_response set to True
+            :return: SubscribeResponse with sync_response set to True
+            """
+            log.debug("==> sync_response")
+            response = gnmi_pb2.SubscribeResponse(sync_response=True)
+            log.debug("<== response=%s", response)
+            return response
+
+
         def changes(self):
             """
             Get subscription responses for changes (subscribed values).
@@ -255,6 +274,8 @@ class GnmiServerAdapter(ABC):
                     response = self.sample(
                         start_monitoring=self.is_monitor_changes() and first_sample)
                     yield response
+                    if first_sample:
+                        yield self.sync_response()
                     first_sample = False
                     if self.is_once():
                         break

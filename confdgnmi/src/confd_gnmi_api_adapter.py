@@ -450,6 +450,9 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
         log.info("<== models=%s", models)
         return models
 
+    def encodings(self):
+        return [gnmi_pb2.Encoding.JSON, gnmi_pb2.Encoding.JSON_IETF]
+
     def make_gnmi_keypath_elems(self, keypath, csnode):
         i = len(keypath) - 1
         ns = 0
