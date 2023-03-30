@@ -9,7 +9,7 @@ import pytest
 
 import gnmi_pb2
 from confd_gnmi_client import ConfDgNMIClient
-from confd_gnmi_common import make_gnmi_path, get_data_type, \
+from confd_gnmi_common import make_gnmi_path, datatype_str_to_int, \
     make_formatted_path
 from confd_gnmi_demo_adapter import GnmiDemoServerAdapter
 from confd_gnmi_server import AdapterType, ConfDgNMIServicer
@@ -107,9 +107,9 @@ class GrpcBase(object):
             assert_fun = GrpcBase.assert_updates
         log.debug("prefix=%s paths=%s pv_list=%s datatype=%s encoding=%s",
                   prefix, paths, path_value, datatype, encoding)
-        notification = self.client.get(prefix, paths, datatype, encoding)
-        log.debug("notification=%s", notification)
-        for n in notification:
+        get_response = self.client.get(prefix, paths, datatype, encoding)
+        log.debug("notification=%s", get_response.notification)
+        for n in get_response.notification:
             log.debug("n=%s", n)
             if prefix:
                 assert (n.prefix == prefix)
@@ -251,7 +251,7 @@ class GrpcBase(object):
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     def test_get(self, request, data_type):
         log.info("testing get")
-        self._test_get_subscribe(datatype=get_data_type(data_type))
+        self._test_get_subscribe(datatype=datatype_str_to_int(data_type))
 
     def encoding_test_decorator(self, func):
         capabilities = self.client.get_capabilities()
@@ -274,14 +274,14 @@ class GrpcBase(object):
 
         @self.encoding_test_decorator
         def test_it(encoding):
-            self._test_get_subscribe(datatype=get_data_type(data_type),
+            self._test_get_subscribe(datatype=datatype_str_to_int(data_type),
                                      encoding=encoding)
 
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     def test_subscribe_once(self, request, data_type):
         log.info("testing subscribe_once")
         self._test_get_subscribe(is_subscribe=True,
-                                 datatype=get_data_type(data_type))
+                                 datatype=datatype_str_to_int(data_type))
 
     @pytest.mark.parametrize("data_type", ["CONFIG", "STATE"])
     def test_subscribe_once_encoding(self, request, data_type):
@@ -290,7 +290,7 @@ class GrpcBase(object):
         @self.encoding_test_decorator
         def test_it(encoding):
             self._test_get_subscribe(is_subscribe=True,
-                                     datatype=get_data_type(data_type),
+                                     datatype=datatype_str_to_int(data_type),
                                      encoding=encoding)
 
     @pytest.mark.long
@@ -300,7 +300,7 @@ class GrpcBase(object):
     def test_subscribe_poll(self, request, data_type, poll_args):
         log.info("testing subscribe_poll")
         self._test_get_subscribe(is_subscribe=True,
-                                 datatype=get_data_type(data_type),
+                                 datatype=datatype_str_to_int(data_type),
                                  subscription_mode=gnmi_pb2.SubscriptionList.POLL,
                                  poll_interval=poll_args[0],
                                  poll_count=poll_args[1])
@@ -417,8 +417,8 @@ class GrpcBase(object):
         path_value = [[]]  # empty element means no check
         path_value.extend(self._changes_list_to_pv(changes_list))
 
-        prefix_str = "interfaces{}".format(prefix_state_str)
-        prefix = make_gnmi_path("/" + GnmiDemoServerAdapter.NS_INTERFACES + prefix_str)
+        prefix_str = "{{prefix}}interfaces{}".format(prefix_state_str)
+        prefix = make_gnmi_path("/" + prefix_str.format(prefix=GnmiDemoServerAdapter.NS_INTERFACES))
 
         paths = [GrpcBase.mk_gnmi_if_path(self.list_paths_str[1], if_state_str,
                                           "N/A")]
@@ -432,13 +432,15 @@ class GrpcBase(object):
         kwargs["assert_fun"] = GrpcBase.assert_in_updates
 
         if self.adapter_type == AdapterType.DEMO:
+            prefix_pfx = prefix_str.format(prefix='')
             GnmiDemoServerAdapter.load_config_string(
-                self._changes_list_to_xml(changes_list, prefix_str))
+                self._changes_list_to_xml(changes_list, prefix_pfx))
         if self.adapter_type == AdapterType.API:
+            prefix_pfx = prefix_str.format(prefix='if:')
             sleep(1)
             thr = threading.Thread(
                 target=self._send_change_list_to_confd_thread,
-                args=(prefix_str, changes_list,))
+                args=(prefix_pfx, changes_list,))
             thr.start()
 
         self.verify_sub_sub_response_updates(**kwargs)
@@ -461,8 +463,8 @@ class GrpcBase(object):
         # fetch with get and see value has changed
         datatype = gnmi_pb2.GetRequest.DataType.CONFIG
         encoding = gnmi_pb2.Encoding.JSON_IETF
-        notification = self.client.get(prefix, paths, datatype, encoding)
-        for n in notification:
+        get_response = self.client.get(prefix, paths, datatype, encoding)
+        for n in get_response.notification:
             log.debug("n=%s", n)
             assert (n.prefix == prefix)
             GrpcBase.assert_updates(n.update, [(paths[0], "iana-if-type:fastEther")])

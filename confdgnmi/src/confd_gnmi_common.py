@@ -1,6 +1,7 @@
 from enum import Enum
 import logging
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List, Iterable
+import re
 
 import gnmi_pb2
 
@@ -83,28 +84,31 @@ def make_name_keys(elem_string) -> Tuple[str, Dict[str, str]]:
     return name, keys
 
 
+def parse_instance_path(xpath_string) -> Iterable[Tuple[str, List[Tuple[str, str]]]]:
+    """Parse instance path to an iterable of (tag, keys) tuples.
+
+    Instance paths are a limited form of XPath expressions - only
+    predicates in the form of a key assignment are accepted.
+    """
+
+    tag_rx = re.compile(r'/?(?P<tag>[^/\[\]]+)(?P<preds>(?:\[[^\]]*\])*)')
+    predicate_rx = re.compile(r'\[([^=]+)=([^\]]*)\]')
+
+    for match in tag_rx.finditer(xpath_string):
+        mdict = match.groupdict()
+        keys = [pred.groups() for pred in predicate_rx.finditer(mdict['preds'])]
+        yield (mdict['tag'], keys)
+
+
 # Crate gNMI Path object from string representation of path
 # see: https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#222-paths
 # TODO tests
-def make_gnmi_path(xpath_string, origin=None, target=None) -> gnmi_pb2.Path:
-    """
-    Create gnmi path from string path
-    :param xpath_string:
-    :param origin:
-    :param target:
-    :return:
-    """
-    log.debug("==> path_string=%s origin=%s target=%s",
-              xpath_string, origin, target)
-    elems = []
-    elem_strings = xpath_string.split('/')
-    log.debug("elem_strings=%s", elem_strings)
-    for e in elem_strings:
-        if e != '':
-            (name, keys) = make_name_keys(e)
-            elem = gnmi_pb2.PathElem(name=name, key=keys)
-            elems.append(elem)
-    path = gnmi_pb2.Path(elem=elems, target=target, origin=origin)
+def make_gnmi_path(xpath_string: str, origin: str = None, target: str = None) -> gnmi_pb2.Path:
+    """ Create gNMI path from input string. """
+    log.debug("==> xpath_string=%s origin=%s target=%s", xpath_string, origin, target)
+    path_elms = [gnmi_pb2.PathElem(name=tag, key=dict(keys))
+                 for tag, keys in parse_instance_path(xpath_string)]
+    path = gnmi_pb2.Path(elem=path_elms, target=target, origin=origin)
     log.debug("<== path=%s", path)
     return path
 
@@ -193,20 +197,40 @@ def remove_path_prefix(path, prefix):
                          target=path.target)
 
 
-def get_data_type(datatype_str):
-    datatype_map = {
-        "ALL": gnmi_pb2.GetRequest.DataType.ALL,
-        "CONFIG": gnmi_pb2.GetRequest.DataType.CONFIG,
-        "STATE": gnmi_pb2.GetRequest.DataType.STATE,
-        "OPERATIONAL": gnmi_pb2.GetRequest.DataType.OPERATIONAL,
-    }
-    return datatype_map[datatype_str]
+def _convert_enum_format(constructor, value, exception_str, do_return_unknown, unknown_value):
+    """ Private. Convert between string/int enumeration values using the input `constructor`.
+        If unknown/unsupported value is encountered, either raise exception or return value
+        depending on input parameters. """
+    try:
+        if isinstance(value, str):
+            # If the input is "UNKNOWN(x)" string - that ve most probably
+            # created previously, convert it back to raw integer "x".
+            if mtch := re.match(value, r'UNKNOWN\(([0-9]+)\)') is not None:
+                return int(mtch.groups()[0])
+        return constructor(value)
+    except ValueError as ex:
+        if do_return_unknown:
+            return unknown_value
+        raise ValueError(exception_str) from ex
 
+def datatype_str_to_int(data_type: str, no_error=False) -> int:
+    """ Convert text representation of DataType to standardized integer. """
+    return _convert_enum_format(gnmi_pb2.GetRequest.DataType.Value, data_type,
+                                f'Unknown DataType! ({data_type})', no_error, -1)
 
-def get_sub_mode(mode_str):
-    mode_map = {
-        "ONCE": gnmi_pb2.SubscriptionList.ONCE,
-        "POLL": gnmi_pb2.SubscriptionList.POLL,
-        "STREAM": gnmi_pb2.SubscriptionList.STREAM,
-    }
-    return mode_map[mode_str]
+def encoding_str_to_int(encoding: str, no_error=False) -> int:
+    """ Convert text representation of Encoding to standardized integer. """
+    return _convert_enum_format(gnmi_pb2.Encoding.Value, encoding,
+                                f'Unknown Encoding! ({encoding})', no_error, -1)
+
+def encoding_int_to_str(encoding: int, no_error=False) -> str:
+    """ Convert integer representation of Encoding to standardized string. """
+    return _convert_enum_format(gnmi_pb2.Encoding.Name, encoding,
+                                f'Unknown Encoding value! ({encoding})',
+                                no_error, f'UNKNOWN({encoding})')
+
+def subscription_mode_str_to_int(mode: str, no_error=False) -> int:
+    """ Convert text representation of SubscriptionList to standardized integer. """
+    return _convert_enum_format(gnmi_pb2.SubscriptionList.Mode.Value, mode,
+                                f'Unknown subscription mode! ({mode})',
+                                no_error, f'UNKNOWN({mode})')
