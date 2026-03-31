@@ -1,0 +1,9 @@
+/confd-cdb
+/docroot
+/ssh-keydir
+*.access
+*.data
+*.fxs
+*.log
+*.log.*
+trace_*

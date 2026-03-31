@@ -1,0 +1,12 @@
+-------------------------------------------------------------------------
+ Items that are out of scope of the example implementation.
+ Functionality currently NOT implemented and/or known example "defects".
+-------------------------------------------------------------------------
+
+* form inputs not sanitized
+* tailf:action / NETCONF RPC - not implemented
+* keyless lists not supported (error thrown on attempt to show)
+* must statements not visible (except for implications via commit in the end)
+* when statements affecting on the fly model changes not reflected live to DOM
+* validate_commit errors displayed as raw dump
+* etc.

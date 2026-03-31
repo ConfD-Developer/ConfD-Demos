@@ -1,0 +1,8 @@
+{
+  "extends": "./.quasar/tsconfig.json",
+  "compilerOptions": {
+    // Temporary debugging: allow implicit any and relax some strict checks
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  }
+}
