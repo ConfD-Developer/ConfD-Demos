@@ -1,0 +1,80 @@
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <interfaces xmlns="http://openconfig.net/yang/interfaces">
+    <interface>
+      <name>GigabitEthernet1/1/1</name>
+      <config>
+        <name>GigabitEthernet1/1/1</name>
+        <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">ianaift:ethernetCsmacd</type>
+        <enabled>true</enabled>
+      </config>
+      <state>
+        <name>GigabitEthernet1/1/1</name>
+      </state>
+      <subinterfaces>
+        <subinterface>
+          <index>12</index>
+          <config>
+            <index>12</index>
+          </config>
+          <state>
+            <index>12</index>
+          </state>
+        </subinterface>
+      </subinterfaces>
+    </interface>
+    <interface>
+      <name>Port-channel1</name>
+      <config>
+        <name>Port-channel1</name>
+        <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">ianaift:propVirtual</type>
+        <enabled>true</enabled>
+      </config>
+      <state>
+        <name>Port-channel1</name>
+      </state>
+      <subinterfaces>
+        <subinterface>
+          <index>1</index>
+          <config>
+            <index>1</index>
+          </config>
+          <state>
+            <index>1</index>
+          </state>
+        </subinterface>
+      </subinterfaces>
+    </interface>
+    <interface>
+      <name>gig0</name>
+      <config>
+        <name>gig0</name>
+        <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">ianaift:ethernetCsmacd</type>
+      </config>
+      <state>
+        <name>gig0</name>
+      </state>
+      <ethernet xmlns="http://openconfig.net/yang/interfaces/ethernet">
+        <config>
+          <mac-address>00:11:22:33:44:55</mac-address>
+          <auto-negotiate>false</auto-negotiate>
+          <port-speed>SPEED_10GB</port-speed>
+        </config>
+        <switched-vlan xmlns="http://openconfig.net/yang/vlan">
+          <config>
+            <interface-mode>TRUNK</interface-mode>
+          </config>
+        </switched-vlan>
+      </ethernet>
+    </interface>
+    <interface>
+      <name>gig2</name>
+      <config>
+        <name>gig2</name>
+        <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">ianaift:gigabitEthernet</type>
+      </config>
+      <state>
+        <name>gig2</name>
+      </state>
+    </interface>
+  </interfaces>
+</config>

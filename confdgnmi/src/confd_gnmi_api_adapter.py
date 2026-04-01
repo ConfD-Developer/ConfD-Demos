@@ -16,7 +16,7 @@ import gnmi_pb2
 from confd_gnmi_adapter import GnmiServerAdapter
 from confd_gnmi_api_adapter_defaults import ApiAdapterDefaults
 from confd_gnmi_common import make_xpath_path, make_formatted_path, \
-    add_path_prefix, remove_path_prefix, make_gnmi_path
+    add_path_prefix, remove_path_prefix, make_gnmi_path, parse_instance_path
 
 log = logging.getLogger('confd_gnmi_api_adapter')
 
@@ -177,7 +177,7 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
             def cdb_iter(kp, op, oldv, newv, changes):
                 log.debug("==> kp=%s, op=%r, oldv=%s, newv=%s, state=%r", kp,
                           op, oldv, newv, changes)
-                csnode = _confd.cs_node_cd(None, _confd.pp_kpath(kp))
+                csnode = _confd.cs_node_cd(None, str(kp))
                 if op == _confd.MOP_CREATED:
                     log.debug("_confd.MOP_CREATED")
                     # TODO CREATE not handled for now
@@ -500,11 +500,12 @@ class GnmiConfDApiServerAdapter(GnmiServerAdapter):
 
     def get_updates(self, trans, path_str, save_flags):
         log.debug("==> path_str=%s", path_str)
-        csnode = _confd.cs_node_cd(None, path_str)
+        tagpath = '/' + '/'.join(tag for tag, _ in parse_instance_path(path_str))
+        csnode = _confd.cs_node_cd(None, tagpath)
         updates = []
 
         def add_update_json(keypath, _value):
-            save_id = trans.save_config(save_flags, _confd.pp_kpath(keypath))
+            save_id = trans.save_config(save_flags, str(keypath))
             with socket() as save_sock:
                 _confd.stream_connect(sock=save_sock, id=save_id, flags=0,
                                       ip=self.addr, port=self.port)

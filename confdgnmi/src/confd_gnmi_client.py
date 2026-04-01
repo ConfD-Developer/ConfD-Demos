@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 import argparse
 import json
 import logging
 import ssl
 import sys
 from contextlib import closing
+from typing import Optional
 from time import sleep
 
 import grpc
 from grpc import channel_ready_future, insecure_channel, secure_channel, \
     ssl_channel_credentials
+from grpc._channel import _MultiThreadedRendezvous
 
 import gnmi_pb2
 from confd_gnmi_common import HOST, PORT, make_xpath_path, VERSION, \
     common_optparse_options, common_optparse_process, make_gnmi_path, \
-    get_data_type, get_sub_mode
+    datatype_str_to_int, subscription_mode_str_to_int
 from gnmi_pb2_grpc import gNMIStub
 
 log = logging.getLogger('confd_gnmi_client')
+log_rpc = logging.getLogger('confd_gnmi_rpc')   # "gNMI RPC only" dedicated logger
+
+def logged_rpc_call(rpc_name: str, request, rpc_call):
+    log_rpc.debug("RPC - %sRequest:\n%s", rpc_name, str(request))
+    response = rpc_call()
+    log_rpc.debug("RPC - %sResponse:\n%s", rpc_name, str(response))
+    return response
 
 
 class ConfDgNMIClient:
@@ -26,7 +36,7 @@ class ConfDgNMIClient:
                  server_crt_file=None, username="admin", password="admin"):
         if metadata is None:
             metadata = [('username', username), ('password', password)]
-        log.info("==> host=%s, port=%i, metadata-%s", host, port, metadata)
+        log.info("==> host=%s, port=%i, metadata-%s", host, int(port), metadata)
         if insecure:
             self.channel = insecure_channel("{}:{}".format(host, port))
         else:
@@ -52,23 +62,23 @@ class ConfDgNMIClient:
     def close(self):
         self.channel.close()
 
-    def get_capabilities(self):
+    def get_capabilities(self) -> gnmi_pb2.CapabilityResponse:
         log.info("==>")
         request = gnmi_pb2.CapabilityRequest()
         log.debug("Calling stub.Capabilities")
-        response = self.stub.Capabilities(request, metadata=self.metadata)
-        log.info("<== response=%s", response)
+        response = logged_rpc_call("Capability", request,
+                                   lambda: self.stub.Capabilities(request, metadata=self.metadata))
         return response
 
     @staticmethod
-    def make_subscription_list(prefix, paths, mode, encoding):
+    def make_subscription_list(prefix, paths, mode, encoding,
+                               stream_mode=gnmi_pb2.SubscriptionMode.ON_CHANGE):
         log.debug("==> mode=%s", mode)
         qos = gnmi_pb2.QOSMarking(marking=1)
         subscriptions = []
         for path in paths:
             if mode == gnmi_pb2.SubscriptionList.STREAM:
-                sub = gnmi_pb2.Subscription(path=path,
-                                            mode=gnmi_pb2.SubscriptionMode.ON_CHANGE)
+                sub = gnmi_pb2.Subscription(path=path, mode=stream_mode)
             else:
                 sub = gnmi_pb2.Subscription(path=path)
             subscriptions.append(sub)
@@ -163,23 +173,36 @@ class ConfDgNMIClient:
         log.info("<==")
 
     # TODO this API would change with more subscription support
-    def subscribe(self, subscription_list, read_fun=None,
+    def subscribe(self, requests, read_fun=None,
                   poll_interval=0.0, poll_count=0, read_count=-1,
                   subscription_end_delay=0.0, interactive_poll=False):
         log.info("==>")
-        responses = self.stub.Subscribe(
-            ConfDgNMIClient.generate_subscriptions(subscription_list,
-                                                   poll_interval=poll_interval,
-                                                   poll_count=poll_count,
-                                                   subscription_end_delay=subscription_end_delay,
-                                                   interactive_poll=interactive_poll),
-            metadata=self.metadata)
+        if isinstance(requests, gnmi_pb2.SubscriptionList):
+            requests = ConfDgNMIClient.generate_subscriptions(requests,
+                                                              poll_interval=poll_interval,
+                                                              poll_count=poll_count,
+                                                              subscription_end_delay=subscription_end_delay,
+                                                              interactive_poll=interactive_poll)
+        responses = logged_rpc_call("Subscribe", requests,
+                                    lambda: self.stub.Subscribe(requests, metadata=self.metadata))
         if read_fun is not None:
             read_fun(responses, read_count)
         log.info("<== responses=%s", responses)
         return responses
 
-    def get(self, prefix, paths, get_type, encoding):
+    def get_public(self,
+                   prefix: Optional[str] = None, paths: list[str] = [],
+                   get_type: Optional[int] = None, encoding: Optional[int] = None) \
+            -> gnmi_pb2.GetResponse:
+        sanitized_params = {
+            'prefix': None if prefix is None else make_gnmi_path(prefix),
+            'paths': [make_gnmi_path(p) for p in paths],
+            'get_type': get_type,
+            'encoding': gnmi_pb2.Encoding.JSON if encoding is None else encoding,
+        }
+        return self.get(**sanitized_params)
+
+    def get(self, prefix, paths, get_type, encoding) -> gnmi_pb2.GetResponse:
         log.info("==> prefix=%s paths=%s get_type=%s encoding=%s self.metadata=%s",
                  prefix, paths, get_type, encoding, self.metadata)
         path = []
@@ -189,10 +212,10 @@ class ConfDgNMIClient:
                                       type=get_type,
                                       encoding=encoding,
                                       extension=[])
-        response = self.stub.Get(request, metadata=self.metadata)
-
-        log.info("<== response.notification=%s", response.notification)
-        return response.notification
+        response = logged_rpc_call("Get", request,
+                                   lambda: self.stub.Get(request, metadata=self.metadata))
+        log.info("<== response=%s", response)
+        return response
 
     def set(self, prefix, path_vals):
         log.info("==> prefix=%s path_vals=%s", prefix, path_vals)
@@ -201,14 +224,16 @@ class ConfDgNMIClient:
             up = gnmi_pb2.Update(path=pv[0], val=pv[1])
             update.append(up)
         request = gnmi_pb2.SetRequest(prefix=prefix, update=update)
-        response = self.stub.Set(request, metadata=self.metadata)
+        response = logged_rpc_call("Set", request,
+                                   lambda: self.stub.Set(request, metadata=self.metadata))
         log.info("<== response=%s", response)
         return response
 
     def delete(self, prefix, paths):
         log.info("==> prefix=%s paths=%s", prefix, paths)
         request = gnmi_pb2.SetRequest(prefix=prefix, delete=paths)
-        response = self.stub.Set(request, metadata=self.metadata)
+        response = logged_rpc_call("(delete) Set", request,
+                                   lambda: self.stub.Set(request, metadata=self.metadata))
         log.info("<== response=%s", response)
         return response
 
@@ -303,8 +328,8 @@ if __name__ == '__main__':
     paths = [make_gnmi_path(p) for p in opt.paths]
     vals = [gnmi_pb2.TypedValue(json_ietf_val=v.encode()) for v in opt.vals]
 
-    datatype = get_data_type(opt.datatype)
-    subscription_mode = get_sub_mode(opt.submode)
+    datatype = datatype_str_to_int(opt.datatype)
+    subscription_mode = subscription_mode_str_to_int(opt.submode)
     poll_interval: float = opt.pollinterval
     poll_count: int = opt.pollcount
     interactive_poll: bool = opt.interactivepoll
@@ -317,7 +342,7 @@ if __name__ == '__main__':
               datatype, subscription_mode, poll_interval, poll_count,
               read_count, subscription_end_delay, interactive_poll)
     if opt.submode != "STREAM":
-        read_count = -1;
+        read_count = -1
 
     encoding = dict(JSON=gnmi_pb2.Encoding.JSON,
                     JSON_IETF=gnmi_pb2.Encoding.JSON_IETF)[opt.encoding]
@@ -349,9 +374,9 @@ if __name__ == '__main__':
                              interactive_poll=interactive_poll)
             print(".... subscription done")
         elif opt.operation == "get":
-            notification = client.get(prefix, paths, datatype, encoding)
-            print("Get - Notifications:")
-            for n in notification:
+            get_response = client.get(prefix, paths, datatype, encoding)
+            print("Get - response Notifications:")
+            for n in get_response.notification:
                 ConfDgNMIClient.print_notification(n)
         elif opt.operation in ("set", "delete"):
             if opt.operation == "set":

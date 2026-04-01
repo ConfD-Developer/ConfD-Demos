@@ -35,9 +35,11 @@ SRC_DIR=src
 TEST_DIR=tests
 PCG_DIR=$(SRC_DIR)
 
+OC_YANG = $(shell grep -L ^submodule oc/*.yang)
+OC_FXS = $(OC_YANG:oc/%.yang=%.fxs)
 
 all: gnmi_proto \
-	iana-if-type.fxs ietf-interfaces.fxs route-status.fxs \
+	iana-if-type.fxs ietf-interfaces.fxs route-status.fxs $(OC_FXS) \
 	$(CDB_DIR) ssh-keydir init_interfaces.xml
 	@echo "Build complete"
 
@@ -46,6 +48,10 @@ all: gnmi_proto \
 
 init_interfaces.xml:
 	  ./datagen.py 10
+
+
+$(OC_FXS) : %.fxs : oc/%.yang
+	confdc -c -o $@ --yangpath oc/ $^
 
 gnmi_proto:
 	python -m grpc_tools.protoc -I$(PCG_DIR)/proto --python_out=$(PCG_DIR) --grpc_python_out=$(PCG_DIR) $(PCG_DIR)/proto/gnmi.proto $(PCG_DIR)/proto/gnmi_ext.proto
@@ -69,6 +75,7 @@ start:  stop
 	$(CONFD) -c confd.conf $(CONFD_FLAGS)
 	confd_load -m -l ./init_interfaces.xml
 	confd_load -m -O -l ./init_interfaces_state.xml
+	confd_load -mol ./oc-interfaces.xml ./oc-components.xml
 
 ######################################################################
 stop:
